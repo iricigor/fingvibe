@@ -104,13 +104,25 @@ function Test-PageBackHeaders {
                 'Back to devices' 'Devices' $scale $contentLeft `
                 -NextId "Device${tab}Tab" -Scaled:$Scaled
         }
-        # #670: the identity header keeps #657's icon and title positions; the tabs stay below it until #659.
+        # #670: the identity header keeps #657's icon and title positions.
         $status = Find-PageHeaderElement $Root DeviceStatusText -AllowOffscreen
         Assert-UiRegressionIdentityHeader -Back (Find-PageHeaderElement $Root DeviceBackButton).Current.BoundingRectangle `
             -Icon (Find-PageHeaderElement $Root DeviceTypeIcon).Current.BoundingRectangle `
             -Title (Find-PageHeaderElement $Root DeviceNameText).Current.BoundingRectangle `
             -Secondary $(if (Test-UiRegressionElementVisible $status) { $status.Current.BoundingRectangle }) `
             -Scale $scale -Description "Device details ($Variant)"
+        # #659: the tab track (tabs plus its 4-DIP padding and 1-DIP border) is Back's height at every text size and,
+        # when it ends the header row, is centred with Back.
+        $backBounds = (Find-PageHeaderElement $Root DeviceBackButton).Current.BoundingRectangle
+        $tabBounds = (Find-PageHeaderElement $Root DeviceDetailsTabs).Current.BoundingRectangle
+        $trackDip = $tabBounds.Height / $scale + 10
+        $inlineTabs = $tabBounds.Top -lt $backBounds.Bottom
+        if ([Math]::Abs($trackDip - $backBounds.Height / $scale) -gt $(if ($Scaled) { 4 } else { 1 }) -or
+            (-not $Scaled -and [Math]::Abs($trackDip - 48) -gt 1) -or ($Scaled -and $trackDip -lt 47) -or
+            ($inlineTabs -and [Math]::Abs(($tabBounds.Top + $tabBounds.Bottom - $backBounds.Top - $backBounds.Bottom) / 2) -gt $scale) -or
+            (-not $inlineTabs -and [Math]::Abs($tabBounds.Left - 5 * $scale - $backBounds.Left) -gt $scale)) {
+            throw "Device details ($Variant) tabs must share Back's header-control height ($trackDip vs $($backBounds.Height / $scale) DIP), centred on its row or wrapped left-aligned beneath it."
+        }
         $back = Find-PageHeaderElement $Root 'Back to devices' -ByName -Type ([Windows.Automation.ControlType]::Button)
         $back.SetFocus()
         [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')

@@ -281,8 +281,8 @@ function Show-UiRegressionDeviceTabFor {
     Select-UiRegressionDeviceTab -Root $Root -Tab $tab
 }
 
-# The Device Details body starts one 16-DIP row gap below its fixed identity header and the tabs row beneath it.
-# Its ScrollViewer's own UIA rectangle can extend to the window top, so positioning uses the rendered header instead.
+# The Device Details body starts one 16-DIP row gap below its fixed identity header, whose tabs (#659) end the first
+# row or wrap beneath it. Its ScrollViewer's own UIA rectangle can extend to the window top, so positioning uses the rendered header instead.
 function Get-UiRegressionDeviceDetailsBodyTop {
     param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][double] $Scale)
     $bottoms = foreach ($id in @("DeviceBackButton", "DeviceOverviewTab", "DeviceStatusText")) {

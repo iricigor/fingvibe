@@ -353,12 +353,28 @@ public sealed partial class DeviceDetailsPageView : UserControl
         if (sender.SelectedItem is { } item && HistoryPanel is not null) ShowTab(item);
     }
 
+    private void HeaderGrid_SizeChanged(object sender, SizeChangedEventArgs e) => LayoutHeader(e.NewSize.Width);
+
+    // The tabs end the header row and wrap beneath it, left-aligned with the content, when the name would keep less
+    // than 160 DIP (scaled with text); the name truncates before reaching them.
+    private void LayoutHeader(double width)
+    {
+        if (width <= 0) return;
+        DetailsTabsHost.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        var columns = HeaderGrid.ColumnDefinitions;
+        var title = width - columns[0].ActualWidth - columns[1].ActualWidth - 3 * HeaderGrid.ColumnSpacing
+            - DetailsTabsHost.DesiredSize.Width;
+        var inline = title >= 160 * new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        Grid.SetRow(DetailsTabsHost, inline ? 0 : 2);
+        Grid.SetColumn(DetailsTabsHost, inline ? 3 : 0);
+        Grid.SetColumnSpan(DetailsTabsHost, inline ? 1 : 4);
+        DetailsTabsHost.Margin = new Thickness(0, inline ? 0 : 8, 0, 0);
+    }
+
     // Panels stay loaded while hidden so drafts, editors and history paging survive tab switches.
     private void ShowTab(SelectorBarItem tab)
     {
         var history = tab == HistoryTab;
-        // Native selected hover states inherit the item background rather than the selected-state brush.
-        VisualStateManager.GoToState(this, history ? "HistorySelected" : "OverviewSelected", false);
         OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
         HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
         if (_activityInitialized && _activityPageActive)

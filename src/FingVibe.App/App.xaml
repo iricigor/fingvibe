@@ -39,6 +39,27 @@
                     <SolidColorBrush x:Key="SpeedRatingSlowBrush" Color="#B42318" />
                     <SolidColorBrush x:Key="SpeedRatingFairBrush" Color="#8A5300" />
                     <SolidColorBrush x:Key="SpeedRatingGoodBrush" Color="#0E6B0E" />
+                    <SolidColorBrush x:Key="PageHeaderTabTrackBackgroundBrush" Color="#ECEEF2" />
+                    <SolidColorBrush x:Key="PageHeaderTabTrackBorderBrush" Color="#DDE1E7" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundBrush" Color="#9E000000" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundPointerOverBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundPressedBrush" Color="#72000000" />
+                    <SolidColorBrush x:Key="PageHeaderTabBackgroundPointerOverBrush" Color="#09000000" />
+                    <SolidColorBrush x:Key="PageHeaderTabBackgroundPressedBrush" Color="#06000000" />
+                    <SolidColorBrush x:Key="PageHeaderTabBorderPointerOverBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundPointerOverBrush" Color="#F9FAFB" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundPressedBrush" Color="#F3F4F6" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedForegroundBrush" Color="#E4000000" />
+                    <SolidColorBrush x:Key="PageHeaderTabPillBrush" Color="{ThemeResource SystemAccentColorDark1}" />
+                    <!-- The raised surface's soft shadow: Fluent's elevation border, darker along the bottom edge. -->
+                    <LinearGradientBrush x:Key="PageHeaderTabSelectedBorderBrush" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,3">
+                        <LinearGradientBrush.RelativeTransform>
+                            <ScaleTransform ScaleY="-1" CenterY="0.5" />
+                        </LinearGradientBrush.RelativeTransform>
+                        <GradientStop Offset="0.33" Color="#33000000" />
+                        <GradientStop Offset="1.0" Color="#14000000" />
+                    </LinearGradientBrush>
                     <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
                         <Setter Property="Visibility" Value="Visible" />
                     </Style>
@@ -75,6 +96,26 @@
                     <SolidColorBrush x:Key="SpeedRatingSlowBrush" Color="#FDA29B" />
                     <SolidColorBrush x:Key="SpeedRatingFairBrush" Color="#F3D28B" />
                     <SolidColorBrush x:Key="SpeedRatingGoodBrush" Color="#8FD88F" />
+                    <SolidColorBrush x:Key="PageHeaderTabTrackBackgroundBrush" Color="#1B1E24" />
+                    <SolidColorBrush x:Key="PageHeaderTabTrackBorderBrush" Color="#2E333C" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundBrush" Color="#C5FFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundPointerOverBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundPressedBrush" Color="#87FFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabBackgroundPointerOverBrush" Color="#0FFFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabBackgroundPressedBrush" Color="#0AFFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabBorderPointerOverBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundBrush" Color="#343944" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundPointerOverBrush" Color="#3A404C" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundPressedBrush" Color="#2E333C" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedForegroundBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="PageHeaderTabPillBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+                    <LinearGradientBrush x:Key="PageHeaderTabSelectedBorderBrush" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,3">
+                        <LinearGradientBrush.RelativeTransform>
+                            <ScaleTransform ScaleY="-1" CenterY="0.5" />
+                        </LinearGradientBrush.RelativeTransform>
+                        <GradientStop Offset="0.33" Color="#24FFFFFF" />
+                        <GradientStop Offset="1.0" Color="#14FFFFFF" />
+                    </LinearGradientBrush>
                     <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
                         <Setter Property="Visibility" Value="Visible" />
                     </Style>
@@ -107,6 +148,21 @@
                     <SolidColorBrush x:Key="SpeedRatingSlowBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="SpeedRatingFairBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="SpeedRatingGoodBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <!-- High-contrast page tabs: system colours only; the selected tab is a highlight surface with its pill. -->
+                    <SolidColorBrush x:Key="PageHeaderTabTrackBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabTrackBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundPointerOverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabForegroundPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabBackgroundPointerOverBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabBackgroundPressedBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabBorderPointerOverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundPointerOverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBackgroundPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedForegroundBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabPillBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="PageHeaderTabSelectedBorderBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
                     <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
                         <Setter Property="Visibility" Value="Collapsed" />
                     </Style>
@@ -241,7 +297,7 @@
             <!-- Shared fixed page header: [Back, 16 DIP,] 48-DIP PageHeaderIcon, 12 DIP, title. It is the page's own
                  Auto row above the scrolling body, starts at the content edge and has no background or divider.
                  Defined here, after its BasedOn styles, because merged dictionaries load before App resources. -->
-            <!-- The one shared page-header control height (#658): header row, Back and, with #659, the page tabs. -->
+            <!-- The one shared page-header control height (#658, #659): header row, Back and the page-tab track. -->
             <x:Double x:Key="PageHeaderControlHeight">48</x:Double>
             <Style x:Key="PageHeaderRowStyle" TargetType="Grid">
                 <Setter Property="ColumnSpacing" Value="12" />
@@ -260,6 +316,127 @@
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="VerticalAlignment" Value="Center" />
                 <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <!-- A header title sharing its row with page tabs (#659) stays on one line and truncates before the tabs;
+                 the full text stays its automation name and becomes its tooltip when trimmed. -->
+            <Style x:Key="PageHeaderSingleLineTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource PageHeaderTitleStyle}">
+                <Setter Property="TextWrapping" Value="NoWrap" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+            <!-- D3 quiet segmented page tabs (#659) at the right end of the header row: a neutral 48-DIP track with a
+                 1-DIP border, 8-DIP corners and 4-DIP padding around 38-DIP items, so it matches Back and the icon. Item
+                 padding plus border plus track chrome equals Back's padding and border, so both grow alike with text. The selected item is a raised neutral surface with semibold primary text and a 16x3
+                 accent pill; unselected items are secondary text without fill. Selection never relies on colour alone,
+                 high contrast uses system colours, and the geometry is identical in every theme and state. -->
+            <Style x:Key="PageHeaderTabTrackStyle" TargetType="Border">
+                <Setter Property="MinHeight" Value="{StaticResource PageHeaderControlHeight}" />
+                <Setter Property="Padding" Value="4" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="{ThemeResource PageHeaderTabTrackBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource PageHeaderTabTrackBorderBrush}" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+            <Style x:Key="PageHeaderTabsStyle" TargetType="SelectorBar">
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+            </Style>
+            <Style x:Key="PageHeaderTabItemStyle" TargetType="SelectorBarItem">
+                <Setter Property="Foreground" Value="{ThemeResource PageHeaderTabForegroundBrush}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="16,3" />
+                <Setter Property="MinHeight" Value="38" />
+                <Setter Property="CornerRadius" Value="6" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
+                <Setter Property="FontSize" Value="{ThemeResource ControlContentThemeFontSize}" />
+                <Setter Property="UseSystemFocusVisuals" Value="True" />
+                <Setter Property="FocusVisualMargin" Value="-1" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="SelectorBarItem">
+                            <Grid x:Name="PART_ContainerRoot" Background="Transparent">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CombinedStates">
+                                        <VisualState x:Name="UnselectedNormal" />
+                                        <VisualState x:Name="UnselectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="Surface.Background" Value="{ThemeResource PageHeaderTabBackgroundPointerOverBrush}" />
+                                                <Setter Target="Surface.BorderBrush" Value="{ThemeResource PageHeaderTabBorderPointerOverBrush}" />
+                                                <Setter Target="PART_TextVisual.Foreground" Value="{ThemeResource PageHeaderTabForegroundPointerOverBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="UnselectedPressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="Surface.Background" Value="{ThemeResource PageHeaderTabBackgroundPressedBrush}" />
+                                                <Setter Target="Surface.BorderBrush" Value="{ThemeResource PageHeaderTabBorderPointerOverBrush}" />
+                                                <Setter Target="PART_TextVisual.Foreground" Value="{ThemeResource PageHeaderTabForegroundPressedBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedNormal">
+                                            <VisualState.Setters>
+                                                <Setter Target="Surface.Background" Value="{ThemeResource PageHeaderTabSelectedBackgroundBrush}" />
+                                                <Setter Target="Surface.BorderBrush" Value="{ThemeResource PageHeaderTabSelectedBorderBrush}" />
+                                                <Setter Target="PART_TextVisual.Foreground" Value="{ThemeResource PageHeaderTabSelectedForegroundBrush}" />
+                                                <Setter Target="PART_TextVisual.FontWeight" Value="SemiBold" />
+                                                <Setter Target="PART_SelectionVisual.Opacity" Value="1" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="Surface.Background" Value="{ThemeResource PageHeaderTabSelectedBackgroundPointerOverBrush}" />
+                                                <Setter Target="Surface.BorderBrush" Value="{ThemeResource PageHeaderTabSelectedBorderBrush}" />
+                                                <Setter Target="PART_TextVisual.Foreground" Value="{ThemeResource PageHeaderTabSelectedForegroundBrush}" />
+                                                <Setter Target="PART_TextVisual.FontWeight" Value="SemiBold" />
+                                                <Setter Target="PART_SelectionVisual.Opacity" Value="1" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedPressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="Surface.Background" Value="{ThemeResource PageHeaderTabSelectedBackgroundPressedBrush}" />
+                                                <Setter Target="Surface.BorderBrush" Value="{ThemeResource PageHeaderTabSelectedBorderBrush}" />
+                                                <Setter Target="PART_TextVisual.Foreground" Value="{ThemeResource PageHeaderTabSelectedForegroundBrush}" />
+                                                <Setter Target="PART_TextVisual.FontWeight" Value="SemiBold" />
+                                                <Setter Target="PART_SelectionVisual.Opacity" Value="1" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                    <VisualStateGroup x:Name="DisabledStates">
+                                        <VisualState x:Name="Enabled" />
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="PART_TextVisual.Foreground" Value="{ThemeResource TextFillColorDisabledBrush}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <Border x:Name="Surface" Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding CornerRadius}" />
+                                <StackPanel Margin="{TemplateBinding Padding}" Orientation="Horizontal" Spacing="8"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <ContentPresenter x:Name="PART_IconVisual" Content="{TemplateBinding Icon}"
+                                                      Foreground="{Binding Foreground, ElementName=PART_TextVisual}" />
+                                    <Grid>
+                                        <!-- The invisible semibold copy reserves the selected width, so selecting never shifts the tabs. -->
+                                        <TextBlock Text="{TemplateBinding Text}" FontFamily="{TemplateBinding FontFamily}"
+                                                   FontSize="{TemplateBinding FontSize}" FontWeight="SemiBold" Opacity="0"
+                                                   AutomationProperties.AccessibilityView="Raw" />
+                                        <TextBlock x:Name="PART_TextVisual" Text="{TemplateBinding Text}" HorizontalAlignment="Center"
+                                                   FontFamily="{TemplateBinding FontFamily}" FontSize="{TemplateBinding FontSize}"
+                                                   Foreground="{TemplateBinding Foreground}" />
+                                    </Grid>
+                                </StackPanel>
+                                <Rectangle x:Name="PART_SelectionVisual" Width="16" Height="3" RadiusX="1.5" RadiusY="1.5"
+                                           Margin="0,0,0,3" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                           Fill="{ThemeResource PageHeaderTabPillBrush}" Opacity="0" IsHitTestVisible="False" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
             <Style x:Key="ScannerSummaryButtonStyle" TargetType="Button">
                 <Setter Property="Padding" Value="16" />

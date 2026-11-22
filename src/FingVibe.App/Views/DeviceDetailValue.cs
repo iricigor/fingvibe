@@ -81,6 +81,7 @@ public sealed class DeviceDetailValue : Grid
         PointerExited += (_, _) => { _pointerOver = false; UpdateCopyOpacity(); };
         _copy.GotFocus += (_, _) => UpdateCopyOpacity();
         _copy.LostFocus += (_, _) => UpdateCopyOpacity();
+        _value.IsTextTrimmedChanged += (_, _) => UpdateValueToolTip();
         Refresh();
     }
 
@@ -134,6 +135,8 @@ public sealed class DeviceDetailValue : Grid
     private static void ValueStyleChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var detail = (DeviceDetailValue)sender;
+        // The style owns wrapping too, so a single-line header title (#659) truncates instead of wrapping.
+        detail._value.ClearValue(TextBlock.TextWrappingProperty);
         detail._value.ClearValue(TextBlock.FontSizeProperty);
         detail._value.Style = (Style?)args.NewValue;
         // A title never stacks a browser link, so drop that row's gap and center the title on its header row.
@@ -152,7 +155,12 @@ public sealed class DeviceDetailValue : Grid
         AutomationProperties.SetName(_copy, $"Copy {ActionLabel}");
         ToolTipService.SetToolTip(_copy, $"Copy {ActionLabel}");
         ConstrainValue();
+        UpdateValueToolTip();
     }
+
+    // A single-line header title (#659) shows its full text as a tooltip only while it is truncated.
+    private void UpdateValueToolTip() =>
+        ToolTipService.SetToolTip(_value, _value.IsTextTrimmed ? _value.Text : null);
 
     private string ActionLabel => string.IsNullOrEmpty(CopyLabel) ? Label : CopyLabel;
 

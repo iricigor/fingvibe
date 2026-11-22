@@ -31,8 +31,13 @@ the icon slot (a person's or room's short-name badge sits beneath it), the
 entity name uses the shared title style, and only existing text forms a
 secondary line under the title (a device's status). Rename device and the
 person/room **Edit** and **Delete** actions stay beside the name; Edit and
-Delete wrap beneath it when the window is too narrow. Device details keeps its
-**Overview** and **History** tabs in their own row below the header.
+Delete wrap beneath it when the window is too narrow. Device details ends the
+header row with its **Overview** and **History** tabs in the shared quiet
+segmented style (a neutral track whose selected tab is a raised surface with
+semibold text and a short accent pill; system colours in high contrast). The
+device name stays on one line and truncates before the tabs, showing the full
+name as a tooltip; when the name would keep less than 160 DIP (scaled with
+text), the tabs wrap beneath the header, aligned with Back.
 
 Every tool and detail page with Back (the eight tool pages above plus Device,
 Person and Room details) uses one reusable `PageBackButton` control. It is
@@ -44,7 +49,8 @@ growing with larger text, and only as wide as its destination. Its accessible
 name and tooltip read **Back to** that destination, including Room map's and
 the detail pages' origin-aware destinations. The control only raises a Back
 request: each page keeps its own navigation target, leave confirmations and
-tool cleanup. Page tabs (#659) are meant to reuse `PageHeaderControlHeight`.
+tool cleanup. The page-tab track uses the same `PageHeaderControlHeight` and
+grows with text exactly like Back.
 
 - [Run locally and scan behavior](#run-locally)
 - [Device identification](#device-identification)
@@ -807,7 +813,7 @@ and status). Overview holds network overview and assignments,
 then observation summary and usage category, followed by full-width identification and ports.
 History holds Activity and scan observations with
 Completed Scan Observations, and virtual MAC/address history. Both panels
-share one scroll viewer (`DeviceDetailsScroll`) below the header and tabs; hidden tabs stay
+share one scroll viewer (`DeviceDetailsScroll`) below the header and its tabs; hidden tabs stay
 loaded so drafts, expanders and paging survive switches. Switching tabs keeps the
 current scroll position, and **View device history** focuses the History tab.
 Opening a device always selects Overview at the top. UI review captures the
