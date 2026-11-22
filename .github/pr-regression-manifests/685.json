@@ -7,7 +7,8 @@
     "ui-review-scenarios",
     "pr-validation",
     "documentation-tests",
-    "native-tools-utilities"
+    "native-tools-utilities",
+    "native-tools-utilities-maintenance"
   ],
   "expectedAssertions": [
     "Full-color PageIcon SVG masters omit the tile stroke and runtime PNGs match their documented 256px PNG masters.",

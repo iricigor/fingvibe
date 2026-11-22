@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet("Baseline", "Focused", "Full")][string] $Mode,
-    [Parameter(Mandatory)][ValidateSet("capture", "sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity", "tools", "tools-utilities", "tools-device-data")][string] $Suite,
+    [Parameter(Mandatory)][ValidateSet("capture", "sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity", "tools", "tools-utilities", "tools-utilities-maintenance", "tools-device-data")][string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
     [string] $SourceDirectory,

@@ -1380,6 +1380,7 @@ one published payload:
 | `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks) |
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
+| `tools-utilities-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |
 | `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui, SpeedTest.Ui |
 
 This is the assertion/capture ownership boundary: each original behavior module
