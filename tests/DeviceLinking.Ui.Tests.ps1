@@ -175,6 +175,10 @@ function Show-Link([string] $Id) {
 }
 
 function Invoke-Link([string] $Id) {
+    # Device Details brings the focused control into view, which can revert a programmatic scroll away
+    # from earlier keyboard focus; focus the action first, as a keyboard user would, then verify visibility.
+    $target = Find-Link $Id
+    if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
     (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 
