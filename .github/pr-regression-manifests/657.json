@@ -16,6 +16,7 @@
     "native-tools-maintenance",
     "native-tools-device-data",
     "native-tools-sql-speed",
+    "native-details-link-matches",
     "documentation-tests"
   ],
   "expectedAssertions": [
@@ -24,6 +25,7 @@
     "Overview shows the 'overview' family icon; main pages have two header columns and no empty Back slot.",
     "Back names, Click handlers, x:Name values and title names (DevicesHeading, PageHeading, BackToSettingsButton, BackupsBackButton, RoomMapBackButton) are unchanged, and Device, Person and Room detail headers do not use the shared header.",
     "At 100% text, the fixed-header native check requires Back at the content edge, titles 60 DIP after the content edge (76 DIP after Back) and one title center height across covered pages within 1 DIP, while headers stay fixed while bodies scroll at 100% and 200% text.",
-    "Changes to PageHeaderIcon select every header consumer capture; App.xaml changes still select every capture."
+    "Changes to PageHeaderIcon select every header consumer capture; App.xaml changes still select every capture.",
+    "Device-linking choices are focused before they are scrolled into view, so Device Details' bring-into-view of an earlier focused choice cannot revert the scroll in details-link-matches; assertions are unchanged."
   ]
 }
