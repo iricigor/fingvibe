@@ -3,6 +3,11 @@
 The current manual uses real native Windows captures from disposable GitHub
 Actions runners. They show controlled review data, not a user's LAN, real
 equipment availability or internet speed measurements.
+The retained November 20 captures predate the shared fixed headers, quiet Back
+controls, current Device Details tabs, shaded section headings and sidebar mode
+shortcut delivered on November 22. They still illustrate the recorded data and
+states, but are not exact current-layout references. No replacement capture was
+made during the documentation synchronization.
 
 ## Current captures: v1.4.223 documentation
 
@@ -155,6 +160,7 @@ and is not presented as the current page layout or discovered physical topology.
 
 | Gap | Boundary |
 | --- | --- |
+| Current headers, tabs, section headings and sidebar shortcut | Prose follows November 22 source; the retained images need replacement native captures from disposable Windows CI before claiming current visual coverage. |
 | Windows discovery toast and in-app popup | Text explains delivered behavior; no new state-specific notification capture is claimed. |
 | Complete current diagnostics diagram | The available new view clips public providers; retain the clearly historical complete diagram rather than imply completeness. |
 | Stable-build update checks/download/install | About shows the actual Test build's no-check state; stable workflow steps come from released source, not a fabricated update screenshot. |

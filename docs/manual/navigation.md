@@ -2,6 +2,8 @@
 
 The left menu switches pages. The **Network:** picker and scan status are shared
 across pages. Changing pages does not automatically start another scan.
+Page icons, titles and Back actions stay fixed below that shared header while
+the page body scrolls.
 
 | Page | What it is for |
 | --- | --- |
@@ -25,7 +27,8 @@ that same order.
 
 The Room map has no sidebar item. Open it from **Tools**, from the Rooms
 section of **People & rooms**, or from the Network health diagram.
-Its **Rooms** Back action returns to room management, matching other subpage Back buttons.
+Its Back action names the page where you opened it: **Rooms**, **Tools**, or
+**Network health**. It keeps that destination after a visit to device or room details.
 
 ## Overview
 
@@ -67,15 +70,19 @@ Hold **Shift** for larger steps. Small windows may show an overlay menu.
 
 ## Return and use the keyboard
 
-Device details has a **Devices** return action. Individual Tools pages have a
-**Tools** return action. These return to the relevant page; they do not save an
+Device details normally has a **Devices** return action. Device or room details
+opened from the Room map return to **Room map** instead. Individual Tools pages
+normally return to **Tools**; Service status returns to **Network health**.
+These return to the relevant page; they do not save an
 unfinished draft unless the page explicitly says so.
 
 About has a **Settings** return action that restores focus to its Settings row.
 These single-line arrow-and-destination buttons stay at the left of the page
-header, before the page, device, person or room icon and title. Their normal minimum size matches
-the individual **Overview** tab in Device details, not the padded tab group.
-Longer destinations and enlarged Windows text can grow the buttons.
+header, before the page, device, person or room icon and title. They are quiet,
+borderless controls until hovered or pressed, with a visible keyboard-focus cue.
+The Device details tab group matches their height; narrow windows or enlarged
+Windows text can move the tabs below the header. Tooltips and accessible names
+say **Back to** the visible destination.
 
 Use **Tab** to move through controls, and **Enter** or **Space** to activate the
 focused control. Checkboxes expose their selected state. Tooltips and accessible
@@ -112,7 +119,7 @@ When I close persists the confirmed version; it prepares a verified installer in
 the same per-version staging folder, hides the availability dots, and shows
 **Cancel scheduled update**. A missing or invalid file leaves the schedule
 pending rather than running Setup.
-The next completed normal close that has a verified file starts the #666 handoff
+The next completed normal close that has a verified file starts the close-first updater
 with relaunch disabled, so FingVibe remains closed after installation. Cancelled
 closes, in-progress downloads without a verified file, crashes, forced termination
 and Windows shutdown do not install. The schedule survives app restarts and moves
@@ -135,8 +142,9 @@ popup links to GitHub Releases.
 When an update is available, a collapsed **What's new in X.Y.Z** expander below
 the update action shows that release's notes from the same GitHub response the
 check already fetched; no extra request is made. The notes are plain text with
-headings, bullets and paragraphs. Markdown links, images and HTML are shown only
-as text, and nothing in them can open a browser or load remote content. Long notes
+headings, bullets and paragraphs. Links and images become plain text; HTML tags
+and embedded content are removed. The displayed notes cannot open a browser or
+load remote content. Long notes
 end with **View full notes on GitHub**. If a release has no readable notes,
 **View release notes on GitHub** appears instead; checking and installing are
 unaffected. Expanded notes scroll with the page.
@@ -148,7 +156,7 @@ keeps one version/status
 sentence and a relative **Last checked** value; failures and Windows security
 warnings stay visible outside the expander.
 
-After FingVibe reopens, About reads the delivered #666 attempt/outcome record:
+After FingVibe reopens, About reads the saved update attempt/outcome record:
 it reports **Updated to X.Y.Z** only when the running installation matches the
 recorded target, otherwise it reports the failure and recovery path. Launching
 Setup alone does not prove installation completed.
