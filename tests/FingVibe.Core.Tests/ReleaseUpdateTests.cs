@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using FingVibe.App;
 using FingVibe.Core.Updates;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -69,6 +70,43 @@ public sealed class ReleaseUpdateTests
     }
 
     [Fact]
+    public void CompactUpdatePresentationKeepsStatusRelativeTimeAndInstallOutcomeExplicit()
+    {
+        var current = new UpdateState(UpdateOutcome.Current, false, Release(), null,
+            null, Start, Start.AddMinutes(10), null, null);
+        Assert.Equal("FingVibe is up to date.", ReleaseUpdatePresentation.Status(current, new Version(1, 2, 130)));
+        Assert.Equal("Last checked 2 hours ago",
+            ReleaseUpdatePresentation.LastChecked(Start, Start.AddHours(2)));
+        var record = NewHandoffRecord(ReleaseInstallHandoffState.Succeeded,
+            new ReleaseInstallOutcome(Start, 0, true, 1234, null));
+        Assert.Equal("Updated to 1.2.130.",
+            ReleaseUpdatePresentation.InstallResult(record, new Version(1, 2, 130), "installed",
+                "installed\\FingVibe.App.exe"));
+        using (var installed = new ReleaseUpdateSession(true, "v1.2.130", _ => Task.FromResult(Release())))
+            Assert.Equal("Updated to 1.2.130.", ReleaseUpdatePresentation.InstallResult(record,
+                installed.InstalledVersion, "installed", "installed\\FingVibe.App.exe"));
+        Assert.Null(ReleaseUpdatePresentation.InstallResult(record, new Version(1, 2, 130), "other-install",
+            "other-install\\FingVibe.App.exe"));
+        Assert.Contains("did not complete",
+            ReleaseUpdatePresentation.InstallResult(record with
+            {
+                State = ReleaseInstallHandoffState.Failed,
+                Outcome = record.Outcome! with { RelaunchStarted = false, Error = "Setup cancelled" }
+            }, new Version(1, 2, 130)));
+        Assert.Contains("did not finish reporting",
+            ReleaseUpdatePresentation.InstallResult(record with
+            {
+                State = ReleaseInstallHandoffState.Installing,
+                Outcome = null
+            }, new Version(1, 2, 130), "installed", "installed\\FingVibe.App.exe"));
+        Assert.Null(ReleaseUpdatePresentation.InstallResult(record with
+        {
+            State = ReleaseInstallHandoffState.Installing,
+            Outcome = null
+        }, new Version(1, 2, 130), "other-install", "other-install\\FingVibe.App.exe"));
+    }
+
+    [Fact]
     public async Task StartupManualCompletionAndDelayedTicksReplaceDeadlines()
     {
         var clock = new FakeTimeProvider(Start);
@@ -79,23 +117,26 @@ public sealed class ReleaseUpdateTests
             clock.Advance(TimeSpan.FromSeconds(2));
             return Task.FromResult(Release());
         }, clock);
-        clock.Advance(TimeSpan.FromSeconds(30));
         await session.RunDueAsync();
-        Assert.Equal(0, calls);
-        await session.CheckAsync();
-        Assert.Equal(Start.AddSeconds(32).AddMinutes(5), session.State.NextCheckAt);
+        Assert.Equal(1, calls);
+        Assert.Equal(Start.AddSeconds(2).AddMinutes(10), session.State.NextCheckAt);
         clock.Advance(TimeSpan.FromSeconds(30));
         await session.RunDueAsync();
         Assert.Equal(1, calls);
+        await session.CheckAsync();
+        Assert.Equal(Start.AddSeconds(34).AddMinutes(10), session.State.NextCheckAt);
+        clock.Advance(TimeSpan.FromMinutes(9));
+        await session.RunDueAsync();
+        Assert.Equal(2, calls);
         clock.Advance(TimeSpan.FromHours(2));
         await session.RunDueAsync();
         await session.RunDueAsync();
-        Assert.Equal(2, calls);
-        Assert.Equal(clock.GetUtcNow().AddMinutes(5), session.State.NextCheckAt);
+        Assert.Equal(3, calls);
+        Assert.Equal(clock.GetUtcNow().AddMinutes(10), session.State.NextCheckAt);
     }
 
     [Fact]
-    public async Task FailedManualBeforeStartupAlsoResetsSchedule()
+    public async Task FailedManualCheckAlsoResetsSchedule()
     {
         var clock = new FakeTimeProvider(Start);
         using var session = new ReleaseUpdateSession(true, "1.2.99",
@@ -103,12 +144,12 @@ public sealed class ReleaseUpdateTests
         clock.Advance(TimeSpan.FromSeconds(10));
         await session.CheckAsync();
         Assert.Equal(UpdateOutcome.Failed, session.State.Outcome);
-        Assert.Equal(Start.AddSeconds(10).AddMinutes(5), session.State.NextCheckAt);
+        Assert.Equal(Start.AddSeconds(10).AddMinutes(10), session.State.NextCheckAt);
         Assert.Null(session.State.ConfirmedUpdate);
     }
 
     [Fact]
-    public async Task AutomaticChecksStartAtOneMinuteThenRecurFiveMinutesAfterCompletion()
+    public async Task AutomaticChecksRunAtStartupThenRecurTenMinutesAfterCompletion()
     {
         var clock = new FakeTimeProvider(Start);
         var calls = 0;
@@ -117,18 +158,19 @@ public sealed class ReleaseUpdateTests
             calls++;
             return Task.FromResult(Release());
         }, clock);
-        clock.Advance(TimeSpan.FromSeconds(59));
-        await session.RunDueAsync();
-        Assert.Equal(0, calls);
-        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal(Start, session.State.NextCheckAt);
         await session.RunDueAsync();
         Assert.Equal(1, calls);
-        clock.Advance(TimeSpan.FromMinutes(5));
+        clock.Advance(TimeSpan.FromMinutes(10) - TimeSpan.FromSeconds(1));
         await session.RunDueAsync();
-        clock.Advance(TimeSpan.FromMinutes(5));
+        Assert.Equal(1, calls);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await session.RunDueAsync();
+        Assert.Equal(2, calls);
+        clock.Advance(TimeSpan.FromMinutes(10));
         await session.RunDueAsync();
         Assert.Equal(3, calls);
-        Assert.Equal(Start.AddMinutes(16), session.State.NextCheckAt);
+        Assert.Equal(Start.AddMinutes(30), session.State.NextCheckAt);
     }
 
     [Theory]
@@ -347,6 +389,29 @@ public sealed class ReleaseUpdateTests
             return base.ReadAsync(buffer[..Math.Min(8, buffer.Length)], cancellationToken);
         }
     }
+
+    private static ReleaseInstallHandoffRecord NewHandoffRecord(
+        string state, ReleaseInstallOutcome outcome) => new()
+    {
+        AttemptId = "attempt",
+        State = state,
+        RequestedUtc = Start,
+        OriginProcessId = 100,
+        OriginProcessStartedUtc = Start,
+        OriginExecutablePath = "FingVibe.App.exe",
+        RecordPath = "install-handoff.json",
+        InstallerPath = "Setup.exe",
+        InstallerSize = 17,
+        InstallerSha256 = new string('A', 64),
+        ExpectedZoneId = 3,
+        ExpectedVersion = "1.2.130",
+        InstallationDirectory = "installed",
+        RelaunchRequested = true,
+        RelaunchExecutablePath = "installed\\FingVibe.App.exe",
+        InstallerLogPath = "installer.log",
+        LatestRecordPath = "install-handoff.json",
+        Outcome = outcome
+    };
 
     private sealed class Handler(Func<HttpRequestMessage, HttpResponseMessage> response) : HttpMessageHandler
     {

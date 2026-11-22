@@ -301,14 +301,19 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Expander>
-            <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
-                    Style="{StaticResource SettingsNavigationCardStyle}"
-                    AutomationProperties.Name="About FingVibe &amp; updates">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+            <Grid x:Name="AboutSettingsRow">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
+                        Style="{StaticResource SettingsNavigationCardStyle}"
+                        AutomationProperties.Name="About FingVibe &amp; updates">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <Grid Style="{StaticResource SettingsCardHeaderStyle}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="32" />
@@ -330,8 +335,13 @@
                         <FontIcon Glyph="&#xE76C;" FontSize="12" IsTextScaleFactorEnabled="False"
                                   IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                     </Grid>
-                </Grid>
-            </Button>
+                    </Grid>
+                </Button>
+                <Button x:Name="SettingsUpdateNowButton" Grid.Column="1" Content="Update now"
+                        Style="{StaticResource AccentButtonStyle}" Click="SettingsUpdateNowButton_Click"
+                        Visibility="Collapsed" VerticalAlignment="Center" Margin="12,0,0,0"
+                        AutomationProperties.Name="Update FingVibe now" />
+            </Grid>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
