@@ -450,6 +450,38 @@
         @($notesExpander.SelectNodes(".//*[local-name()='HyperlinkButton']")).Count -ne 1) {
         throw "Release notes must be a collapsed expander below Update now, using page scrolling, plain text and one explicit GitHub link."
     }
+    # #689: content cards on the tool pages start with the shared H4 card heading used by Device Details (#578).
+    foreach ($toolPage in @(
+        @{ Path = "Tools\NetworkHealthPage.xaml"; Headings = @("Incident history", "Network path and status",
+            "Detailed checkpoint diagnostics", "Traceroute", "Connection and checks")
+            # The live health state and the Service status entry tile keep their own status and page-icon treatments.
+            Excluded = @("CurrentHealthCard", "ServiceStatusEntryCard") },
+        @{ Path = "Tools\SpeedTestPage.xaml"; Headings = @("Test", "Live measurement", "Results") },
+        @{ Path = "Tools\FingImportPage.xaml"; Headings = @("1   Choose a file", "2   Analysis", "3   Changes and conflicts") },
+        @{ Path = "Tools\AboutPage.xaml"; Headings = @("FingVibe LAN Scanner", "Updates") }
+    )) {
+        $toolDocument = [System.Xml.XmlDocument]::new()
+        $toolDocument.Load((Join-Path $appDirectory $toolPage.Path))
+        $toolTitles = @()
+        foreach ($band in @($toolDocument.SelectNodes("//*[local-name()='Border' and @Style='{StaticResource CardHeadingBandStyle}']"))) {
+            $card = $band.ParentNode.ParentNode
+            $first = $card.SelectSingleNode("./*/*[not(contains(local-name(), '.'))]")
+            $icon = $band.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']")
+            $title = $band.SelectSingleNode(".//*[local-name()='TextBlock' and @Style='{StaticResource CardHeadingTextStyle}']")
+            if ($card.GetAttribute("Style") -cne "{StaticResource ScannerSummaryCardStyle}" -or $first -ne $band -or
+                -not $icon -or -not $icon.GetAttribute("Glyph") -or -not $title -or $band.HasAttribute("Margin") -or
+                $band.HasAttribute("Padding") -or $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or
+                $title.HasAttribute("Foreground")) {
+                throw "$($toolPage.Path) card headings must start their card with one shared band holding an icon and styled heading."
+            }
+            $toolTitles += $title.GetAttribute("Text")
+        }
+        $plainHeadings = @($toolDocument.SelectNodes("//*[local-name()='Border' and @Style='{StaticResource ScannerSummaryCardStyle}']//*[@Style='{ThemeResource SubtitleTextBlockStyle}' and @Text]") |
+            Where-Object { $_.SelectSingleNode("ancestor::*[local-name()='Border' and @Style='{StaticResource ScannerSummaryCardStyle}'][1]").GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -notin @($toolPage.Excluded) })
+        if (($toolTitles -join "|") -cne ($toolPage.Headings -join "|") -or $plainHeadings.Count -ne 0) {
+            throw "$($toolPage.Path) must use the shared card heading for exactly: $($toolPage.Headings -join ', '); found $($toolTitles -join ', ')."
+        }
+    }
     $toolIcons = @(
         @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Icon = "speed-test" },
         @{ Page = "NetworkHealthPage"; Title = "Network health"; Card = "NetworkHealthCard"; Click = "NetworkHealthCard_Click"; Icon = "troubleshooting" },

@@ -172,7 +172,7 @@
     Test-Change @{ "src\FingVibe.App\DeviceResultSort.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Devices sort keys and direction"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
-    Test-Change @{ "src\FingVibe.App\CardHeadingResources.xaml" = "changed" } @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms") "Shared card heading"
+    Test-Change @{ "src\FingVibe.App\CardHeadingResources.xaml" = "changed" } @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "SpeedTest", "NetworkHealth", "About", "FingImport") "Shared card heading"
     $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
     $applicationDocument = [System.Xml.XmlDocument]::new()
     $applicationDocument.LoadXml($applicationXaml)

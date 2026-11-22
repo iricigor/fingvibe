@@ -21,6 +21,17 @@
                            VerticalAlignment="Center" TextWrapping="Wrap" IsTabStop="True" />
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                <Border Style="{StaticResource CardHeadingBandStyle}">
+                    <Grid Style="{StaticResource CardHeadingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE946;" Style="{StaticResource CardHeadingIconStyle}" />
+                        <TextBlock Grid.Column="1" Text="FingVibe LAN Scanner" Style="{StaticResource CardHeadingTextStyle}" />
+                    </Grid>
+                </Border>
                 <Grid ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -30,7 +41,6 @@
                            Source="ms-appx:///Assets/ConnectedHome.png" Stretch="Uniform"
                            IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                     <StackPanel Spacing="8">
-                        <TextBlock Text="FingVibe LAN Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
                         <TextBlock x:Name="VersionText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                         <TextBlock x:Name="BuildKindText" TextWrapping="Wrap" />
                         <TextBlock x:Name="BuildTimestampText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
@@ -70,10 +80,20 @@
                         </HyperlinkButton>
                     </StackPanel>
                 </Grid>
+                </StackPanel>
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Updates" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE895;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Updates" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="UpdateInstalledVersion" TextWrapping="Wrap" />
                     <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                     <TextBlock x:Name="UpdateLastChecked" TextWrapping="Wrap"
