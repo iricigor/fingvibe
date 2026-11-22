@@ -15,6 +15,8 @@ namespace FingVibe.App;
 public sealed partial class MainWindow
 {
     private const string AppearanceSaveFailure = "Appearance applied, but could not be saved for the next launch.";
+    private const string HighContrastAppearanceHelp =
+        "Windows high contrast colors currently apply. Your choice is saved for when high contrast ends.";
     // UI review keeps appearance in memory unless a check supplies an isolated store to cover persistence.
     private static string? ReviewAppearancePath => IsUiReview
         && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_APPEARANCE") is { Length: > 0 } path ? path : null;
@@ -29,7 +31,6 @@ public sealed partial class MainWindow
     private bool _appearanceReady;
     private bool _appearanceClosed;
     private string? _appearanceSaveError;
-    private bool _updatingAppearanceShortcut;
 
     private void InitializeAppearance()
     {
@@ -77,20 +78,14 @@ public sealed partial class MainWindow
         SaveAppearance(fromShortcut: false);
     }
 
-    private void AppearanceShortcutModes_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void TitleBarAppearanceButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_updatingAppearanceShortcut || !_appearanceReady || AppearanceShortcutModes.SelectedIndex < 0)
+        if (!_appearanceReady)
         {
             return;
         }
 
-        var updated = AppearanceModes.WithMode(_appearance, dark: AppearanceShortcutModes.SelectedIndex == 1);
-        if (updated == _appearance)
-        {
-            return;
-        }
-
-        _appearance = updated;
+        _appearance = AppearanceModes.WithMode(_appearance, dark: !AppearanceModes.IsDark(_appearance.Theme));
         SettingsPage.SetAppearance(_appearance);
         ApplyAppearance();
         SaveAppearance(fromShortcut: true);
@@ -117,8 +112,7 @@ public sealed partial class MainWindow
         UpdateAppearanceShortcut();
         if (fromShortcut && _appearanceSaveError is { } error)
         {
-            // The status text is inside the open flyout; also announce it while focus stays on a mode choice.
-            FrameworkElementAutomationPeer.CreatePeerForElement(AppearanceShortcutSaveStatus)?.RaiseNotificationEvent(
+            FrameworkElementAutomationPeer.CreatePeerForElement(TitleBarAppearanceButton)?.RaiseNotificationEvent(
                 AutomationNotificationKind.Other, AutomationNotificationProcessing.ImportantMostRecent,
                 error, "AppearanceSaveError");
         }
@@ -128,32 +122,13 @@ public sealed partial class MainWindow
     {
         var dark = AppearanceModes.IsDark(_appearance.Theme);
         var mode = dark ? "Dark" : "Light";
-        _updatingAppearanceShortcut = true;
-        try
-        {
-            AppearanceShortcutModes.SelectedIndex = dark ? 1 : 0;
-        }
-        finally
-        {
-            _updatingAppearanceShortcut = false;
-        }
-
-        AppearanceShortcutNavItem.Content = $"{mode} mode";
-        AppearanceShortcutIcon.Glyph = dark ? "\uE708" : "\uE706";
         var highContrast = _accessibilitySettings.HighContrast;
-        AppearanceShortcutHighContrastNote.Visibility = highContrast ? Visibility.Visible : Visibility.Collapsed;
-        AppearanceShortcutSaveStatus.Text = _appearanceSaveError ?? string.Empty;
-        AppearanceShortcutSaveStatus.Visibility = _appearanceSaveError is null ? Visibility.Collapsed : Visibility.Visible;
-        AppearanceShortcutBadge.Visibility = AppearanceShortcutSaveStatus.Visibility;
-        TitleBarAppearanceIcon.Glyph = AppearanceShortcutIcon.Glyph;
-        TitleBarAppearanceBadge.Visibility = AppearanceShortcutSaveStatus.Visibility;
+        TitleBarAppearanceIcon.Glyph = dark ? "\uE708" : "\uE706";
+        TitleBarAppearanceBadge.Visibility = _appearanceSaveError is null ? Visibility.Collapsed : Visibility.Visible;
         var name = $"Appearance mode: {mode}";
-        var help = "Choose Light or Dark mode."
-            + (highContrast ? $" {AppearanceShortcutHighContrastNote.Text}" : string.Empty)
+        var help = $"Switch to {(dark ? "Light" : "Dark")} mode."
+            + (highContrast ? $" {HighContrastAppearanceHelp}" : string.Empty)
             + (_appearanceSaveError is { } error ? $" {error}" : string.Empty);
-        AutomationProperties.SetName(AppearanceShortcutNavItem, name);
-        AutomationProperties.SetHelpText(AppearanceShortcutNavItem, help);
-        ToolTipService.SetToolTip(AppearanceShortcutNavItem, $"{name}. {help}");
         AutomationProperties.SetName(TitleBarAppearanceButton, name);
         AutomationProperties.SetHelpText(TitleBarAppearanceButton, help);
         ToolTipService.SetToolTip(TitleBarAppearanceButton, $"{name}. {help}");
@@ -212,16 +187,22 @@ public sealed partial class MainWindow
         AppTitleBar.Background = new SolidColorBrush(background);
         TitleBarAppName.Foreground = new SolidColorBrush(_titleBarActive ? foreground : inactive);
         TitleBarBuildText.Foreground = new SolidColorBrush(inactive);
-        TitleBarAppearanceButton.Foreground = new SolidColorBrush(_titleBarActive ? foreground : inactive);
-        var titleBar = AppWindow.TitleBar;
-        titleBar.ButtonBackgroundColor = background;
-        titleBar.ButtonInactiveBackgroundColor = background;
-        titleBar.ButtonForegroundColor = foreground;
-        titleBar.ButtonInactiveForegroundColor = inactive;
-        titleBar.ButtonHoverBackgroundColor = hover;
-        titleBar.ButtonHoverForegroundColor = highContrast ? background : foreground;
-        titleBar.ButtonPressedBackgroundColor = pressed;
-        titleBar.ButtonPressedForegroundColor = highContrast ? background : foreground;
+        foreach (var button in new[] { TitleBarAppearanceButton, TitleBarMinimizeButton, TitleBarMaximizeButton, TitleBarCloseButton })
+        {
+            button.Foreground = new SolidColorBrush(_titleBarActive ? foreground : inactive);
+        }
+        ((SolidColorBrush)AppTitleBar.Resources["ButtonBackgroundPointerOver"]).Color = hover;
+        ((SolidColorBrush)AppTitleBar.Resources["ButtonBackgroundPressed"]).Color = pressed;
+        ((SolidColorBrush)AppTitleBar.Resources["ButtonForegroundPointerOver"]).Color = highContrast ? background : foreground;
+        ((SolidColorBrush)AppTitleBar.Resources["ButtonForegroundPressed"]).Color = highContrast ? background : foreground;
+        ((SolidColorBrush)TitleBarCloseButton.Resources["ButtonBackgroundPointerOver"]).Color = highContrast
+            ? foreground : Color.FromArgb(255, 196, 43, 28);
+        ((SolidColorBrush)TitleBarCloseButton.Resources["ButtonBackgroundPressed"]).Color = highContrast
+            ? foreground : Color.FromArgb(255, 181, 37, 25);
+        ((SolidColorBrush)TitleBarCloseButton.Resources["ButtonForegroundPointerOver"]).Color = highContrast
+            ? background : Color.FromArgb(255, 255, 255, 255);
+        ((SolidColorBrush)TitleBarCloseButton.Resources["ButtonForegroundPressed"]).Color = highContrast
+            ? background : Color.FromArgb(255, 255, 255, 255);
     }
 
     private static Color CompositeTitleBarColor(Color foreground, Color background) =>

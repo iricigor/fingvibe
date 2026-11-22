@@ -138,12 +138,6 @@ public sealed partial class MainWindow : Window
 
     private void MainNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
-        if (args.InvokedItemContainer == AppearanceShortcutNavItem)
-        {
-            Microsoft.UI.Xaml.Controls.Primitives.FlyoutBase.ShowAttachedFlyout(AppearanceShortcutNavItem);
-            return;
-        }
-
         if (args.IsSettingsInvoked)
         {
             SettingsPage.ShowPreferences();

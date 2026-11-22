@@ -1,3 +1,30 @@
+function Test-TitleBarCaptionHover([string] $Name) {
+    foreach ($id in @('TitleBarMinimizeButton', 'TitleBarMaximizeButton', 'TitleBarCloseButton')) {
+        $nameBounds = (Find-SidebarElement AutomationId TitleBarAppName).Current.BoundingRectangle
+        [SidebarReviewKeyboard]::MoveTo([int]($nameBounds.Left + $nameBounds.Width / 2), [int]($nameBounds.Top + $nameBounds.Height / 2))
+        Save-SidebarAppearance "$Name-$id-normal"
+        $bounds = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle
+        [SidebarReviewKeyboard]::MoveTo([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))
+        Save-SidebarAppearance "$Name-$id-hover"
+        $window = Get-UiReviewWindowBounds $windowHandle
+        $normal = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-$id-normal.png"))
+        $hover = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-$id-hover.png"))
+        try {
+            $cornerX = [int]($bounds.Left - $window.Left + $scale)
+            $cornerY = [int]($bounds.Top - $window.Top + $scale)
+            $fillX = [int]($bounds.Left - $window.Left + $bounds.Width / 2)
+            $fillY = [int]($bounds.Bottom - $window.Top - 2 * $scale)
+            if ($hover.GetPixel($cornerX, $cornerY).ToArgb() -ne $normal.GetPixel($cornerX, $cornerY).ToArgb() -or
+                $hover.GetPixel($fillX, $fillY).ToArgb() -eq $normal.GetPixel($fillX, $fillY).ToArgb()) {
+                throw "$id hover must leave a rounded transparent corner while shading the full header height."
+            }
+        }
+        finally { $normal.Dispose(); $hover.Dispose() }
+    }
+    $nameBounds = (Find-SidebarElement AutomationId TitleBarAppName).Current.BoundingRectangle
+    [SidebarReviewKeyboard]::MoveTo([int]($nameBounds.Left + $nameBounds.Width / 2), [int]($nameBounds.Top + $nameBounds.Height / 2))
+}
+
 function Test-TitleBarLayout {
     $name = Find-SidebarElement AutomationId TitleBarAppName
     $build = Find-SidebarElement AutomationId TitleBarBuildText
@@ -14,18 +41,36 @@ function Test-TitleBarLayout {
         -not $shortcut.Current.IsKeyboardFocusable -or $shortcut.Current.Name -notlike 'Appearance mode: *') {
         throw "Title-bar identity and its accessible shortcut must fit above navigation without overlapping."
     }
+    $minimize = (Find-SidebarElement AutomationId TitleBarMinimizeButton).Current.BoundingRectangle
+    $maximize = (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.BoundingRectangle
+    $close = (Find-SidebarElement AutomationId TitleBarCloseButton).Current.BoundingRectangle
+    $navigationTop = (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle.Top
+    $previous = $buttonBounds
+    foreach ($id in @('TitleBarMinimizeButton', 'TitleBarMaximizeButton', 'TitleBarCloseButton')) {
+        $caption = Find-SidebarElement AutomationId $id
+        $captionBounds = $caption.Current.BoundingRectangle
+        if (-not $caption.Current.IsKeyboardFocusable -or -not $windowBounds.Contains($captionBounds) -or
+            $captionBounds.Left -lt $previous.Right -or [Math]::Abs($captionBounds.Bottom - $navigationTop) -gt $scale) {
+            throw 'Custom caption controls must be keyboard-accessible, contained, nonoverlapping and fill the header height.'
+        }
+        $previous = $captionBounds
+    }
     $y = [int]($buttonBounds.Top + $buttonBounds.Height / 2)
     foreach ($target in @(
         @{ X = [int]($nameBounds.Left + $nameBounds.Width / 2); Expected = 2; Name = 'drag area' },
         @{ X = [int]($buttonBounds.Left + $buttonBounds.Width / 2); Expected = 1; Name = 'appearance button' },
-        @{ X = [int]($windowBounds.Right - 23 * $scale); Expected = 20; Name = 'native Close' },
-        @{ X = [int]($windowBounds.Right - 69 * $scale); Expected = 9; Name = 'native Maximize/Restore' },
-        @{ X = [int]($windowBounds.Right - 115 * $scale); Expected = 8; Name = 'native Minimize' }
+        @{ X = [int]($close.Left + $close.Width / 2); Expected = 1; Name = 'custom Close' },
+        @{ X = [int]($maximize.Left + $maximize.Width / 2); Expected = 9; Name = 'Maximize/Restore Snap region' },
+        @{ X = [int]($minimize.Left + $minimize.Width / 2); Expected = 1; Name = 'custom Minimize' }
     )) {
         $hit = [SidebarReviewKeyboard]::HitTest($windowHandle, $target.X, $y)
         if ($hit -ne $target.Expected) {
             throw "Title-bar $($target.Name) must retain its native hit target; expected $($target.Expected), got $hit."
         }
+    }
+    if ([SidebarReviewKeyboard]::HitTest($windowHandle, [int]($maximize.Left + $maximize.Width / 2),
+            [int]($navigationTop - 2 * $scale)) -ne 9) {
+        throw "The custom maximize hit area must fill the header height without leaving a gap below its hover surface."
     }
 }
 
@@ -38,22 +83,17 @@ function Test-TitleBarInteractions {
     $bounds = $shortcut.Current.BoundingRectangle
     [SidebarReviewKeyboard]::PressAt([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))
     [SidebarReviewKeyboard]::Release()
-    (Find-SidebarElement AutomationId "AppearanceShortcut$otherMode").GetCurrentPattern(
-        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    $null = Wait-UiRegressionState -Description 'title-bar choice uses shared appearance state' -Condition {
-        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.Name -eq "Appearance mode: $otherMode" -and
-            (Get-AppearanceShortcut).Current.Name -eq "Appearance mode: $otherMode"
+    $null = Wait-UiRegressionState -Description 'one title-bar click switches appearance immediately' -Condition {
+        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.Name -eq "Appearance mode: $otherMode"
     }
-    [SidebarReviewKeyboard]::Tap(0x1B)
-    $null = Wait-UiRegressionState -Description 'title-bar flyout returns keyboard focus' -Condition {
-        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.HasKeyboardFocus
+    if (Find-SidebarElement AutomationId AppearanceShortcutLight -Optional) {
+        throw "The title-bar appearance button must switch modes without opening a picker popup."
     }
+    (Find-SidebarElement AutomationId TitleBarAppearanceButton).SetFocus()
     [SidebarReviewKeyboard]::Tap(0x0D)
-    (Find-SidebarElement AutomationId "AppearanceShortcut$originalMode").GetCurrentPattern(
-        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    [SidebarReviewKeyboard]::Tap(0x1B)
     $null = Wait-UiRegressionState -Description 'keyboard title-bar choice restores shared mode' -Condition {
-        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.Name -eq "Appearance mode: $originalMode"
+        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.Name -eq "Appearance mode: $originalMode" -and
+            (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.HasKeyboardFocus
     }
 
     $before = $root.Current.BoundingRectangle
@@ -70,7 +110,34 @@ function Test-TitleBarInteractions {
             [Math]::Abs($root.Current.BoundingRectangle.Top - $before.Top - 40 * $scale) -lt 4 * $scale
     }
     $pattern = $root.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
-    $pattern.SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Minimized)
+    $maximize = (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.BoundingRectangle
+    $x = [int]($maximize.Left + $maximize.Width / 2); $y = [int]($maximize.Top + $maximize.Height / 2)
+    [SidebarReviewKeyboard]::PressAt($x, $y)
+    [SidebarReviewKeyboard]::Release()
+    $null = Wait-UiRegressionState -Description 'pointer custom maximize action' -Condition {
+        $pattern.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Maximized -and
+            (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.Name -eq 'Restore'
+    }
+    Test-TitleBarLayout
+    (Find-SidebarElement AutomationId TitleBarMaximizeButton).SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x20)
+    $null = Wait-UiRegressionState -Description 'keyboard custom restore action' -Condition {
+        $pattern.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Normal -and
+            (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.Name -eq 'Maximize'
+    }
+    $maximize = (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.BoundingRectangle
+    $x = [int]($maximize.Left + $maximize.Width / 2); $y = [int]($maximize.Top + $maximize.Height / 2)
+    [SidebarReviewKeyboard]::PressAt($x, $y)
+    try {
+        [SidebarReviewKeyboard]::MoveTo($x - [int](60 * $scale), $y + [int](60 * $scale))
+        Start-Sleep -Milliseconds 200
+    }
+    finally { [SidebarReviewKeyboard]::Release() }
+    if ($pattern.Current.WindowVisualState -ne [System.Windows.Automation.WindowVisualState]::Normal) {
+        throw 'Releasing a custom maximize press outside the button must cancel, not toggle the window state.'
+    }
+    (Find-SidebarElement AutomationId TitleBarMinimizeButton).GetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     $null = Wait-UiRegressionState -Description 'native minimize' -Condition {
         $pattern.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Minimized
     }

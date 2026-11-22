@@ -881,14 +881,19 @@
           "changedBy": "#318: add rendered header/page inset checks and stricter theme-specific divider contrast checks; retain resize and persistence coverage. #719 adds title-bar layout and interaction checks without changing the baseline functions.",
           "functions": [
             {
+              "name": "Test-TitleBarCaptionHover",
+              "refactored": true,
+              "introducedBy": "#719: compare rendered normal/hover captures for all three custom caption buttons, requiring transparent rounded corners and shading down to the header bottom."
+            },
+            {
               "name": "Test-TitleBarLayout",
               "refactored": true,
-              "introducedBy": "#719: rendered identity/control containment, navigation separation and native caption/client/drag hit testing, reused at narrow widths and enlarged text."
+              "introducedBy": "#719: rendered identity/control containment, navigation separation and custom caption/client/drag/Snap hit testing, reused at narrow widths and enlarged text."
             },
             {
               "name": "Test-TitleBarInteractions",
               "refactored": true,
-              "introducedBy": "#719: pointer/keyboard appearance flyout sharing and focus restoration, real title-bar dragging and native minimize/restore."
+              "introducedBy": "#719: immediate pointer/keyboard appearance switching without a popup, retained focus, real title-bar dragging, custom caption pointer/keyboard actions and canceled maximize presses."
             },
             {
               "assertions": [],
@@ -945,6 +950,8 @@
             }
           ],
           "captures": [
+            "b91cfe2380fa197c3af5413d8dd8868b7d2d915e9be0a6f8c85a3a4c80354e90",
+            "300fa0e47d0c40d381d6d2dc4ef2a1f400713859c6c890888f11f6ce77a189f5",
             "a481b8b7f56bffd1678135d6cc5e1d1e9a8c573443ee9aa7b76edc2bbf279625",
             "ed123854608cd41d2c690d75ec45fc7d1a3b5f83a05abbdc4d74c0dc25f06dd9",
             "bc967c064a7f1942f7d47501633c0e3b29caafb1d23a6c0b51a693441d50f8fe",
@@ -966,7 +973,7 @@
           ],
           "baselineSha256": "841d6c1ee5453d375a30aa406d6d37de120ab4a76975fbe4f7306758b8c0a628",
           "refactored": true,
-          "changedBy": "#345: add isolated disclosure coverage while retaining the existing layout matrix and captures.",
+          "changedBy": "#345: add isolated disclosure coverage while retaining the existing layout matrix and captures. #719 owner refinement moves the shortcut to the title bar and replaces popup open/close coverage with immediate Enter/Space toggling; retains all theme pairs, backdrop preservation, persistence, save-error and high-contrast captures.",
           "functions": [
             {
               "name": "Test-SettingsCardHeaders",
@@ -1010,16 +1017,6 @@
             },
             {
               "name": "Get-AppearanceShortcut",
-              "refactored": true,
-              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
-            },
-            {
-              "name": "Open-AppearanceShortcut",
-              "refactored": true,
-              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
-            },
-            {
-              "name": "Close-AppearanceShortcut",
               "refactored": true,
               "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
             },
@@ -1371,7 +1368,7 @@
           ],
           "baselineSha256": "291544e71d18a4cd946472975d213fe279f66481ade8c4a2277a0748fe78f539",
           "refactored": true,
-          "changedBy": "#318: exercise lower divider contrast in light/dark themes and system-color hover/focus presentation in high contrast. #719 adds title-bar pointer/keyboard and native hit-target checks plus restored/maximized light/dark and high-contrast captures; all existing assertions and captures remain.",
+          "changedBy": "#318: exercise lower divider contrast in light/dark themes and system-color hover/focus presentation in high contrast. #719 adds title-bar pointer/keyboard and native hit-target checks plus restored/maximized light/dark and high-contrast captures; existing divider assertions and captures remain. Owner refinement replaces the appearance picker with immediate toggling and removes the duplicate sidebar shortcut; its shared theme-pairing, backdrop, persistence and save-error coverage remains in Settings helpers.",
           "functions": [],
           "captures": [
             "da901e1248c1b5cccdc741440da7b359ad6264edf56c82d8b6b24b5e2922d5e1",

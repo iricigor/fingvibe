@@ -4,6 +4,7 @@ foreach ($theme in $UiReviewAppearanceThemes) {
     Save-SidebarAppearance "sidebar-$theme" -AssertMatchingSolid
     if ($theme -in @("Standard Light", "Standard Dark")) {
         Test-TitleBarLayout
+        Test-TitleBarCaptionHover "title-bar-$theme"
         Save-SidebarAppearance "title-bar-$theme-restored"
         $windowPattern = $root.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
         try {
@@ -12,6 +13,7 @@ foreach ($theme in $UiReviewAppearanceThemes) {
                 $windowPattern.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Maximized
             }
             Test-TitleBarLayout
+            Test-TitleBarCaptionHover "title-bar-high-contrast"
             Save-SidebarAppearance "title-bar-$theme-maximized"
         }
         finally {

@@ -19,14 +19,26 @@
             <Grid.Resources>
                 <SolidColorBrush x:Key="TitleBarForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
                 <SolidColorBrush x:Key="TitleBarSecondaryBrush" Color="{ThemeResource TextFillColorSecondary}" />
+                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
+                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
+                <Style x:Key="TitleBarCaptionButtonStyle" TargetType="Button">
+                    <Setter Property="Width" Value="46" />
+                    <Setter Property="MinHeight" Value="40" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="CornerRadius" Value="6" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                </Style>
             </Grid.Resources>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="TitleBarLeftInset" Width="0" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition x:Name="TitleBarRightInset" Width="0" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <Grid x:Name="TitleBarDragArea" Grid.Column="1" Background="Transparent" Padding="16,4,12,4"
+            <Grid x:Name="TitleBarDragArea" Background="Transparent" Padding="16,4,12,4"
                   ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -41,8 +53,8 @@
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
             </Grid>
-            <Grid Grid.Column="2" Margin="0,4,8,4" VerticalAlignment="Center">
-                <Button x:Name="TitleBarAppearanceButton" Width="32" Height="32" Padding="0"
+            <Grid Grid.Column="1" Margin="0,4,8,4" VerticalAlignment="Center">
+                <Button x:Name="TitleBarAppearanceButton" Width="32" Height="32" Padding="0" CornerRadius="4"
                         Background="Transparent" Click="TitleBarAppearanceButton_Click"
                         AutomationProperties.AutomationId="TitleBarAppearanceButton"
                         AutomationProperties.Name="Appearance mode: Dark">
@@ -54,6 +66,30 @@
                            Style="{ThemeResource CriticalIconInfoBadgeStyle}"
                            AutomationProperties.AccessibilityView="Raw" />
             </Grid>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <Button x:Name="TitleBarMinimizeButton" Style="{StaticResource TitleBarCaptionButtonStyle}"
+                        Click="TitleBarMinimizeButton_Click" AutomationProperties.Name="Minimize"
+                        ToolTipService.ToolTip="Minimize">
+                    <FontIcon Glyph="&#xE921;" FontSize="10" IsTextScaleFactorEnabled="False" />
+                </Button>
+                <Button x:Name="TitleBarMaximizeButton" Style="{StaticResource TitleBarCaptionButtonStyle}"
+                        Click="TitleBarMaximizeButton_Click" AutomationProperties.Name="Maximize"
+                        ToolTipService.ToolTip="Maximize">
+                    <FontIcon x:Name="TitleBarMaximizeIcon" Glyph="&#xE922;" FontSize="10"
+                              IsTextScaleFactorEnabled="False" />
+                </Button>
+                <Button x:Name="TitleBarCloseButton" Style="{StaticResource TitleBarCaptionButtonStyle}"
+                        Click="TitleBarCloseButton_Click" AutomationProperties.Name="Close"
+                        ToolTipService.ToolTip="Close">
+                    <Button.Resources>
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#C42B1C" />
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#B52519" />
+                        <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                        <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                    </Button.Resources>
+                    <FontIcon Glyph="&#xE8BB;" FontSize="10" IsTextScaleFactorEnabled="False" />
+                </Button>
+            </StackPanel>
         </Grid>
         <NavigationView x:Name="MainNavigation" Grid.Row="1"
                         PaneDisplayMode="Auto"
@@ -208,40 +244,6 @@
                         <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono-48.png"
                                     Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <!-- Quick Light/Dark choice beside Settings; it shares Settings' saved appearance. -->
-                <NavigationViewItem x:Name="AppearanceShortcutNavItem" Content="Dark mode" SelectsOnInvoked="False"
-                                    AutomationProperties.AutomationId="AppearanceShortcutNavItem">
-                    <NavigationViewItem.Icon>
-                        <FontIcon x:Name="AppearanceShortcutIcon" Glyph="&#xE708;" />
-                    </NavigationViewItem.Icon>
-                    <NavigationViewItem.InfoBadge>
-                        <InfoBadge x:Name="AppearanceShortcutBadge" Visibility="Collapsed"
-                                   Style="{ThemeResource CriticalIconInfoBadgeStyle}"
-                                   AutomationProperties.AccessibilityView="Raw" />
-                    </NavigationViewItem.InfoBadge>
-                    <FlyoutBase.AttachedFlyout>
-                        <Flyout x:Name="AppearanceShortcutFlyout" Placement="RightEdgeAlignedBottom">
-                            <StackPanel Spacing="8" MaxWidth="280">
-                                <RadioButtons x:Name="AppearanceShortcutModes" Header="Appearance mode"
-                                              AutomationProperties.AutomationId="AppearanceShortcutModes"
-                                              SelectionChanged="AppearanceShortcutModes_SelectionChanged">
-                                    <RadioButton x:Name="AppearanceShortcutLight" Content="Light"
-                                                 AutomationProperties.AutomationId="AppearanceShortcutLight" />
-                                    <RadioButton x:Name="AppearanceShortcutDark" Content="Dark"
-                                                 AutomationProperties.AutomationId="AppearanceShortcutDark" />
-                                </RadioButtons>
-                                <TextBlock x:Name="AppearanceShortcutHighContrastNote" Visibility="Collapsed"
-                                           TextWrapping="Wrap"
-                                           AutomationProperties.AutomationId="AppearanceShortcutHighContrastNote"
-                                           Text="Windows high contrast colors currently apply. Your choice is saved for when high contrast ends." />
-                                <TextBlock x:Name="AppearanceShortcutSaveStatus" Visibility="Collapsed"
-                                           TextWrapping="Wrap"
-                                           AutomationProperties.AutomationId="AppearanceShortcutSaveStatus"
-                                           AutomationProperties.LiveSetting="Assertive" />
-                            </StackPanel>
-                        </Flyout>
-                    </FlyoutBase.AttachedFlyout>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 

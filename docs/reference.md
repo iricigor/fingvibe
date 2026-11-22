@@ -141,17 +141,21 @@ Build identity is stamped into assembly metadata using `BuildKind` (`Release`, `
 
 Without a saved theme preference, FingVibe starts with Standard Light or Standard Dark to match the Windows app mode. **Settings > Appearance** separates **Mode** (Light or Dark), **Theme**, and **Window backdrop**. Light offers Standard, Warm, and Colorful; Dark offers Standard, True Black (OLED), and Colorful. Switching modes retains Standard or Colorful; Warm and True Black map to each other. Colorful uses pale blue/violet surfaces in Light and deep indigo surfaces in Dark without replacing semantic status colors. Solid shows the palette most faithfully; backdrop materials can soften its colors.
 
-A sidebar footer shortcut directly above Settings offers the same Light/Dark choice from any page, including the icon-only rail. It uses Core `AppearanceModes` for the pairing shared with Settings, preserves the backdrop, and saves through the same store. Save failures show an InfoBadge, a message in its flyout and its accessible help text, alongside the existing Settings error. In high contrast it still saves the mode and notes that Windows colors currently apply. Native UI review can set `FINGVIBE_UI_REVIEW_APPEARANCE` to an isolated appearance file; without it UI review keeps appearance in memory.
+A title-bar shortcut toggles Light/Dark immediately from any page, without a popup. It uses Core `AppearanceModes` for the pairing shared with Settings, preserves the backdrop, and saves through the same store. Save failures show an InfoBadge and a message in its tooltip and accessible help text, alongside the existing Settings error, and are announced to assistive technology. In high contrast it still saves the mode and notes that Windows colors currently apply. Native UI review can set `FINGVIBE_UI_REVIEW_APPEARANCE` to an isolated appearance file; without it UI review keeps appearance in memory.
 
 The app-themed title bar shows a small Connected home icon, **FingVibe**, and
-secondary version/build identity. Its appearance button opens the same Light/Dark
-flyout as the sidebar shortcut, including persistence errors and high-contrast
-feedback. The noninteractive header remains draggable; Windows manages the caption
-buttons, resizing, system menu and Snap behavior. Native caption insets are converted
-from physical pixels at the current display scale so app controls cannot occupy
-their reserved area. The header starts at 40 DIPs and can grow for enlarged text;
+secondary version/build identity. Its appearance button has rounded hover corners
+and switches modes immediately; Settings retains the full appearance selectors.
+There is no duplicate appearance shortcut in the sidebar. The noninteractive
+header remains draggable. Custom caption buttons use rounded hover backgrounds
+and native minimize, maximize/restore and close actions; closing still drains active
+work through the existing shutdown path. The maximize button supplies native
+`HTMAXBUTTON` hit testing for Windows Snap Layouts, with DPI-aware coordinates and
+mouse-capture cancellation. The header starts at 40 DIPs and can grow for enlarged text;
 secondary build text trims before the appearance button. The test-build ribbon stays
 below the title bar and retains its existing acknowledgement and release semantics.
+Caption controls fill the header height rather than leaving a strip below their
+hover backgrounds. Keyboard activation and focus use standard WinUI buttons.
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
