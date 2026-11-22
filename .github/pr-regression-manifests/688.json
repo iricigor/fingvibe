@@ -1,0 +1,24 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 688,
+  "category": "validation",
+  "changedBehavior": "The content cards on Overview (Network, Network setup), Network (identity, Network health, Device activity), People & rooms (People, Rooms) and Person details (Equipment activity) open with the shared H4 card heading from #578: a shaded band with a decorative section icon, 16-px semibold heading and divider.",
+  "selectors": [
+    "core-tests",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-sidebar-scan-flows",
+    "native-network-activity",
+    "native-details-summary",
+    "network-activity",
+    "equipment-activity",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Each adopted card starts with exactly one shared card-heading band holding a decorative icon and the styled heading, with no local font or color overrides.",
+    "Heading text, People/Rooms counts and Add actions, the Network identity text, activity period pickers, automation names and IDs are unchanged.",
+    "Zero-padding People and Rooms table cards keep the band flush with the 12-DIP inset shared by their column headers.",
+    "Network keeps its four top-level cards in order, and changes to the shared style select the Overview, Network, People, Rooms and Person details captures."
+  ]
+}

@@ -213,6 +213,12 @@ Heading text, counts and Edit actions stay in the band, and the band grows when
 the heading wraps. Windows high contrast draws the band and its edge in system
 colors. Activity's period and hour controls now sit below the band at full card
 width.
+The same heading opens the content cards on **Overview** (Network, Network
+setup), **Network** (the network identity card, Network health and Device
+activity), **People & rooms** (People and Rooms, with their counts and Add
+actions in the band) and **Person details** (Equipment activity). Whole-card
+navigation tiles, summary tiles without a heading, Settings disclosure cards and
+list section headings outside a card keep their own treatments.
 Identification and compact service tiles use up to three columns,
 reducing to one as width and text scaling require. The **Rename device** pencil in the
 identity header reveals the existing name editor only when requested. Copy and

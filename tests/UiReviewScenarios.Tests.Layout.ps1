@@ -338,6 +338,39 @@
             throw "Overview navigation cards must use one separate trailing chevron and no embedded arrow."
         }
     }
+    # #688: content cards on the main pages start with the shared H4 card heading used by Device Details (#578).
+    foreach ($page in @(
+        @{ Path = "Views\OverviewPageView.xaml"; Headings = @("Network", "Network setup") },
+        @{ Path = "Views\NetworkPageView.xaml"; Headings = @("NetworkIdentityText", "Network health", "Device activity") },
+        @{ Path = "Views\PeopleRoomsPageView.xaml"; Headings = @("People", "Rooms") },
+        @{ Path = "Views\PersonDetailsPageView.xaml"; Headings = @("Equipment activity") }
+    )) {
+        $document = [System.Xml.XmlDocument]::new()
+        $document.Load((Join-Path $appDirectory $page.Path))
+        $bands = @($document.SelectNodes("//*[local-name()='Border' and @Style='{StaticResource CardHeadingBandStyle}']"))
+        $titles = @()
+        foreach ($band in $bands) {
+            $card = $band.ParentNode.ParentNode
+            $first = $card.SelectSingleNode("./*/*[not(contains(local-name(), '.'))]")
+            $icon = $band.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']")
+            $title = $band.SelectSingleNode(".//*[local-name()='TextBlock' and @Style='{StaticResource CardHeadingTextStyle}']")
+            if ($card.GetAttribute("Style") -cne "{StaticResource ScannerSummaryCardStyle}" -or $first -ne $band -or
+                -not $icon -or -not $icon.GetAttribute("Glyph") -or -not $title -or
+                $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or $title.HasAttribute("Foreground")) {
+                throw "$($page.Path) card headings must start their card with one shared band holding an icon and styled heading."
+            }
+            # Zero-padding table cards keep the band flush and the 12-DIP inset shared with their column headers.
+            $zeroPadding = $card.GetAttribute("Padding") -eq "0"
+            if (($zeroPadding -and ($band.GetAttribute("Margin") -cne "0" -or $band.GetAttribute("Padding") -cne "12,10")) -or
+                (-not $zeroPadding -and ($band.HasAttribute("Margin") -or $band.HasAttribute("Padding")))) {
+                throw "$($page.Path) heading bands may only override their insets inside zero-padding table cards."
+            }
+            $titles += if ($title.HasAttribute("x:Name")) { $title.GetAttribute("x:Name") } else { $title.GetAttribute("Text") }
+        }
+        if (($titles -join "|") -cne ($page.Headings -join "|")) {
+            throw "$($page.Path) must use the shared card heading for exactly: $($page.Headings -join ', '); found $($titles -join ', ')."
+        }
+    }
     foreach ($link in @(
         @{ Path = "Views\NetworkPageView.xaml"; Id = "OpenNetworkHealthButton" },
         @{ Path = "Tools\NetworkHealthPage.xaml"; Id = "OpenServiceStatusButton" },
