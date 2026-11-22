@@ -27,6 +27,8 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         : Path.Combine(fixture.DownloadRoot, "install-handoff.json");
     public bool CanInstall => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsDownloading
         && _downloaded is { } file && session.State.ConfirmedUpdate?.Version == file.Version;
+    public bool CanUpdateNow => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsDownloading
+        && SelectedAsset is not null && session.State.ConfirmedUpdate is not null;
 
     public ReleaseAsset? SelectedAsset => session.State.ConfirmedUpdate is { } release
         ? SelectAsset(release) : null;
@@ -57,6 +59,17 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
             _downloadCancellation = null;
         }
     }
+
+    public async Task<ReleaseInstallHandoffRecord> UpdateNowAsync(IProgress<double> progress)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!CanUpdateNow) throw new InvalidOperationException("Update now is unavailable for this installation.");
+        if (!CanInstall) await DownloadAsync(progress).ConfigureAwait(false);
+        return await StartInstallHandoffAsync(relaunch: true).ConfigureAwait(false);
+    }
+
+    public Task<ReleaseInstallHandoffRecord?> ReadLatestInstallHandoffAsync() =>
+        ReleaseInstallHandoffStore.ReadAsync(LatestInstallHandoffRecordPath);
 
     public void CancelDownload()
     {

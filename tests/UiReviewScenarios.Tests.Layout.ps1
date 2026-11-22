@@ -156,7 +156,7 @@
         @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary"; Heading = "ScheduledScansHeading" },
         @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary"; Heading = "AboutSettingsHeading" }
     )) {
-        $card = $cards.SelectSingleNode("./*[@*[local-name()='Name']='$($entry.Id)']")
+        $card = $cards.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Id)']")
         $band = $card.SelectSingleNode(".//*[local-name()='Border' and @Style='{StaticResource SettingsCardHeadingBandStyle}']")
         $row = if ($band) { $band.SelectSingleNode("./*[local-name()='Grid' and @Style='{StaticResource CardHeadingRowStyle}']") }
         $icon = if ($row) { $row.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']") }
@@ -167,6 +167,20 @@
             $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or $title.HasAttribute("Foreground")) {
             throw "$($entry.Id) must preserve its native interaction and use the shared H4 icon, band and styled heading."
         }
+    }
+    $aboutRow = $cards.SelectSingleNode("./*[local-name()='Grid' and @*[local-name()='Name']='AboutSettingsRow']")
+    $settingsUpdate = $aboutRow.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Name']='SettingsUpdateNowButton']")
+    $aboutButton = $aboutRow.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Name']='AboutSettingsButton']")
+    if (-not $aboutRow -or -not $aboutButton -or -not $settingsUpdate -or
+        $aboutButton.ParentNode -ne $aboutRow -or $settingsUpdate.ParentNode -ne $aboutRow) {
+        throw "Settings Update now must remain a sibling action, not a nested About row control."
+    }
+    if ($settingsUpdate.GetAttribute("Content") -cne "Update now" -or
+        $settingsUpdate.GetAttribute("Click") -cne "SettingsUpdateNowButton_Click") {
+        throw "Settings must expose the shared Update now action."
+    }
+    if ($aboutRow.HasAttribute("ColumnSpacing") -or $settingsUpdate.GetAttribute("Margin") -cne "12,0,0,0") {
+        throw "A collapsed Settings Update now action must not narrow the About card; keep its spacing on the button margin."
     }
     $scheduled = $settings.SelectSingleNode("//*[@*[local-name()='Name']='ScheduledScansSection']")
     $monitorSwitch = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringSwitch']")

@@ -294,34 +294,44 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Expander>
-            <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
-                    Style="{StaticResource SettingsNavigationCardStyle}"
-                    AutomationProperties.Name="About FingVibe &amp; updates">
-                <Border Style="{StaticResource SettingsCardHeadingBandStyle}" Padding="16,10,0,10">
-                <Grid Style="{StaticResource CardHeadingRowStyle}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Grid VerticalAlignment="Center">
-                        <FontIcon Glyph="&#xE946;" Style="{StaticResource CardHeadingIconStyle}" />
-                        <Ellipse x:Name="AboutUpdateIndicator" Width="8" Height="8"
-                                 Fill="#D97706" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                 Visibility="Collapsed" IsHitTestVisible="False"
-                                 AutomationProperties.AccessibilityView="Raw" />
+            <Grid x:Name="AboutSettingsRow">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
+                        Style="{StaticResource SettingsNavigationCardStyle}"
+                        AutomationProperties.Name="About FingVibe &amp; updates">
+                    <Border Style="{StaticResource SettingsCardHeadingBandStyle}" Padding="16,10,0,10">
+                    <Grid Style="{StaticResource CardHeadingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE946;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <Ellipse x:Name="AboutUpdateIndicator" Width="8" Height="8"
+                                     Fill="#D97706" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                     Visibility="Collapsed" IsHitTestVisible="False"
+                                     AutomationProperties.AccessibilityView="Raw" />
+                        </Grid>
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="AboutSettingsHeading" Text="About FingVibe &amp; updates" Style="{StaticResource CardHeadingTextStyle}" />
+                            <TextBlock x:Name="AboutSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
+                        </StackPanel>
+                        <Grid Grid.Column="2" Width="32" Height="32" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE76C;" FontSize="12" IsTextScaleFactorEnabled="False"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                        </Grid>
                     </Grid>
-                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                        <TextBlock x:Name="AboutSettingsHeading" Text="About FingVibe &amp; updates" Style="{StaticResource CardHeadingTextStyle}" />
-                        <TextBlock x:Name="AboutSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
-                    </StackPanel>
-                    <Grid Grid.Column="2" Width="32" Height="32" VerticalAlignment="Center">
-                        <FontIcon Glyph="&#xE76C;" FontSize="12" IsTextScaleFactorEnabled="False"
-                                  IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
-                    </Grid>
-                </Grid>
-                </Border>
-            </Button>
+                    </Border>
+                </Button>
+                <Button x:Name="SettingsUpdateNowButton" Grid.Column="1" Content="Update now"
+                        Style="{StaticResource AccentButtonStyle}" Click="SettingsUpdateNowButton_Click"
+                        Visibility="Collapsed" VerticalAlignment="Center" Margin="12,0,0,0"
+                        AutomationProperties.Name="Update FingVibe now" />
+            </Grid>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>
