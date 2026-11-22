@@ -41,19 +41,31 @@ public static class LinkReviewAccessibility {
 $virtualExplanation = "A virtual device groups changing private MAC addresses automatically, so it can't be linked. You can still name it and assign it to a person or room."
 $linkedExplanation = "Linked by you. Edit the shared name, identification, Person, Room and usage category in their own sections."
 
+$script:linkLookupMilliseconds = 5000
+
 function Find-Link([string] $Value, [switch] $ByName, [switch] $Optional) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
+    $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
     $call = Start-UiRegressionCall lookup
     try {
-        $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
-        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+        # Saves, refreshes and theme changes rebuild Device Details asynchronously, so a required
+        # control's peer can be briefly absent. Required lookups await reconstruction within a bound;
+        # optional lookups stay single-shot so absence assertions keep their meaning.
+        $deadline = [DateTime]::UtcNow.AddMilliseconds($(if ($Optional) { 0 } else { $script:linkLookupMilliseconds }))
+        do {
             $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        }
+            if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+                $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            }
+            if ($element -or [DateTime]::UtcNow -ge $deadline) { break }
+            Start-Sleep -Milliseconds 100
+        } while ($true)
     }
     finally { Complete-UiRegressionCall $call }
-    if (-not $element -and -not $Optional) { throw "Missing device-linking control '$Value'." }
+    if (-not $element -and -not $Optional) {
+        throw "Missing device-linking control '$Value' after $($script:linkLookupMilliseconds) ms."
+    }
     return $element
 }
 
@@ -166,16 +178,23 @@ function Save-LinkCapture([string] $Name, [string] $Control = "MergeMacAddresses
 function Get-LinkSection {
     $section = Find-Link MergeMacAddresses -Optional
     if (-not $section) { return $null }
-    [pscustomobject]@{
-        Header = $section.Current.HelpText
-        State = $section.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState
-        Element = $section
+    try {
+        [pscustomobject]@{
+            Header = $section.Current.HelpText
+            State = [string]$section.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState
+            Element = $section
+        }
     }
+    catch [System.Windows.Automation.ElementNotAvailableException] { return $null }
 }
 
 function Assert-LinkSection([string] $Header, [string] $State) {
-    Wait-Link { $section = Get-LinkSection; $section -and $section.Header -eq $Header } "Merge MAC addresses showing '$Header'"
-    $section = Get-LinkSection
+    # Read header and state from one live peer; a peer replaced between reads reports no state.
+    Wait-Link {
+        $script:linkSection = Get-LinkSection
+        $script:linkSection -and $script:linkSection.Header -eq $Header -and $script:linkSection.State
+    } "Merge MAC addresses showing '$Header'"
+    $section = $script:linkSection
     if ($section.State -ne $State) { throw "Merge MAC addresses '$Header' must open $State, not $($section.State)." }
     $identification = (Show-Link DeviceClassificationEditButton).Current.BoundingRectangle
     if ($identification.Top -lt $section.Element.Current.BoundingRectangle.Bottom) {
