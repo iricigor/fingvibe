@@ -431,7 +431,7 @@ function Test-DeviceDetailsEditing {
             $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
             $tabs.Top -ge $back.Bottom -and [Math]::Abs($tabs.Left - $back.Left) -le 8 -and $tabs.Right -le $bounds.Right
         } "480-px tabs wrapped beneath the header"
-        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-480.png")
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-480.png") -MinimumWidth 480
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
             $window.Left, $window.Top, 760, $window.Height, 0x0044)
         Start-Sleep -Milliseconds 300
