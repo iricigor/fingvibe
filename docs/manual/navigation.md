@@ -88,7 +88,10 @@ latest published stable GitHub release at startup, then ten minutes
 after each completed check while FingVibe remains open. **Check for updates** uses
 the same check and resets the next deadline to ten minutes after completion,
 including on failure. GitHub rate-limit delays take precedence. Checking never
-downloads, installs, closes FingVibe, or interrupts scanning with a popup.
+installs, closes FingVibe, or interrupts scanning with a popup. When a verified
+installed copy confirms a newer stable release on an unmetered connection,
+FingVibe may silently download and stage its Setup. Metered or unknown-cost
+connections, portable copies, and non-release builds never background-download.
 
 About distinguishes not checked, checking, current, newer version and failed
 detection. A confirmed newer version shows small orange circles on **Settings**
@@ -100,12 +103,15 @@ their manual stable-release link warns that their versions are not comparable.
 
 For a verified per-user installation, **Update now** is offered in About and next
 to the Settings About row. Its confirmation provides **Restart now**, **When I
-close** and **Cancel**, with Cancel selected by default. Restart now downloads the
-Setup with progress and Cancel, revalidates it, hands it to the close-first
-installer and reopens after a successful install. When I close persists the
-confirmed version; it prepares a verified installer, hides the availability
-dots, and shows **Cancel scheduled update**. A missing or invalid file leaves the
-schedule pending rather than running Setup.
+close** and **Cancel**, with Cancel selected by default. Restart now reuses a
+verified staged Setup immediately or, when none is ready, downloads it with
+visible progress and Cancel. A background download already in progress joins
+that same task instead of starting twice. FingVibe then revalidates the file,
+hands it to the close-first installer and reopens after a successful install.
+When I close persists the confirmed version; it prepares a verified installer in
+the same per-version staging folder, hides the availability dots, and shows
+**Cancel scheduled update**. A missing or invalid file leaves the schedule
+pending rather than running Setup.
 The next completed normal close that has a verified file starts the #666 handoff
 with relaunch disabled, so FingVibe remains closed after installation. Cancelled
 closes, in-progress downloads without a verified file, crashes, forced termination
@@ -118,9 +124,13 @@ directory, installed version and installer ownership. Otherwise **Download
 portable ZIP** uses the manual replacement path; an uncertain
 or portable copy is never silently converted into an installation. Missing assets
 lead to the release page instead. Downloads reject incomplete/changed files.
-Completed files are saved under `%LOCALAPPDATA%\FingVibe\Updates\<unique
-directory>`; downloaded executables retain Internet security markings. A
-download failure popup links to GitHub Releases.
+Background and foreground Setup files for installed copies use
+`%LOCALAPPDATA%\FingVibe\Updates\v<version>` and are re-hashed before reuse after
+restart, so a scheduled update is not downloaded again merely because FingVibe
+restarted. Portable ZIP downloads retain unique temporary folders; old version and
+temporary folders are cleaned up, and all downloaded executables retain Internet
+security markings. A download failure
+popup links to GitHub Releases.
 
 When an update is available, a collapsed **What's new in X.Y.Z** expander below
 the update action shows that release's notes from the same GitHub response the
@@ -132,7 +142,9 @@ end with **View full notes on GitHub**. If a release has no readable notes,
 unaffected. Expanded notes scroll with the page.
 
 **Update details** is collapsed by default and contains exact check times,
-deployment and helper diagnostics. The main Updates card keeps one version/status
+deployment, staging and helper diagnostics. Background download failures appear
+only here and are retried at the next qualifying check. The main Updates card
+keeps one version/status
 sentence and a relative **Last checked** value; failures and Windows security
 warnings stay visible outside the expander.
 

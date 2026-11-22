@@ -103,8 +103,8 @@ public sealed class ReleaseUpdateCloseSchedulerTests
         Assert.Equal(2, fixture.Review.DownloadCount);
         var refreshed = Assert.IsType<ReleaseUpdateSchedule>(fixture.Store.Load());
         Assert.True(refreshed.IsArmed);
-        Assert.NotEqual(saved.InstallerPath, refreshed.InstallerPath);
         Assert.True(File.Exists(refreshed.InstallerPath));
+        Assert.NotEqual("tampered", await File.ReadAllTextAsync(refreshed.InstallerPath!));
     }
 
     [WindowsUpdateFact]

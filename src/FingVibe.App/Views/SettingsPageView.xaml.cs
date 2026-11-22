@@ -122,6 +122,7 @@ public sealed partial class SettingsPageView : UserControl
         }
         session.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => Apply(state));
         closeScheduler.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => Apply(session.State));
+        actions.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => Apply(session.State));
         Apply(session.State);
     }
 

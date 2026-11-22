@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using FingVibe.Core.Updates;
@@ -8,13 +9,18 @@ namespace FingVibe.App;
 
 internal sealed class UpdateReviewFixture(string path) : TimeProvider
 {
+    private static readonly string ControlledUpdateDigest =
+        Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes("controlled-update")));
     private int _downloadCount;
+
     private sealed record Settings
     {
         public required DateTimeOffset Now { get; init; }
         public required string Outcome { get; init; }
         public required string Deployment { get; init; }
         public required string Download { get; init; }
+        public bool? Metered { get; init; }
+        public bool? PublishDigest { get; init; }
         public string Notes { get; init; } = "default";
     }
 
@@ -32,6 +38,7 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
     public string DownloadRoot => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))
         ?? throw new InvalidDataException("The update fixture needs a parent directory."), "downloads");
     public HttpMessageHandler CreateHandler() => new Handler(this);
+    public bool IsMeteredOrUnknown() => Read().Metered ?? true;
     public UpdateDeployment Deployment => Read().Deployment switch
     {
         "installed" => new(true, "Controlled review fixture: installed deployment; launching always rejects safely."),
@@ -89,7 +96,12 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
                     .Select(suffix =>
                     {
                         var name = suffix == ".zip" ? $"FingVibe-{version}-win-x64.zip" : $"FingVibe-{version}-win-x64-Setup.exe";
-                        return (object)new { name, size = 17, browser_download_url = $"https://github.com/iricigor/fingvibe/releases/download/v{version}/{name}" };
+                        return (object)new
+                        {
+                            name, size = 17,
+                            digest = settings.PublishDigest == false ? null : $"sha256:{ControlledUpdateDigest}",
+                            browser_download_url = $"https://github.com/iricigor/fingvibe/releases/download/v{version}/{name}"
+                        };
                     }).ToArray();
                 return new(HttpStatusCode.OK)
                 {
@@ -106,7 +118,8 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
             Interlocked.Increment(ref owner._downloadCount);
             if (settings.Download == "fail") throw new HttpRequestException("Controlled download failure.");
             if (settings.Download == "slow") await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
-            if (settings.Download is not ("success" or "slow" or "interrupted"))
+            if (settings.Download == "slow-short") await Task.Delay(TimeSpan.FromMilliseconds(500), cancellationToken);
+            if (settings.Download is not ("success" or "slow" or "slow-short" or "interrupted"))
                 throw new InvalidDataException("Unknown update review download mode.");
             return new(HttpStatusCode.OK)
             {

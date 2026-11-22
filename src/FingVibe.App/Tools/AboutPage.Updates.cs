@@ -30,6 +30,7 @@ public sealed partial class AboutPage
                 ? "Development, PR and Test builds are not directly comparable to stable releases. No automatic checks or installation are offered; use the stable releases link to review releases manually."
                 : "The installed release version could not be verified. No automatic checks or installation are offered; use the stable releases link for manual review.";
         updates.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => RenderUpdateState(state));
+        actions.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => RenderUpdateState(updates.State));
         closeScheduler.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => RenderUpdateState(updates.State));
         RenderUpdateState(updates.State);
         _ = RenderInstallOutcomeAsync();
@@ -48,6 +49,12 @@ public sealed partial class AboutPage
         if (state.NextCheckAt is { } next) details.Add($"Next automatic check no earlier than {next:u}.");
         if (state.ConfirmedUpdate is not null && _actions?.SelectedAsset is null)
             details.Add("The required Windows x64 asset is unavailable. Use the release page for manual download.");
+        if (_actions?.BackgroundDownloadStatus is { } backgroundStatus)
+            details.Add(backgroundStatus);
+        if (_actions?.IsBackgroundDownloading == true)
+            details.Add($"Background update download: {_actions.DownloadProgress:0}% complete.");
+        if (_actions?.BackgroundDownloadError is { } backgroundError)
+            details.Add($"Background download failed: {backgroundError} The next update check will retry.");
         if (_closeScheduler?.LastError is { } closeError)
             details.Add($"Postponed update failed: {closeError}");
         UpdateDetails.Text = string.Join(Environment.NewLine, details);

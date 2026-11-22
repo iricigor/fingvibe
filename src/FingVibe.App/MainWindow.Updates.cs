@@ -26,7 +26,8 @@ public sealed partial class MainWindow
             fixture is null
                 ? BuildIdentity.Current.ParsedVersion?.ToString() ?? BuildIdentity.Current.Version
                 : "v1.2.99", source.GetLatestAsync, clock);
-        _updateActions = new ReleaseUpdateActions(_updateHttp, _updates, fixture);
+        _updateActions = new ReleaseUpdateActions(_updateHttp, _updates, fixture,
+            fixture is null ? UpdateConnectionCost.IsMeteredOrUnknown : fixture.IsMeteredOrUnknown);
         var schedulePath = fixture is null
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FingVibe", "update-schedule.json")

@@ -93,9 +93,10 @@ function Open-UpdateAbout {
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateStatus } 'About update section'
 }
 
-function Set-UpdateResponse([string] $Outcome = 'newer', [string] $Download = 'success', [string] $Deployment = 'installed', [int] $AdvanceSeconds = 0, [string] $Notes = 'default') {
+function Set-UpdateResponse([string] $Outcome = 'newer', [string] $Download = 'success', [string] $Deployment = 'installed',
+    [bool] $Metered = $true, [int] $AdvanceSeconds = 0, [string] $Notes = 'default') {
     $script:now = $script:now.AddSeconds($AdvanceSeconds)
-    @{ now = $script:now.ToString('O'); outcome = $Outcome; download = $Download; deployment = $Deployment; notes = $Notes } |
+    @{ now = $script:now.ToString('O'); outcome = $Outcome; download = $Download; deployment = $Deployment; metered = $Metered; notes = $Notes } |
         ConvertTo-Json | Set-Content -LiteralPath "$script:response.new" -Encoding UTF8
     [IO.File]::Move("$script:response.new", $script:response, $true)
 }
@@ -328,6 +329,7 @@ try {
     $details = Find-UpdateControl UpdateDetailsExpander
     $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
     Wait-UpdateText UpdateDetails '*Last confirmed*Latest check failed*'
+    Wait-UpdateText UpdateDetails '*Background download skipped because the connection is metered or its cost is unknown.*'
     Wait-UpdateText UpdateLastChecked 'Last checked * ago'
     $null = Show-UpdateControl UpdateStatus
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'updates-last-confirmed.png')
@@ -419,6 +421,30 @@ try {
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
     Invoke-UpdateControl BackToSettingsButton
     Assert-UpdateIndicators $true (Join-Path $ScreenshotDirectory 'updates-schedule-cancelled.png')
+
+    $phase = Step-UiRegressionPhase $phase 'Updates/background-staging' $ScreenshotDirectory
+    Open-UpdateAbout
+    # Use a newer release than the one already verified by the foreground flow; a verified version is never re-downloaded.
+    Set-UpdateResponse -Outcome newest -Download fail -Metered $false -AdvanceSeconds 10
+    Invoke-UpdateControl CheckUpdatesButton
+    Wait-UpdateText UpdateStatus 'FingVibe v1.2.131 is available.'
+    $details = Find-UpdateControl UpdateDetailsExpander
+    if ($details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+        [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+        $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    }
+    Wait-UpdateText UpdateDetails '*Background download failed: Controlled download failure.*'
+    if (Test-UiRegressionElementVisible (Find-UpdateControl UpdateDownloadFailureDialog)) {
+        throw 'Background download failure must remain diagnostic-only; it must not show a popup.'
+    }
+    Set-UpdateResponse -Outcome newest -Metered $false -AdvanceSeconds 10
+    Invoke-UpdateControl CheckUpdatesButton
+    Wait-UpdateText UpdateDetails '*A verified update to 1.2.131 is ready.*'
+    Set-UpdateResponse -Outcome newest -Download fail -Metered $false
+    Invoke-UpdateNow
+    $dialog = Wait-UpdateDialog UpdateLaunchFailureDialog OK 'staged update installer rejection'
+    Invoke-UpdateDialogButton OK
+    if ($script:process.HasExited) { throw 'A staged update must reach the handoff without foreground download.' }
 
     $phase = Step-UiRegressionPhase $phase 'Updates/portable-narrow' $ScreenshotDirectory
     Stop-UiRegressionApp $script:process
