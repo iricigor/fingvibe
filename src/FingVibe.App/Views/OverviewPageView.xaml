@@ -11,13 +11,23 @@
             <TextBlock x:Name="OverviewVersionText" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                <Border Style="{StaticResource CardHeadingBandStyle}">
+                    <Grid Style="{StaticResource CardHeadingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE968;" Style="{StaticResource CardHeadingIconStyle}" />
+                        <TextBlock Grid.Column="1" Text="Network" Style="{StaticResource CardHeadingTextStyle}" />
+                    </Grid>
+                </Border>
                 <Grid ColumnSpacing="24">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Network" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <TextBlock x:Name="NetworkNameText"
                                    Text="Detecting network..."
                                    Style="{ThemeResource SubtitleTextBlockStyle}"
@@ -53,6 +63,7 @@
                         </StackPanel>
                     </Border>
                 </Grid>
+                </StackPanel>
             </Border>
             <TextBlock x:Name="OverviewResultsContextText" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -104,12 +115,23 @@
                 </Button>
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="Network setup" FontWeight="SemiBold" />
-                    <TextBlock x:Name="OverviewSetupText" Text="Detecting network..." TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <HyperlinkButton Content="View network details" Padding="0,4"
-                                     Click="ViewNetworkButton_Click" />
+                <StackPanel Spacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE713;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Network setup" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
+                    <StackPanel Spacing="6">
+                        <TextBlock x:Name="OverviewSetupText" Text="Detecting network..." TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <HyperlinkButton Content="View network details" Padding="0,4"
+                                         Click="ViewNetworkButton_Click" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
             <Button Style="{StaticResource ScannerSummaryButtonStyle}"

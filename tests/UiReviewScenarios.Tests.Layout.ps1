@@ -139,30 +139,33 @@
             throw "$styleName must retain its native template and a growing 68-DIP minimum, not a fixed height."
         }
     }
-    $titleStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardTitleStyle']")
-    if ($titleStyle.SelectSingleNode("./*[@Property='FontSize']").GetAttribute("Value") -cne "14" -or
-        $titleStyle.SelectSingleNode("./*[@Property='FontWeight']").GetAttribute("Value") -cne "Normal" -or
-        $titleStyle.SelectSingleNode("./*[@Property='TextWrapping']").GetAttribute("Value") -cne "Wrap") {
-        throw "Settings card titles must use regular 14-DIP wrapping text."
+    $headingBandStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardHeadingBandStyle']")
+    if (-not $headingBandStyle -or
+        $headingBandStyle.GetAttribute("BasedOn") -cne "{StaticResource CardHeadingBandStyle}" -or
+        $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Margin']").GetAttribute("Value") -cne "0") {
+        throw "Settings card headings must inherit the shared H4 band without the scanner-card offset."
     }
-    $iconStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardIconStyle']")
-    if ($iconStyle.SelectSingleNode("./*[@Property='Width']").GetAttribute("Value") -cne "32" -or
-        $iconStyle.SelectSingleNode("./*[@Property='AutomationProperties.AccessibilityView']").GetAttribute("Value") -cne "Raw") {
-        throw "Settings leading icons must reserve a fixed column without duplicating accessible labels."
+    $navigationCardPadding = $settings.SelectSingleNode(
+        "//*[@*[local-name()='Key']='SettingsNavigationCardStyle']/*[local-name()='Setter' and @Property='Padding']")
+    if (-not $navigationCardPadding -or $navigationCardPadding.GetAttribute("Value") -cne "16,0,8,0") {
+        throw "The About card must keep the Expander header's 16-DIP inset so all Settings titles share one column."
     }
     foreach ($entry in @(
-        @{ Id = "AppearanceSection"; Type = "Expander"; Summary = "AppearanceSummary" },
-        @{ Id = "DevicesSection"; Type = "Expander"; Summary = "DevicesSummary" },
-        @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary" },
-        @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary" }
+        @{ Id = "AppearanceSection"; Type = "Expander"; Summary = "AppearanceSummary"; Heading = "AppearanceSettingsHeading" },
+        @{ Id = "DevicesSection"; Type = "Expander"; Summary = "DevicesSummary"; Heading = "DevicesSettingsHeading" },
+        @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary"; Heading = "ScheduledScansHeading" },
+        @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary"; Heading = "AboutSettingsHeading" }
     )) {
         $card = $cards.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Id)']")
-        $header = $card.SelectSingleNode(".//*[local-name()='Grid' and @Style='{StaticResource SettingsCardHeaderStyle}']")
-        if ($card.LocalName -cne $entry.Type -or -not $header -or
-            $header.SelectSingleNode("./*[local-name()='Grid.ColumnDefinitions']/*[1]").GetAttribute("Width") -cne "32" -or
-            -not $header.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource SettingsCardIconStyle}']") -or
-            -not $header.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Summary)' and @Style='{StaticResource SettingsCardSummaryStyle}']")) {
-            throw "$($entry.Id) must preserve its native interaction and use the shared icon/text header treatment."
+        $band = $card.SelectSingleNode(".//*[local-name()='Border' and @Style='{StaticResource SettingsCardHeadingBandStyle}']")
+        $row = if ($band) { $band.SelectSingleNode("./*[local-name()='Grid' and @Style='{StaticResource CardHeadingRowStyle}']") }
+        $icon = if ($row) { $row.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']") }
+        $title = if ($row) { $row.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Heading)' and @Style='{StaticResource CardHeadingTextStyle}']") }
+        $summary = if ($row) { $row.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Summary)' and @Style='{StaticResource SettingsCardSummaryStyle}']") }
+        if ($card.LocalName -cne $entry.Type -or -not $band -or -not $row -or -not $icon -or
+            -not $icon.GetAttribute("Glyph") -or -not $title -or -not $summary -or
+            $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or $title.HasAttribute("Foreground")) {
+            throw "$($entry.Id) must preserve its native interaction and use the shared H4 icon, band and styled heading."
         }
     }
     $aboutRow = $cards.SelectSingleNode("./*[local-name()='Grid' and @*[local-name()='Name']='AboutSettingsRow']")
@@ -355,6 +358,40 @@
             Where-Object { $_.GetAttribute("Text").Contains([char]0x2192) })
         if ($cardChevrons.Count -ne 1 -or $embeddedArrows.Count -ne 0) {
             throw "Overview navigation cards must use one separate trailing chevron and no embedded arrow."
+        }
+    }
+    # #688: content cards on the main pages start with the shared H4 card heading used by Device Details (#578).
+    foreach ($page in @(
+        @{ Path = "Views\OverviewPageView.xaml"; Headings = @("Network", "Network setup") },
+        @{ Path = "Views\NetworkPageView.xaml"; Headings = @("NetworkIdentityText", "Network health", "Device activity") },
+        @{ Path = "Views\PeopleRoomsPageView.xaml"; Headings = @("People", "Rooms") },
+        @{ Path = "Views\PersonDetailsPageView.xaml"; Headings = @("Equipment activity") },
+        @{ Path = "Views\RoomDetailsPageView.xaml"; Headings = @("Assigned devices") }
+    )) {
+        $document = [System.Xml.XmlDocument]::new()
+        $document.Load((Join-Path $appDirectory $page.Path))
+        $bands = @($document.SelectNodes("//*[local-name()='Border' and @Style='{StaticResource CardHeadingBandStyle}']"))
+        $titles = @()
+        foreach ($band in $bands) {
+            $card = $band.ParentNode.ParentNode
+            $first = $card.SelectSingleNode("./*/*[not(contains(local-name(), '.'))]")
+            $icon = $band.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']")
+            $title = $band.SelectSingleNode(".//*[local-name()='TextBlock' and @Style='{StaticResource CardHeadingTextStyle}']")
+            if ($card.GetAttribute("Style") -cne "{StaticResource ScannerSummaryCardStyle}" -or $first -ne $band -or
+                -not $icon -or -not $icon.GetAttribute("Glyph") -or -not $title -or
+                $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or $title.HasAttribute("Foreground")) {
+                throw "$($page.Path) card headings must start their card with one shared band holding an icon and styled heading."
+            }
+            # Zero-padding table cards keep the band flush and the 12-DIP inset shared with their column headers.
+            $zeroPadding = $card.GetAttribute("Padding") -eq "0"
+            if (($zeroPadding -and ($band.GetAttribute("Margin") -cne "0" -or $band.GetAttribute("Padding") -cne "12,10")) -or
+                (-not $zeroPadding -and ($band.HasAttribute("Margin") -or $band.HasAttribute("Padding")))) {
+                throw "$($page.Path) heading bands may only override their insets inside zero-padding table cards."
+            }
+            $titles += if ($title.HasAttribute("x:Name")) { $title.GetAttribute("x:Name") } else { $title.GetAttribute("Text") }
+        }
+        if (($titles -join "|") -cne ($page.Headings -join "|")) {
+            throw "$($page.Path) must use the shared card heading for exactly: $($page.Headings -join ', '); found $($titles -join ', ')."
         }
     }
     foreach ($link in @(
