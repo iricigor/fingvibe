@@ -38,14 +38,13 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
-            <Grid ColumnSpacing="12">
+            <Grid Style="{StaticResource PageHeaderRowStyle}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <local:PageHeaderIcon Icon="tools" />
-                <TextBlock Grid.Column="1" Text="Settings" Style="{StaticResource ScannerPageTitleStyle}"
-                           Margin="0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="Settings" Style="{StaticResource PageHeaderTitleStyle}" />
             </Grid>
             <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
                           AutomationProperties.AutomationId="SettingsPage">

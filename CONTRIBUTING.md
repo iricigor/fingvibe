@@ -89,7 +89,7 @@ Sidebar uses `Sidebar.Groups.psd1`: `presentation` keeps Navigation, Settings,
 Appearance and Responsive together; `scan-flows` keeps Refresh and PeopleRooms
 together because the flows use the scanned inventory; `scan-presentation` runs
 Progress (themes, geometry, keyboard cancellation and text scaling) and FixedHeaders (page titles and Back stay
-visible and stationary while short-window page bodies scroll) independently
+visible and stationary while short-window page bodies scroll, and share one header geometry within 1 DIP) independently
 from its own Setup/Ready, without relying on a completed inventory scan;
 `preferences-scheduling` owns SettingsDisclosure, Persistence and Scheduled. Each group starts with
 isolated `Setup`/`Ready` preconditions. Sidebar lifecycle helpers retain their

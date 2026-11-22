@@ -248,8 +248,14 @@ function Get-UiReviewCapturePlan {
                 # Extend this list as other pages adopt the shared card heading.
                 Add-Scenarios @("DeviceDetails", "DeviceHistory", "Overview", "Network", "People", "Rooms", "PersonDetails", "NetworkHealth", "SpeedTest", "FingImport", "About") "$path changed the shared card-heading style used by Device Details, Overview, Network, People & rooms, Person details and tool page cards."
             }
+            elseif ($path -match '^src/FingVibe.App/PageHeaderIcon\.xaml(\.cs)?$') {
+                # The shared page-header styles live in App.xaml (all scenarios); the 48-DIP icon selects every header consumer.
+                Add-Scenarios @("Overview", "Network", "Devices", "DevicesEmpty", "People", "Rooms", "Settings", "Tools",
+                    "SqlEditor", "FingImport", "SpeedTest", "RoomMap", "NetworkHealth", "ServiceStatus", "DatabaseBackups", "About",
+                    "PersonDetails", "RoomDetails") "$path changed the shared 48-DIP page-header icon used by main, tool and People/Room detail headers."
+            }
             elseif ($path -match '^src/FingVibe.App/(App.xaml|AppearancePalette.cs|MainWindow.Appearance.cs)$') {
-                Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared theme or appearance."
+                Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared theme, appearance or page-header styles."
             }
             elseif ($path -match '^src/|^\.github/(scripts/|workflows/|agents/ui-ux-reviewer\.agent\.md)') {
                 Add-Scenarios @("Devices") "$path uses the Devices baseline; navigation smoke tests still cover every supported scenario."

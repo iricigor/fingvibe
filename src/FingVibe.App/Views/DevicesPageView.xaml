@@ -190,20 +190,19 @@
         </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid x:Name="DevicesPage" Margin="{StaticResource ScannerPageContentMargin}">
+    <Grid x:Name="DevicesPage" Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid Margin="0,0,0,16" ColumnSpacing="12">
+        <Grid Style="{StaticResource PageHeaderRowStyle}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <local:PageHeaderIcon Icon="devices" />
             <TextBlock x:Name="DevicesHeading" Grid.Column="1" Text="Devices"
-                       Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                       VerticalAlignment="Center" />
+                       Style="{StaticResource PageHeaderTitleStyle}" />
         </Grid>
         <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource ScannerCardBorderBrush}"

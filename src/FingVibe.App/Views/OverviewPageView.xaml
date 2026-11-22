@@ -9,7 +9,14 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+        <Grid Style="{StaticResource PageHeaderRowStyle}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <local:PageHeaderIcon Icon="overview" />
+            <TextBlock Grid.Column="1" Text="Overview" Style="{StaticResource PageHeaderTitleStyle}" />
+        </Grid>
         <ScrollViewer x:Name="OverviewPage" Grid.Row="1" SizeChanged="OverviewPage_SizeChanged"
                       HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16">

@@ -49,6 +49,7 @@ $findFixedHeaderTargets = {
 
 $testFixedHeaders = {
     param([string] $Variant, [switch] $RequireOverflow)
+    $headerTitleCenter = $null
     foreach ($page in $fixedHeaderPages) {
         # Navigation is hidden in the narrow minimal layout, so select at full width before shrinking.
         & $setFixedHeaderWindow $expandedWidth 720
@@ -75,6 +76,20 @@ $testFixedHeaders = {
             if (-not $window.Contains($bounds) -or $bounds.Top -lt $bar - $scale) {
                 Save-SidebarAppearance "fixed-header-failure"
                 throw "'$($page.Title)' $name must be fully visible below the network bar ($Variant). Bounds=$bounds; bar bottom=$bar; window=$window."
+            }
+        }
+        if ($Variant -eq "text-100") {
+            # #657 shared header: [Back, 16 DIP,] 48-DIP icon, 12 DIP, title, all centered on one row at the content edge.
+            $content = $viewport.Current.BoundingRectangle
+            $title = $before.title
+            $center = ($title.Top + $title.Bottom) / 2 - $bar
+            $titleLeft = if ($page.Back) { $before.back.Right + (4 + 12 + 48 + 12) * $scale } else { $content.Left + (48 + 12) * $scale }
+            if ($null -eq $headerTitleCenter) { $headerTitleCenter = $center }
+            if ([Math]::Abs($title.Left - $titleLeft) -gt $scale -or [Math]::Abs($center - $headerTitleCenter) -gt $scale -or
+                ($page.Back -and ([Math]::Abs($before.back.Left - $content.Left) -gt $scale -or
+                    [Math]::Abs(($before.back.Top + $before.back.Bottom) / 2 - $bar - $center) -gt $scale))) {
+                Save-SidebarAppearance "fixed-header-failure"
+                throw "'$($page.Title)' must use the shared header geometry within 1 DIP ($Variant). Title=$title; expected left=$titleLeft; center offset=$center vs $headerTitleCenter; content left=$($content.Left); back=$($before.back)."
             }
         }
         $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)

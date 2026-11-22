@@ -249,6 +249,9 @@ function Close-LinkPicker {
 }
 
 function Select-LinkChoice([string] $Id) {
+    # As in Invoke-Link: a previously focused choice would be brought back into view and revert the scroll.
+    $target = Find-Link $Id
+    if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
     (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Wait-Link {
         $choice = Find-Link $Id -Optional

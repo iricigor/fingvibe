@@ -11,8 +11,8 @@ function Test-SidebarContentInset([string] $Page) {
     $heading = @($root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
         Where-Object { -not $_.Current.IsOffscreen -and $_.Current.BoundingRectangle.Left -gt $edge })
     if ($heading.Count -ne 1) { throw "Expected one visible content heading for '$Page'; got $($heading.Count)." }
-    # Family-icon pages place a 48-DIP icon and 12-DIP gap before the title; the title row still starts at 12.
-    $headingInset = if ($Page -eq "Overview") { 12 } else { 12 + 48 + 12 }
+    # Every main page's shared header (#657) places a 48-DIP icon and 12-DIP gap before the title; the row still starts at 12.
+    $headingInset = 12 + 48 + 12
     foreach ($check in @(@{ Bounds = $header; Inset = 12 }, @{ Bounds = $heading[0].Current.BoundingRectangle; Inset = $headingInset })) {
         $bounds = $check.Bounds
         $inset = ($bounds.Left - $edge) / $scale

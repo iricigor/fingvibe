@@ -44,7 +44,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid ColumnSpacing="12">
+        <Grid Style="{StaticResource PageHeaderRowStyle}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -53,10 +53,9 @@
             <Button Content="&#x2190; Network health" Click="BackButton_Click"
                     MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
                     MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                    AutomationProperties.Name="Back to Network health" Style="{StaticResource PageBackButtonStyle}" />
+                    AutomationProperties.Name="Back to Network health" Style="{StaticResource PageHeaderBackButtonStyle}" />
             <local:PageHeaderIcon Grid.Column="1" Icon="network" />
-            <TextBlock Grid.Column="2" Text="Service status" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                       VerticalAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Grid.Column="2" Text="Service status" Style="{StaticResource PageHeaderTitleStyle}" />
         </Grid>
         <ScrollViewer x:Name="ServiceStatusScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
                       AutomationProperties.AutomationId="ServiceStatusScroll">
