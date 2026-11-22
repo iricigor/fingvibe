@@ -118,7 +118,7 @@
     $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
     $scroll.Current.VerticalScrollPercent = 0.0
     $scroll.MoveBounds = $false
-    $arguments.TimeoutMilliseconds = 500
+    $arguments.TimeoutMilliseconds = 2000
     $before = $positions.Count
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*did not move after a measured scroll adjustment*'
     Assert-Regression ($positions.Count -eq $before + 1) 'An accepted scroll percentage without rendered movement must fail, not repeat or masquerade as visibility.'

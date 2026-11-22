@@ -69,6 +69,7 @@ function Show-UiRegressionScrollTargets {
     )
     $state = @{
         Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0; LastMove = 0
+        MovedAt = $null; StartPercent = $null; RequestedPercent = $null
         StableGeometry = $null; StableSince = $null
     }
     $targetDescription = $Description
@@ -113,13 +114,15 @@ function Show-UiRegressionScrollTargets {
                     $state.Direction = if ($state.LastMove) { -$state.LastMove }
                         elseif ($scroll.Current.VerticalScrollPercent -ge 50) { -1 } else { 1 }
                 }
-                if ($state.MissingBoundsMoves -ge 8) {
-                    throw "$targetDescription remained unrealized after eight bounded viewport moves."
-                }
                 $currentPercent = $scroll.Current.VerticalScrollPercent
-                # Step at most one viewport so a small view scans contiguously instead of jumping past the target.
+                # Step at most one viewport so a small view scans contiguously instead of jumping past the target;
+                # the move bound still allows one full sweep in each direction.
                 $view = [Math]::Min(99.0, [Math]::Max(0.1, $scroll.Current.VerticalViewSize)) / 100
                 $step = [Math]::Min(25.0, [Math]::Max(1.0, 100 * $view / (1 - $view)))
+                $maximumMoves = 2 * [Math]::Ceiling(100 / $step) + 2
+                if ($state.MissingBoundsMoves -ge $maximumMoves) {
+                    throw "$targetDescription remained unrealized after $maximumMoves bounded viewport moves."
+                }
                 $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
                 if ($nextPercent -eq $currentPercent) {
                     if ($state.Reversals -ge 1) {
@@ -160,7 +163,11 @@ function Show-UiRegressionScrollTargets {
             $viewSize = $scroll.Current.VerticalViewSize
             if ($viewSize -le 0 -or $viewSize -ge 100) { return $null }
             $geometry = "$targetTop|$targetBottom|$top|$bottom|$viewSize"
-            if ($geometry -eq $state.Geometry) { throw "$targetDescription did not move after a measured scroll adjustment." }
+            if ($geometry -eq $state.Geometry) {
+                # WinUI can apply a UIA scroll after the next observation; wait briefly without reissuing it.
+                if ($state.MovedAt.ElapsedMilliseconds -lt 750) { return $null }
+                throw "$targetDescription did not move after a measured scroll adjustment (requested $($state.RequestedPercent)% from $($state.StartPercent)%; now $($scroll.Current.VerticalScrollPercent)%)."
+            }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
             # A single UIA peer may report a bottom edge clipped to the viewport.
             # Reveal it from its known top edge instead of chasing that clipped edge.
@@ -174,6 +181,9 @@ function Show-UiRegressionScrollTargets {
             $state.Geometry = $geometry
             $state.Moves++
             $state.LastMove = [Math]::Sign($percent - $scroll.Current.VerticalScrollPercent)
+            $state.StartPercent = $scroll.Current.VerticalScrollPercent
+            $state.RequestedPercent = $percent
+            $state.MovedAt = [Diagnostics.Stopwatch]::StartNew()
             Write-Host "Positioning ${targetDescription}: target $targetTop-$targetBottom; viewport $top-$bottom; view $viewSize%; scroll $($scroll.Current.VerticalScrollPercent)% -> $percent%."
             $scroll.SetScrollPercent(-1, $percent)
             # The next bounded observation must see the actual target bounds, not just a changed percentage.
