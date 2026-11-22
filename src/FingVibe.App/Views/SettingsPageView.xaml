@@ -22,7 +22,8 @@
         </Style>
         <Style x:Key="SettingsNavigationCardStyle" TargetType="Button">
             <Setter Property="MinHeight" Value="68" />
-            <Setter Property="Padding" Value="0" />
+            <!-- Matches ExpanderHeaderPadding and the chevron's 8-DIP inset so all card titles share one column. -->
+            <Setter Property="Padding" Value="16,0,8,0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Background" Value="{ThemeResource ExpanderHeaderBackground}" />
@@ -296,7 +297,7 @@
             <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
                     Style="{StaticResource SettingsNavigationCardStyle}"
                     AutomationProperties.Name="About FingVibe &amp; updates">
-                <Border Style="{StaticResource SettingsCardHeadingBandStyle}">
+                <Border Style="{StaticResource SettingsCardHeadingBandStyle}" Padding="16,10,0,10">
                 <Grid Style="{StaticResource CardHeadingRowStyle}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />

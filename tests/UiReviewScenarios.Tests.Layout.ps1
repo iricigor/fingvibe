@@ -145,6 +145,11 @@
         $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Margin']").GetAttribute("Value") -cne "0") {
         throw "Settings card headings must inherit the shared H4 band without the scanner-card offset."
     }
+    $navigationCardPadding = $settings.SelectSingleNode(
+        "//*[@*[local-name()='Key']='SettingsNavigationCardStyle']/*[local-name()='Setter' and @Property='Padding']")
+    if (-not $navigationCardPadding -or $navigationCardPadding.GetAttribute("Value") -cne "16,0,8,0") {
+        throw "The About card must keep the Expander header's 16-DIP inset so all Settings titles share one column."
+    }
     foreach ($entry in @(
         @{ Id = "AppearanceSection"; Type = "Expander"; Summary = "AppearanceSummary"; Heading = "AppearanceSettingsHeading" },
         @{ Id = "DevicesSection"; Type = "Expander"; Summary = "DevicesSummary"; Heading = "DevicesSettingsHeading" },
