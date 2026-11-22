@@ -8,7 +8,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid ColumnSpacing="12">
+        <Grid Style="{StaticResource PageHeaderRowStyle}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -17,11 +17,10 @@
             <Button x:Name="BackToSettingsButton" Content="&#x2190; Settings" Click="Back_Click"
                     MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
                     MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                    AutomationProperties.Name="Back to Settings" Style="{StaticResource PageBackButtonStyle}" />
+                    AutomationProperties.Name="Back to Settings" Style="{StaticResource PageHeaderBackButtonStyle}" />
             <local:PageHeaderIcon Grid.Column="1" Icon="about" />
             <TextBlock x:Name="PageHeading" Grid.Column="2" Text="About FingVibe"
-                       Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                       VerticalAlignment="Center" TextWrapping="Wrap" IsTabStop="True" />
+                       Style="{StaticResource PageHeaderTitleStyle}" IsTabStop="True" />
         </Grid>
         <ScrollViewer x:Name="UpdatesScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16">

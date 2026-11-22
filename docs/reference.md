@@ -17,6 +17,15 @@ navigation remain unchanged. Each individual tool places its secondary
 **← Tools** action at the left of the title row, before the tool icon and
 heading. **Run diagnostics** and **Start test** use the same accent-button styling;
 **Import all** retains its existing emphasis. Supporting actions stay neutral.
+Overview, Network, Devices, People & rooms, Settings, Tools and every tool page
+(SQL editor, Import from Fing, Speed test, Room map, Network health, Service
+status, Database backups and About) share one compact fixed header: Back where
+relevant, 16 DIP, the 48-DIP page icon, 12 DIP and the 28-px semibold title,
+centered on one row. Main pages have no empty Back slot. The header is its own
+row aligned with the content's left edge, without a background or divider, and
+the body scrolls beneath it without moving it. The `PageHeaderRowStyle`,
+`PageHeaderBackButtonStyle` and `PageHeaderTitleStyle` styles in `App.xaml`
+define it; Device, Person and Room detail headers keep their own layout.
 
 - [Run locally and scan behavior](#run-locally)
 - [Device identification](#device-identification)
@@ -1388,7 +1397,7 @@ one published payload:
 | --- | --- |
 | `sidebar-presentation` | Navigation, Settings, Appearance, Responsive |
 | `sidebar-scan-flows` | Refresh, PeopleRooms (shared scanned-inventory fixture) |
-| `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks), FixedHeaders (page title/Back stay fixed while short-window bodies scroll, including 200% text) |
+| `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks), FixedHeaders (page title/Back stay fixed while short-window bodies scroll, including 200% text; at 100% text, shared header geometry within 1 DIP) |
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
 | `tools-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |

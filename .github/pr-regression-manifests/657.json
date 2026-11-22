@@ -1,0 +1,29 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 657,
+  "category": "validation",
+  "changedBehavior": "Overview, Network, Devices, People & rooms, Settings, the Tools landing page and the SQL editor, Import from Fing, Speed test, Room map, Network health, Service status, Database backups and About tool pages share one compact fixed header from shared App styles: Back where relevant, 16 DIP, the 48-DIP page icon, 12 DIP and the 28-px semibold title centered without its bottom margin, in its own row at the content edge with no background or divider. Overview gains its icon; main pages have no Back slot. Device, Person and Room detail headers are unchanged.",
+  "selectors": [
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-sidebar-scan-flows",
+    "native-sidebar-scan-presentation",
+    "native-devices-presentation",
+    "native-tools-utilities",
+    "native-tools-maintenance",
+    "native-tools-device-data",
+    "native-tools-sql-speed",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Every covered main and tool page has exactly one shared header in its own fixed Auto row above the scrolling body: Back (tool pages only), 48-DIP icon and title in that order, with no local spacing, margin, background or divider overrides.",
+    "The shared styles keep a 12-DIP row gap, add only a 4-DIP Back margin for the 16-DIP gap after Back, and center a wrapping 28-px semibold title without its 8-DIP bottom margin.",
+    "Overview shows the 'overview' family icon; main pages have two header columns and no empty Back slot.",
+    "Back names, Click handlers, x:Name values and title names (DevicesHeading, PageHeading, BackToSettingsButton, BackupsBackButton, RoomMapBackButton) are unchanged, and Device, Person and Room detail headers do not use the shared header.",
+    "At 100% text, the fixed-header native check requires Back at the content edge, titles 60 DIP after the content edge (76 DIP after Back) and one title center height across covered pages within 1 DIP, while headers stay fixed while bodies scroll at 100% and 200% text.",
+    "Changes to PageHeaderIcon select every header consumer capture; App.xaml changes still select every capture."
+  ]
+}

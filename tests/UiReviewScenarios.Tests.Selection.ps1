@@ -173,6 +173,11 @@
         @("Devices", "Settings", "DevicesEmpty") "Devices sort keys and direction"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
     Test-Change @{ "src\FingVibe.App\CardHeadingResources.xaml" = "changed" } @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "SpeedTest", "NetworkHealth", "About", "FingImport") "Shared card heading"
+    foreach ($path in @("src\FingVibe.App\PageHeaderIcon.xaml", "src\FingVibe.App\PageHeaderIcon.xaml.cs")) {
+        Test-Change @{ $path = "changed" } @("Devices", "Overview", "Network", "People", "PersonDetails", "Rooms", "RoomMap", "Tools",
+            "SpeedTest", "NetworkHealth", "ServiceStatus", "About", "FingImport", "SqlEditor", "DatabaseBackups", "RoomDetails",
+            "Settings", "DevicesEmpty") "Shared page-header icon ($path)"
+    }
     $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
     $applicationDocument = [System.Xml.XmlDocument]::new()
     $applicationDocument.LoadXml($applicationXaml)

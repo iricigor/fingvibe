@@ -15,7 +15,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-            <Grid x:Name="RoomMapHeadingRow" ColumnSpacing="12">
+            <Grid x:Name="RoomMapHeadingRow" Style="{StaticResource PageHeaderRowStyle}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -27,12 +27,11 @@
                         MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
                         AutomationProperties.AutomationId="RoomMapBackButton"
                         AutomationProperties.Name="Back to Rooms"
-                        Style="{StaticResource PageBackButtonStyle}"
+                        Style="{StaticResource PageHeaderBackButtonStyle}"
                         Click="BackToRoomsButton_Click" />
                 <local:PageHeaderIcon Grid.Column="1" Icon="rooms" />
                 <TextBlock Grid.Column="2" Text="Room map"
-                           Style="{StaticResource ScannerPageTitleStyle}"
-                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                           Style="{StaticResource PageHeaderTitleStyle}" />
             </Grid>
 
             <Grid Grid.Row="1" ColumnSpacing="12">

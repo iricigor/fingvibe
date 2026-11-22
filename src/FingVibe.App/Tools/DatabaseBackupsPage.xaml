@@ -57,7 +57,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid ColumnSpacing="12">
+        <Grid Style="{StaticResource PageHeaderRowStyle}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -66,10 +66,9 @@
             <Button x:Name="BackupsBackButton" Content="&#x2190; Tools" Click="Back_Click"
                     MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
                     MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
+                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageHeaderBackButtonStyle}" />
             <local:PageHeaderIcon Grid.Column="1" Icon="tools" />
-            <TextBlock Grid.Column="2" Text="Database backups" Style="{StaticResource ScannerPageTitleStyle}"
-                       Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock Grid.Column="2" Text="Database backups" Style="{StaticResource PageHeaderTitleStyle}" />
         </Grid>
         <ScrollViewer x:Name="BackupsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16">

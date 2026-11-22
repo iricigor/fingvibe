@@ -32,7 +32,7 @@
     )) {
         $pageDocument = [xml](Get-Content (Join-Path $appDirectory $pagePath) -Raw)
         $headerElements = @(
-            $pageDocument.SelectNodes("//*[contains(@Style,'ScannerPageTitleStyle')]")
+            $pageDocument.SelectNodes("//*[contains(@Style,'ScannerPageTitleStyle') or contains(@Style,'PageHeaderTitleStyle')]")
             $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='HeaderGrid']]")
             $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='PeopleRoomsHeadingRow']]")
             $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='PersonDetailName']]")
@@ -70,7 +70,7 @@
     $roomMapOnlineOnly = $roomMapDocument.SelectSingleNode(
         "//*[@*[local-name()='Name']='RoomMapOnlineOnlySwitch']")
     if ($roomMapBackButton.GetAttribute("AutomationProperties.Name") -cne "Back to Rooms" -or
-        $roomMapBackButton.GetAttribute("Style") -cne "{StaticResource PageBackButtonStyle}" -or
+        $roomMapBackButton.GetAttribute("Style") -cne "{StaticResource PageHeaderBackButtonStyle}" -or
         $roomMapOnlineOnly.GetAttribute("IsOn") -cne "True" -or
         $roomMapOnlineOnly.GetAttribute("Header") -cne "Only online") {
         throw "Room map must use the standard Back to Rooms action and start with Only online enabled."
@@ -92,11 +92,10 @@
     if (-not $headingIcon -or $headingIcon.GetAttribute("Icon") -cne "people-rooms" -or
         $headingIcon.HasAttribute("Width") -or $headingIcon.HasAttribute("Height") -or
         $headingRow.SelectNodes("./*[local-name()='PageHeaderIcon' or local-name()='Viewbox']").Count -ne 1 -or
-        $headingRow.GetAttribute("ColumnSpacing") -cne "12" -or
+        $headingRow.GetAttribute("Style") -cne "{StaticResource PageHeaderRowStyle}" -or
         $headingTitle.GetAttribute("Grid.Column") -cne "1" -or
-        $headingTitle.GetAttribute("VerticalAlignment") -cne "Center" -or
-        $headingTitle.GetAttribute("TextWrapping") -cne "Wrap") {
-        throw "People & rooms must align its wrapping title beside one shared 48-DIP 'people-rooms' family icon with a 12-DIP gap."
+        $headingTitle.GetAttribute("Style") -cne "{StaticResource PageHeaderTitleStyle}") {
+        throw "People & rooms must align its wrapping title beside one shared 48-DIP 'people-rooms' family icon in the shared page header."
     }
     $navItem = [regex]::Match((Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw),
         '(?s)<NavigationViewItem x:Name="PeopleRoomsNavItem".*?</NavigationViewItem>').Value
@@ -594,7 +593,7 @@
             $card.SelectNodes(".//*[local-name()='Button' or local-name()='HyperlinkButton']").Count -ne 0)) {
             throw "$($tool.Title) must remain one landing button with its existing handler and accessible name."
         }
-        $pageTitle = $pageDocument.SelectSingleNode("//*[local-name()='TextBlock' and @Text='$($tool.Title)' and @Style='{StaticResource ScannerPageTitleStyle}']")
+        $pageTitle = $pageDocument.SelectSingleNode("//*[local-name()='TextBlock' and @Text='$($tool.Title)' and @Style='{StaticResource PageHeaderTitleStyle}']")
         $titles = @($pageTitle)
         if ($tool.Page -ne "AboutPage") {
             $titles += $card.SelectSingleNode(".//*[local-name()='TextBlock' and @Text='$($tool.Title)']")
@@ -602,14 +601,18 @@
         foreach ($title in $titles) {
             $isPageTitle = $title -eq $pageTitle
             $titleColumn = if ($isPageTitle) { "2" } else { "1" }
-            if (-not $title -or $title.GetAttribute("TextWrapping") -cne "Wrap" -or
-                $title.GetAttribute("Grid.Column") -cne $titleColumn -or $title.GetAttribute("VerticalAlignment") -cne "Center") {
+            # Page titles get wrapping and centering from the shared PageHeaderTitleStyle (#657).
+            if (-not $title -or $title.GetAttribute("Grid.Column") -cne $titleColumn -or
+                (-not $isPageTitle -and ($title.GetAttribute("TextWrapping") -cne "Wrap" -or
+                    $title.GetAttribute("VerticalAlignment") -cne "Center"))) {
                 throw "$($tool.Title) must wrap and center beside its icon."
             }
             $header = $title.ParentNode
             $columns = $header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*[local-name()='ColumnDefinition']")
             $expectedColumns = if ($isPageTitle) { 3 } else { 2 }
-            if ($header.LocalName -cne "Grid" -or $header.GetAttribute("ColumnSpacing") -cne "12" -or
+            $headerSpacing = if ($isPageTitle) { $header.GetAttribute("Style") -ceq "{StaticResource PageHeaderRowStyle}" }
+                else { $header.GetAttribute("ColumnSpacing") -ceq "12" }
+            if ($header.LocalName -cne "Grid" -or -not $headerSpacing -or
                 $columns.Count -ne $expectedColumns -or $columns[0].GetAttribute("Width") -cne "Auto" -or
                 $columns[$expectedColumns - 1].GetAttribute("Width") -cne "*") {
                 throw "$($tool.Title) must reserve icon space and constrain the title for wrapping."
@@ -622,7 +625,7 @@
                     $header.SelectSingleNode("./*[local-name()='Button' or local-name()='PageHeaderIcon' or local-name()='TextBlock']") -ne $back -or
                     $back.GetAttribute("Content") -cne "$([char]0x2190) $destination" -or
                     $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']").Count -ne 1 -or
-                    $back.GetAttribute("Style") -cne "{StaticResource PageBackButtonStyle}" -or
+                    $back.GetAttribute("Style") -cne "{StaticResource PageHeaderBackButtonStyle}" -or
                     $back.HasAttribute("Width") -or $back.HasAttribute("Height")) {
                     throw "$($tool.Title) must have one content-safe neutral Back action first in its title row."
                 }
@@ -647,6 +650,106 @@
              $pageTitle.GetAttribute("IsTabStop") -cne "True")) {
             throw "About must preserve its named, keyboard-focusable heading."
         }
+    }
+    # #657: every main and tool page shares one compact fixed header: [Back, 16 DIP,] 48-DIP icon, 12 DIP, title.
+    $headerStyles = @{}
+    foreach ($key in @("PageHeaderRowStyle", "PageHeaderBackButtonStyle", "PageHeaderTitleStyle", "ScannerPageTitleStyle", "PageBackButtonStyle")) {
+        $headerStyles[$key] = $appResources.SelectSingleNode("/*/*/*[local-name()='ResourceDictionary']/*[local-name()='Style' and @*[local-name()='Key']='$key']")
+        if (-not $headerStyles[$key]) { throw "App resources must define $key." }
+    }
+    $headerSetters = {
+        param($Style)
+        $values = [ordered]@{}
+        foreach ($setter in $Style.SelectNodes("./*[local-name()='Setter']")) { $values[$setter.GetAttribute("Property")] = $setter.GetAttribute("Value") }
+        ($values.Keys | ForEach-Object { "$_=$($values[$_])" }) -join ";"
+    }
+    $styleOrder = @($appResources.SelectNodes("//*[local-name()='Style']/@*[local-name()='Key']") | ForEach-Object Value)
+    if ($headerStyles.PageHeaderRowStyle.GetAttribute("TargetType") -cne "Grid" -or
+        (& $headerSetters $headerStyles.PageHeaderRowStyle) -cne "ColumnSpacing=12;MinHeight=48" -or
+        $headerStyles.PageHeaderBackButtonStyle.GetAttribute("TargetType") -cne "Button" -or
+        $headerStyles.PageHeaderBackButtonStyle.GetAttribute("BasedOn") -cne "{StaticResource PageBackButtonStyle}" -or
+        (& $headerSetters $headerStyles.PageHeaderBackButtonStyle) -cne "Margin=0,0,4,0" -or
+        $headerStyles.PageHeaderTitleStyle.GetAttribute("TargetType") -cne "TextBlock" -or
+        $headerStyles.PageHeaderTitleStyle.GetAttribute("BasedOn") -cne "{StaticResource ScannerPageTitleStyle}" -or
+        (& $headerSetters $headerStyles.PageHeaderTitleStyle) -cne "Margin=0;VerticalAlignment=Center;TextWrapping=Wrap" -or
+        $headerStyles.ScannerPageTitleStyle.GetAttribute("BasedOn") -cne "{StaticResource TitleTextBlockStyle}" -or
+        $styleOrder.IndexOf("PageHeaderBackButtonStyle") -lt $styleOrder.IndexOf("PageBackButtonStyle") -or
+        $styleOrder.IndexOf("PageHeaderTitleStyle") -lt $styleOrder.IndexOf("ScannerPageTitleStyle")) {
+        throw "The shared page header must be a background-free 12-DIP row (16 DIP after Back via a 4-DIP Back margin only) with the 28-px semibold page title centered, wrapping and without its 8-DIP bottom margin."
+    }
+    $sharedHeaders = @(
+        @{ Path = "Views\OverviewPageView.xaml"; Icon = "overview"; Title = "Overview" },
+        @{ Path = "Views\NetworkPageView.xaml"; Icon = "network"; Title = "Network" },
+        @{ Path = "Views\DevicesPageView.xaml"; Icon = "devices"; Title = "Devices"; TitleName = "DevicesHeading" },
+        @{ Path = "Views\PeopleRoomsPageView.xaml"; Icon = "people-rooms"; Title = "People & rooms"; RowName = "PeopleRoomsHeadingRow" },
+        @{ Path = "Views\SettingsPageView.xaml"; Icon = "tools"; Title = "Settings" },
+        @{ Path = "Tools\ToolsPage.xaml"; Icon = "tools"; Title = "Tools" },
+        @{ Path = "Tools\SqlEditorPage.xaml"; Icon = "tools"; Title = "SQL editor"; Back = "Back to Tools"; Click = "Back_Click" },
+        @{ Path = "Tools\FingImportPage.xaml"; Icon = "import"; Title = "Import from Fing"; Back = "Back to Tools"; Click = "Back_Click" },
+        @{ Path = "Tools\SpeedTestPage.xaml"; Icon = "speed-test"; Title = "Speed test"; Back = "Back to Tools"; Click = "BackButton_Click" },
+        @{ Path = "Views\RoomMapPageView.xaml"; Icon = "rooms"; Title = "Room map"; Back = "Back to Rooms"; Click = "BackToRoomsButton_Click"; RowName = "RoomMapHeadingRow"; BackName = "RoomMapBackButton" },
+        @{ Path = "Tools\NetworkHealthPage.xaml"; Icon = "troubleshooting"; Title = "Network health"; Back = "Back to Tools"; Click = "BackButton_Click" },
+        @{ Path = "Tools\ServiceStatusPage.xaml"; Icon = "network"; Title = "Service status"; Back = "Back to Network health"; Click = "BackButton_Click" },
+        @{ Path = "Tools\DatabaseBackupsPage.xaml"; Icon = "tools"; Title = "Database backups"; Back = "Back to Tools"; Click = "Back_Click"; BackName = "BackupsBackButton" },
+        @{ Path = "Tools\AboutPage.xaml"; Icon = "about"; Title = "About FingVibe"; Back = "Back to Settings"; Click = "Back_Click"; BackName = "BackToSettingsButton"; TitleName = "PageHeading" }
+    )
+    $xamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml"
+    foreach ($entry in $sharedHeaders) {
+        $document = [xml](Get-Content (Join-Path $appDirectory $entry.Path) -Raw)
+        $rows = @($document.SelectNodes("//*[@Style='{StaticResource PageHeaderRowStyle}']"))
+        $header = $rows[0]
+        $headerHost = if ($header) { $header.ParentNode }
+        $hostRows = if ($headerHost) { @($headerHost.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*")) }
+        $children = if ($header) { @($header.SelectNodes("./*[not(contains(local-name(), '.'))]")) }
+        $columns = if ($header) { @($header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*")) }
+        $hasBack = [bool]$entry.Back
+        $expected = if ($hasBack) { @("Button", "PageHeaderIcon", "TextBlock") } else { @("PageHeaderIcon", "TextBlock") }
+        if ($rows.Count -ne 1 -or $header.LocalName -cne "Grid" -or $headerHost.LocalName -cne "Grid" -or
+            $header.GetAttribute("Grid.Row") -notin @("", "0") -or $hostRows.Count -lt 2 -or
+            $hostRows[0].GetAttribute("Height") -cne "Auto" -or
+            $header.SelectSingleNode("ancestor::*[local-name()='ScrollViewer']") -or
+            -not $headerHost.SelectSingleNode("./*[@Grid.Row='1']") -or
+            @($header.Attributes | Where-Object { $_.LocalName -notin @("Style", "Name") }).Count -ne 0 -or
+            ($entry.RowName -and $header.GetAttribute("Name", $xamlNamespace) -cne $entry.RowName) -or
+            (($children | ForEach-Object LocalName) -join ",") -cne ($expected -join ",") -or
+            $columns.Count -ne $expected.Count -or
+            (($columns | ForEach-Object { $_.GetAttribute("Width") }) -join ",") -cne ((@("Auto") * ($expected.Count - 1) + "*") -join ",")) {
+            throw "$($entry.Path) must place exactly one shared page header (Back only on tool pages, then icon and title) in its own fixed Auto row above the content, with no local spacing, background or divider."
+        }
+        $icon = $children[$expected.Count - 2]
+        $title = $children[$expected.Count - 1]
+        $iconColumns = if ($hasBack) { @("1") } else { @("", "0") }
+        if ($icon.GetAttribute("Icon") -cne $entry.Icon -or $icon.GetAttribute("Grid.Column") -notin $iconColumns -or
+            @($icon.Attributes | Where-Object { $_.LocalName -notin @("Icon", "Grid.Column") }).Count -ne 0 -or
+            $title.GetAttribute("Text") -cne $entry.Title -or $title.GetAttribute("Grid.Column") -cne "$($expected.Count - 1)" -or
+            $title.GetAttribute("Style") -cne "{StaticResource PageHeaderTitleStyle}" -or
+            @($title.Attributes | Where-Object { $_.LocalName -notin @("Text", "Grid.Column", "Style", "Name", "IsTabStop") }).Count -ne 0 -or
+            ($entry.TitleName -and $title.GetAttribute("Name", $xamlNamespace) -cne $entry.TitleName)) {
+            throw "$($entry.Path) must show the 48-DIP '$($entry.Icon)' icon then '$($entry.Title)' in the shared title style without local overrides."
+        }
+        if ($hasBack) {
+            $back = $children[0]
+            if ($back.GetAttribute("AutomationProperties.Name") -cne $entry.Back -or $back.GetAttribute("Click") -cne $entry.Click -or
+                $back.GetAttribute("Style") -cne "{StaticResource PageHeaderBackButtonStyle}" -or
+                $back.GetAttribute("Grid.Column") -notin @("", "0") -or $back.HasAttribute("Margin") -or
+                ($entry.BackName -and $back.GetAttribute("Name", $xamlNamespace) -cne $entry.BackName)) {
+                throw "$($entry.Path) must keep its '$($entry.Back)' action, handler and name first in the shared header."
+            }
+        }
+        if (@($document.SelectNodes("//*[@Style='{StaticResource ScannerPageTitleStyle}' or @Style='{StaticResource PageBackButtonStyle}']")).Count -ne 0) {
+            throw "$($entry.Path) must use only the shared page-header title and Back styles."
+        }
+    }
+    foreach ($detailView in @("DeviceDetailsPageView", "PersonDetailsPageView", "RoomDetailsPageView")) {
+        $detailXaml = Get-Content (Join-Path $appDirectory "Views\$detailView.xaml") -Raw
+        if ($detailXaml -match 'PageHeader(Row|BackButton|Title)Style') {
+            throw "$detailView keeps its own detail header; the shared page header does not cover detail pages (#657)."
+        }
+    }
+    $headerUses = @(Get-ChildItem $appDirectory -Recurse -Filter *.xaml | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
+        Select-String -Pattern 'PageHeaderRowStyle\}' -AllMatches | ForEach-Object { $_.Matches })
+    if ($headerUses.Count -ne $sharedHeaders.Count) {
+        throw "Only the $($sharedHeaders.Count) covered main and tool pages may use the shared page header; found $($headerUses.Count)."
     }
     $shellCode = (Get-ChildItem (Join-Path $appDirectory "MainWindow*.cs") |
         ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
