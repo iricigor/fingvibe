@@ -11,7 +11,9 @@ automatically while open, and offer **Check for updates**. Downloads require
 your action; **Update now** requires confirmation, downloads/verifies the
 release, closes FingVibe before Setup runs, records the observed installer/relaunch
 result and reopens the verified installation after success. About keeps a compact
-status summary and reports the result after reopening. Portable copies use manual ZIP
+status summary and reports the result after reopening. An available update's notes
+appear in a collapsed **What's new** expander as plain text, with a link to the full
+notes on GitHub. Portable copies use manual ZIP
 replacement. PR, Test and
 Development builds do not check for updates or compare their versions with
 stable releases. See [update checks and downloads](manual/navigation.md#check-for-updates)
