@@ -175,6 +175,144 @@ $global:LASTEXITCODE = 0
     "stale output" | Set-Content -LiteralPath $installer
     '$global:LASTEXITCODE = 0' | Set-Content -LiteralPath $compiler
     Assert-Throws { & $builder @parameters } "*did not produce*"
+
+    $handoffScript = Join-Path $PSScriptRoot "..\src\FingVibe.App\Assets\InstallUpdateHandoff.ps1"
+    $appProject = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\FingVibe.App.csproj") -Raw
+    if ($appProject -notmatch '<Content Include="Assets\\InstallUpdateHandoff\.ps1">') {
+        throw "Published FingVibe output must contain the update handoff helper."
+    }
+    $updateActionsSource = Get-Content -LiteralPath (
+        Join-Path $PSScriptRoot "..\src\FingVibe.App\Updates\ReleaseUpdateActions.cs") -Raw
+    if ($updateActionsSource -notmatch '-EncodedCommand' -or
+        $updateActionsSource -match '-ExecutionPolicy' -or
+        $updateActionsSource -match '"-File"') {
+        throw "Helper startup must use Restricted-policy-compatible encoded commands without bypassing execution policy."
+    }
+    $policyCommand = [Convert]::ToBase64String(
+        [Text.Encoding]::Unicode.GetBytes("Write-Output 'handoff-policy-ok'"))
+    $policyOutput = & (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe") `
+        -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Restricted -EncodedCommand $policyCommand
+    if ($LASTEXITCODE -ne 0 -or ($policyOutput -join '') -notmatch 'handoff-policy-ok') {
+        throw "The selected helper launch mode must execute under Restricted policy."
+    }
+    . $handoffScript
+    $handoffInstaller = Join-Path $fixture "FingVibe-1.2.130-win-x64-Setup.exe"
+    "verified installer bytes" | Set-Content -LiteralPath $handoffInstaller -Encoding ASCII
+    "[ZoneTransfer]`r`nZoneId=3`r`n" | Set-Content -LiteralPath "${handoffInstaller}:Zone.Identifier"
+    $hash = (Get-FileHash -LiteralPath $handoffInstaller -Algorithm SHA256).Hash
+    $handoffRecordPath = Join-Path $fixture "install-handoff.json"
+    $latestHandoffRecordPath = Join-Path $fixture "latest-install-handoff.json"
+    $originalInstallerBytes = [IO.File]::ReadAllBytes($handoffInstaller)
+    $handoffRecord = [pscustomobject]@{
+        schema = 1
+        attemptId = [guid]::NewGuid().ToString("N")
+        state = "requested"
+        requestedUtc = "2026-11-16T12:00:00Z"
+        originProcessId = 100
+        originProcessStartedUtc = "2026-11-16T11:59:00Z"
+        originExecutablePath = Join-Path $app "FingVibe.App.exe"
+        recordPath = $handoffRecordPath
+        helperProcessId = $null
+        helperProcessStartedUtc = $null
+        installerPath = $handoffInstaller
+        installerSize = ([IO.FileInfo]::new($handoffInstaller)).Length
+        installerSha256 = $hash
+        expectedZoneId = 3
+        expectedVersion = "1.2.130"
+        installationDirectory = $app
+        relaunchRequested = $false
+        relaunchExecutablePath = Join-Path $app "FingVibe.App.exe"
+        installerLogPath = Join-Path $fixture "handoff-installer.log"
+        latestRecordPath = $latestHandoffRecordPath
+        installerProcessId = $null
+        installerProcessStartedUtc = $null
+        outcome = $null
+    }
+    Save-UpdateInstallRecord $handoffRecord $latestHandoffRecordPath
+    Save-UpdateInstallRecord $handoffRecord $handoffRecordPath
+    Assert-UpdateInstaller $handoffRecord
+    $tamperedInstallerBytes = [byte[]] $originalInstallerBytes.Clone()
+    $tamperedInstallerBytes[0] = [byte] (($tamperedInstallerBytes[0] + 1) % 256)
+    [IO.File]::WriteAllBytes($handoffInstaller, $tamperedInstallerBytes)
+    Assert-Throws { Assert-UpdateInstaller $handoffRecord } "*hash changed*"
+    [IO.File]::WriteAllBytes($handoffInstaller, $originalInstallerBytes)
+    "[ZoneTransfer]`r`nZoneId=0`r`n" | Set-Content -LiteralPath "${handoffInstaller}:Zone.Identifier"
+    Assert-Throws { Assert-UpdateInstaller $handoffRecord } "*security marking changed*"
+    "[ZoneTransfer]`r`nZoneId=3`r`n" | Set-Content -LiteralPath "${handoffInstaller}:Zone.Identifier"
+
+    $handoffSource = Get-Content -LiteralPath $handoffScript -Raw
+    if ($handoffSource -notmatch '/LOG=`"') {
+        throw "The Inno Setup log argument must quote paths so profile directories with spaces survive."
+    }
+
+    $originStarted = [DateTimeOffset]::Parse("2026-11-16T11:59:00Z")
+    $script:originChecks = 0
+    Wait-SourceProcessExit -ProcessId 100 -StartedUtc $originStarted -TimeoutSeconds 1 -GetProcessState {
+        param($Id)
+        $script:originChecks++
+        if ($script:originChecks -eq 1) {
+            return [pscustomobject]@{ StartedUtc = $originStarted }
+        }
+    }
+    if ($script:originChecks -ne 2) { throw "The handoff must observe the originating process exit." }
+    $script:originChecks = 0
+    Wait-SourceProcessExit -ProcessId 100 -StartedUtc $originStarted -TimeoutSeconds 1 -GetProcessState {
+        param($Id)
+        $script:originChecks++
+        [pscustomobject]@{ StartedUtc = $originStarted.AddSeconds(10) }
+    }
+    if ($script:originChecks -ne 1) { throw "A reused process id must not be mistaken for the originating app." }
+    Assert-Throws {
+        Wait-SourceProcessExit -ProcessId 100 -StartedUtc $originStarted -TimeoutSeconds 1 -GetProcessState {
+            param($Id)
+            [pscustomobject]@{ StartedUtc = $originStarted }
+        }
+    } "*did not exit within 1 seconds*"
+
+    $script:handoffWaits = 0
+    $script:handoffRelaunches = 0
+    $verified = Invoke-UpdateInstallHandoff -RecordPath $handoffRecordPath `
+        -WaitForOriginExit { param($Record) $script:handoffWaits++ } `
+        -VerifyInstaller { param($Record) } `
+        -RunInstaller { param($Record) 0 } `
+        -VerifyInstallation { param($Record) } `
+        -StartRelaunch { param($Record) $script:handoffRelaunches++; 4321 }
+    if ($verified.state -ne "succeeded" -or $script:handoffWaits -ne 1 -or $script:handoffRelaunches -ne 0) {
+        throw "No-relaunch handoff must wait, install and finish without starting FingVibe."
+    }
+    $latest = Get-Content -LiteralPath $latestHandoffRecordPath -Raw | ConvertFrom-Json
+    if ($latest.state -ne "succeeded" -or $latest.attemptId -ne $verified.attemptId) {
+        throw "The latest handoff index must reflect only the matching completed attempt."
+    }
+    $handoffRecord.state = "requested"
+    $handoffRecord.outcome = $null
+    $handoffRecord.relaunchRequested = $true
+    Save-UpdateInstallRecord $handoffRecord $handoffRecordPath
+    $verified = Invoke-UpdateInstallHandoff -RecordPath $handoffRecordPath `
+        -WaitForOriginExit { param($Record) } `
+        -VerifyInstaller { param($Record) } `
+        -RunInstaller { param($Record) 0 } `
+        -VerifyInstallation { param($Record) } `
+        -StartRelaunch { param($Record) $script:handoffRelaunches++; 9876 }
+    if (-not $verified.outcome.relaunchStarted -or $verified.outcome.relaunchProcessId -ne 9876 -or
+        $script:handoffRelaunches -ne 1) {
+        throw "Relaunch mode must start the verified installation and record its process identity."
+    }
+    $handoffRecord.state = "requested"
+    $handoffRecord.outcome = $null
+    Save-UpdateInstallRecord $handoffRecord $handoffRecordPath
+    Assert-Throws {
+        Invoke-UpdateInstallHandoff -RecordPath $handoffRecordPath `
+            -WaitForOriginExit { param($Record) } `
+            -VerifyInstaller { param($Record) } `
+            -RunInstaller { param($Record) 7 } `
+            -VerifyInstallation { param($Record) throw "Installer failure must skip post-install verification." } `
+            -StartRelaunch { param($Record) throw "Installer failure must not relaunch." }
+    } "*exited with code 7*"
+    $failed = Get-Content -LiteralPath $handoffRecordPath -Raw | ConvertFrom-Json
+    if ($failed.state -ne "failed" -or $failed.outcome.installerExitCode -ne 7 -or $failed.outcome.relaunchStarted) {
+        throw "Installer failure must be durable and must retain its exit code without relaunching."
+    }
 } finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }

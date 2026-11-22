@@ -123,9 +123,9 @@ public sealed partial class AboutPage
         if (_actions is null) return;
         var confirmationDialog = new ContentDialog
         {
-            Name = "UpdateInstallConfirmationDialog", XamlRoot = XamlRoot, Title = "Install update and close FingVibe?",
-            Content = $"Launch {_actions.DownloadedPath} using Windows, then close FingVibe normally. The unsigned installer may trigger SmartScreen, Defender, UAC or organization policy. Continue only after FingVibe closes: the installer refuses to update a running copy. Saved data is preserved. Launching does not mean installation completed.",
-            PrimaryButtonText = "Install and close", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+            Name = "UpdateInstallConfirmationDialog", XamlRoot = XamlRoot, Title = "Restart and update FingVibe?",
+            Content = $"FingVibe will close first, then a bounded helper will reverify and run {_actions.DownloadedPath}. After Setup completes, FingVibe will reopen from its verified installation directory. SmartScreen, Defender, UAC or organization policy may still require interaction. Saved data is preserved. The helper records the actual outcome; launching Setup alone does not mean installation completed.",
+            PrimaryButtonText = "Restart and update", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
         };
         AutomationProperties.SetAutomationId(confirmationDialog, "UpdateInstallConfirmationDialog");
         var confirmation = await confirmationDialog.ShowAsync();
@@ -133,7 +133,7 @@ public sealed partial class AboutPage
         InstallUpdateButton.IsEnabled = false;
         try
         {
-            await _actions.LaunchInstallerAsync();
+            await _actions.StartInstallHandoffAsync(relaunch: true);
             _closeForInstaller?.Invoke();
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
