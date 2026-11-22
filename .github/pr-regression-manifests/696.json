@@ -1,10 +1,12 @@
 {
   "schema": "fingvibe-pr-regression-v1",
   "issue": 696,
-  "category": "ui",
-  "changedBehavior": "The update confirmation offers Restart now, When I close and Cancel. A persisted When I close schedule survives restart, reuses a verified file, moves to newer confirmed versions, hides availability indicators, can be cancelled, and starts the close-first handoff with relaunch disabled only on a completed normal close.",
+  "category": "validation",
+  "changedBehavior": "The update confirmation offers Restart now, When I close and Cancel. A persisted When I close schedule survives restart, reuses a verified file, moves to newer confirmed versions, hides availability indicators, can be cancelled, and starts the close-first handoff with relaunch disabled only on a completed normal close. Tools updates and backups regression checks run in a separate tools-maintenance native job to keep affected-UI jobs within the 240-second budget.",
   "selectors": [
     "core-tests",
+    "pr-validation",
+    "native-validation",
     "ui-review-scenarios",
     "ui-regression-helpers",
     "native-tools-utilities",
