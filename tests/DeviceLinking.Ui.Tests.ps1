@@ -177,9 +177,7 @@ function Assert-LinkSection([string] $Header, [string] $State) {
     Wait-Link { $section = Get-LinkSection; $section -and $section.Header -eq $Header } "Merge MAC addresses showing '$Header'"
     $section = Get-LinkSection
     if ($section.State -ne $State) { throw "Merge MAC addresses '$Header' must open $State, not $($section.State)." }
-    Wait-Link { Find-Link "Edit device identification" -ByName -Optional } `
-        "Edit device identification peer"
-    $identification = (Find-Link "Edit device identification" -ByName).Current.BoundingRectangle
+    $identification = (Show-Link DeviceClassificationEditButton).Current.BoundingRectangle
     if ($identification.Top -lt $section.Element.Current.BoundingRectangle.Bottom) {
         throw "Merge MAC addresses must sit directly above Device identification."
     }
