@@ -10,7 +10,52 @@
     Title="FingVibe LAN Scanner">
 
     <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded" Background="{ThemeResource ScannerPageBackgroundBrush}">
-        <NavigationView x:Name="MainNavigation"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid x:Name="AppTitleBar" MinHeight="40" Background="{ThemeResource ScannerHeaderBackgroundBrush}"
+              LayoutUpdated="AppTitleBar_LayoutUpdated">
+            <Grid.Resources>
+                <SolidColorBrush x:Key="TitleBarForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
+                <SolidColorBrush x:Key="TitleBarSecondaryBrush" Color="{ThemeResource TextFillColorSecondary}" />
+            </Grid.Resources>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="TitleBarLeftInset" Width="0" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition x:Name="TitleBarRightInset" Width="0" />
+            </Grid.ColumnDefinitions>
+            <Grid x:Name="TitleBarDragArea" Grid.Column="1" Background="Transparent" Padding="16,4,12,4"
+                  ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image Width="24" Height="24" Source="ms-appx:///Assets/ConnectedHome-48.png"
+                       IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock x:Name="TitleBarAppName" Grid.Column="1" Text="FingVibe" FontSize="14"
+                           FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock x:Name="TitleBarBuildText" Grid.Column="2" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </Grid>
+            <Grid Grid.Column="2" Margin="0,4,8,4" VerticalAlignment="Center">
+                <Button x:Name="TitleBarAppearanceButton" Width="32" Height="32" Padding="0"
+                        Background="Transparent" Click="TitleBarAppearanceButton_Click"
+                        AutomationProperties.AutomationId="TitleBarAppearanceButton"
+                        AutomationProperties.Name="Appearance mode: Dark">
+                    <FontIcon x:Name="TitleBarAppearanceIcon" Glyph="&#xE708;" FontSize="16"
+                              IsTextScaleFactorEnabled="False" />
+                </Button>
+                <InfoBadge x:Name="TitleBarAppearanceBadge" Visibility="Collapsed"
+                           HorizontalAlignment="Right" VerticalAlignment="Top" IsHitTestVisible="False"
+                           Style="{ThemeResource CriticalIconInfoBadgeStyle}"
+                           AutomationProperties.AccessibilityView="Raw" />
+            </Grid>
+        </Grid>
+        <NavigationView x:Name="MainNavigation" Grid.Row="1"
                         PaneDisplayMode="Auto"
                         IsPaneToggleButtonVisible="True"
                         IsBackButtonVisible="Collapsed"
@@ -394,6 +439,7 @@
             </Grid>
         </NavigationView>
         <local:ColumnResizeGrip x:Name="NavigationResizeGrip"
+                               Grid.Row="1"
                                Width="16"
                                HorizontalAlignment="Left"
                                Foreground="{ThemeResource ScannerNavigationDividerBrush}"
@@ -404,7 +450,7 @@
                                AutomationProperties.Name="Resize navigation"
                                AutomationProperties.HelpText="Drag to resize the menu. Use Left or Right arrow keys; hold Shift for larger steps. Below 160 DIPs, only icons are shown."
                                ToolTipService.ToolTip="Resize navigation" />
-        <Canvas x:Name="BuildRibbonArea" Width="200" Height="124"
+        <Canvas x:Name="BuildRibbonArea" Grid.Row="1" Width="200" Height="124"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
             <Canvas.Clip>
                 <RectangleGeometry Rect="0,0,200,124" />

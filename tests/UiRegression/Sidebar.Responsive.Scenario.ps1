@@ -13,6 +13,7 @@ Switch-SidebarPane
 
 foreach ($width in @(800, 640)) {
     Set-SidebarWindowWidth $width
+    Test-TitleBarLayout
     Switch-SidebarPane
     $null = Find-SidebarElement Name "LAN scanner"
     Resize-SidebarPane @(280)

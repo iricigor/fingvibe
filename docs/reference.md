@@ -143,6 +143,16 @@ Without a saved theme preference, FingVibe starts with Standard Light or Standar
 
 A sidebar footer shortcut directly above Settings offers the same Light/Dark choice from any page, including the icon-only rail. It uses Core `AppearanceModes` for the pairing shared with Settings, preserves the backdrop, and saves through the same store. Save failures show an InfoBadge, a message in its flyout and its accessible help text, alongside the existing Settings error. In high contrast it still saves the mode and notes that Windows colors currently apply. Native UI review can set `FINGVIBE_UI_REVIEW_APPEARANCE` to an isolated appearance file; without it UI review keeps appearance in memory.
 
+The app-themed title bar shows a small Connected home icon, **FingVibe**, and
+secondary version/build identity. Its appearance button opens the same Light/Dark
+flyout as the sidebar shortcut, including persistence errors and high-contrast
+feedback. The noninteractive header remains draggable; Windows manages the caption
+buttons, resizing, system menu and Snap behavior. Native caption insets are converted
+from physical pixels at the current display scale so app controls cannot occupy
+their reserved area. The header starts at 40 DIPs and can grow for enlarged text;
+secondary build text trims before the appearance button. The test-build ribbon stays
+below the title bar and retains its existing acknowledgement and release semantics.
+
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
 Settings initially shows three collapsed preference sections: **Appearance**, **Devices page**, and **Background activity**. The latter holds separate Scheduled scans and Monitor network health choices. Each header summarizes the current choices; schedule summaries distinguish the configured interval from actual paused, unavailable or failed execution. Expand a header with the pointer or keyboard to edit its existing controls. Expansion is remembered only during the current app session, including navigation through About, and resets to collapsed on restart without changing saved preferences.

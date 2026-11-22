@@ -25,6 +25,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         InitializeNavigationPane();
         InitializeBuildIdentity();
+        InitializeTitleBar();
         InitializeUpdates();
         InitializeIspLogo();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));

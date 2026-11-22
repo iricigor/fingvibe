@@ -1,0 +1,21 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 719,
+  "category": "ui",
+  "changedBehavior": "App-themed custom title bar with existing build identity and shared appearance flyout, native caption controls, DPI-aware caption insets and a passthrough hit region for the keyboard-accessible appearance button.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "native-pr-matrix",
+    "native-sidebar-presentation",
+    "native-sidebar-scan-presentation",
+    "native-sidebar-preferences-scheduling",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "The title-bar appearance shortcut opens with pointer and keyboard input and updates the existing saved mode without changing palette pairing or backdrop.",
+    "Header identity and appearance control are contained in the window and do not overlap the shared scan header or native caption hit targets in restored, maximized and narrow windows.",
+    "Light, dark and high-contrast captures retain readable header content and Windows-managed caption controls.",
+    "Noninteractive header hit testing retains dragging and maximize/restore while the appearance button receives client input; existing scan headers and navigation remain reachable with enlarged text."
+  ]
+}

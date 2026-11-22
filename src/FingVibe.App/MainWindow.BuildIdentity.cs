@@ -12,6 +12,8 @@ public sealed partial class MainWindow
     {
         var build = BuildIdentity.Current;
         Title = build.WindowTitle;
+        TitleBarBuildText.Text = build.Summary;
+        ToolTipService.SetToolTip(TitleBarBuildText, $"{build.Summary}\n{build.TimestampText}\n{build.CommitText}");
         OverviewPage.ShowBuild(build.Summary);
         BuildRibbonText.Text = build.RibbonText;
         BuildRibbonTimestampText.Text = build.RibbonTimestampText;

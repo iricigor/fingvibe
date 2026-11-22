@@ -145,6 +145,8 @@ public sealed partial class MainWindow
         AppearanceShortcutSaveStatus.Text = _appearanceSaveError ?? string.Empty;
         AppearanceShortcutSaveStatus.Visibility = _appearanceSaveError is null ? Visibility.Collapsed : Visibility.Visible;
         AppearanceShortcutBadge.Visibility = AppearanceShortcutSaveStatus.Visibility;
+        TitleBarAppearanceIcon.Glyph = AppearanceShortcutIcon.Glyph;
+        TitleBarAppearanceBadge.Visibility = AppearanceShortcutSaveStatus.Visibility;
         var name = $"Appearance mode: {mode}";
         var help = "Choose Light or Dark mode."
             + (highContrast ? $" {AppearanceShortcutHighContrastNote.Text}" : string.Empty)
@@ -152,6 +154,9 @@ public sealed partial class MainWindow
         AutomationProperties.SetName(AppearanceShortcutNavItem, name);
         AutomationProperties.SetHelpText(AppearanceShortcutNavItem, help);
         ToolTipService.SetToolTip(AppearanceShortcutNavItem, $"{name}. {help}");
+        AutomationProperties.SetName(TitleBarAppearanceButton, name);
+        AutomationProperties.SetHelpText(TitleBarAppearanceButton, help);
+        ToolTipService.SetToolTip(TitleBarAppearanceButton, $"{name}. {help}");
     }
 
     private void ApplyAppearance()
@@ -182,7 +187,48 @@ public sealed partial class MainWindow
                 ? "This material is unavailable. A solid background is used; your choice is kept."
                 : null;
         UpdateAppearanceShortcut();
+        UpdateTitleBarColors();
     }
+
+    private void UpdateTitleBarColors()
+    {
+        if (_titleBarClosed)
+        {
+            return;
+        }
+
+        var highContrast = _accessibilitySettings.HighContrast;
+        var palette = AppearancePalette.For(_appearance.Theme);
+        var background = highContrast ? _uiSettings.GetColorValue(UIColorType.Background)
+            : Color.FromArgb(255, (byte)(palette.Header >> 16), (byte)(palette.Header >> 8), (byte)palette.Header);
+        var foreground = highContrast ? _uiSettings.GetColorValue(UIColorType.Foreground)
+            : CompositeTitleBarColor(((SolidColorBrush)AppTitleBar.Resources["TitleBarForegroundBrush"]).Color, background);
+        var inactive = highContrast ? foreground
+            : CompositeTitleBarColor(((SolidColorBrush)AppTitleBar.Resources["TitleBarSecondaryBrush"]).Color, background);
+        var hover = highContrast ? foreground
+            : Color.FromArgb(255, (byte)(palette.Hover >> 16), (byte)(palette.Hover >> 8), (byte)palette.Hover);
+        var pressed = highContrast ? foreground
+            : Color.FromArgb(255, (byte)(palette.Pressed >> 16), (byte)(palette.Pressed >> 8), (byte)palette.Pressed);
+        AppTitleBar.Background = new SolidColorBrush(background);
+        TitleBarAppName.Foreground = new SolidColorBrush(_titleBarActive ? foreground : inactive);
+        TitleBarBuildText.Foreground = new SolidColorBrush(inactive);
+        TitleBarAppearanceButton.Foreground = new SolidColorBrush(_titleBarActive ? foreground : inactive);
+        var titleBar = AppWindow.TitleBar;
+        titleBar.ButtonBackgroundColor = background;
+        titleBar.ButtonInactiveBackgroundColor = background;
+        titleBar.ButtonForegroundColor = foreground;
+        titleBar.ButtonInactiveForegroundColor = inactive;
+        titleBar.ButtonHoverBackgroundColor = hover;
+        titleBar.ButtonHoverForegroundColor = highContrast ? background : foreground;
+        titleBar.ButtonPressedBackgroundColor = pressed;
+        titleBar.ButtonPressedForegroundColor = highContrast ? background : foreground;
+    }
+
+    private static Color CompositeTitleBarColor(Color foreground, Color background) =>
+        Color.FromArgb(255,
+            (byte)((foreground.R * foreground.A + background.R * (255 - foreground.A)) / 255),
+            (byte)((foreground.G * foreground.A + background.G * (255 - foreground.A)) / 255),
+            (byte)((foreground.B * foreground.A + background.B * (255 - foreground.A)) / 255));
 
     private void UpdateNavigationPaneBackground(bool isPaneOpen)
     {

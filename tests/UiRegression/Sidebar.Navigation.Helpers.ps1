@@ -1,3 +1,85 @@
+function Test-TitleBarLayout {
+    $name = Find-SidebarElement AutomationId TitleBarAppName
+    $build = Find-SidebarElement AutomationId TitleBarBuildText
+    $shortcut = Find-SidebarElement AutomationId TitleBarAppearanceButton
+    $nameBounds = $name.Current.BoundingRectangle
+    $buildBounds = $build.Current.BoundingRectangle
+    $buttonBounds = $shortcut.Current.BoundingRectangle
+    $windowBounds = $root.Current.BoundingRectangle
+    if ($name.Current.Name -ne 'FingVibe' -or [string]::IsNullOrWhiteSpace($build.Current.Name) -or
+        -not $windowBounds.Contains($nameBounds) -or -not $windowBounds.Contains($buildBounds) -or
+        -not $windowBounds.Contains($buttonBounds) -or $nameBounds.Right -gt $buildBounds.Left -or
+        $buildBounds.Right -gt $buttonBounds.Left -or
+        $buttonBounds.Bottom -gt (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle.Top -or
+        -not $shortcut.Current.IsKeyboardFocusable -or $shortcut.Current.Name -notlike 'Appearance mode: *') {
+        throw "Title-bar identity and its accessible shortcut must fit above navigation without overlapping."
+    }
+    $y = [int]($buttonBounds.Top + $buttonBounds.Height / 2)
+    foreach ($target in @(
+        @{ X = [int]($nameBounds.Left + $nameBounds.Width / 2); Expected = 2; Name = 'drag area' },
+        @{ X = [int]($buttonBounds.Left + $buttonBounds.Width / 2); Expected = 1; Name = 'appearance button' },
+        @{ X = [int]($windowBounds.Right - 23 * $scale); Expected = 20; Name = 'native Close' },
+        @{ X = [int]($windowBounds.Right - 69 * $scale); Expected = 9; Name = 'native Maximize/Restore' },
+        @{ X = [int]($windowBounds.Right - 115 * $scale); Expected = 8; Name = 'native Minimize' }
+    )) {
+        $hit = [SidebarReviewKeyboard]::HitTest($windowHandle, $target.X, $y)
+        if ($hit -ne $target.Expected) {
+            throw "Title-bar $($target.Name) must retain its native hit target; expected $($target.Expected), got $hit."
+        }
+    }
+}
+
+function Test-TitleBarInteractions {
+    Test-TitleBarLayout
+    Focus-SidebarWindow
+    $shortcut = Find-SidebarElement AutomationId TitleBarAppearanceButton
+    $originalMode = if ($shortcut.Current.Name -eq 'Appearance mode: Dark') { 'Dark' } else { 'Light' }
+    $otherMode = if ($originalMode -eq 'Dark') { 'Light' } else { 'Dark' }
+    $bounds = $shortcut.Current.BoundingRectangle
+    [SidebarReviewKeyboard]::PressAt([int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))
+    [SidebarReviewKeyboard]::Release()
+    (Find-SidebarElement AutomationId "AppearanceShortcut$otherMode").GetCurrentPattern(
+        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $null = Wait-UiRegressionState -Description 'title-bar choice uses shared appearance state' -Condition {
+        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.Name -eq "Appearance mode: $otherMode" -and
+            (Get-AppearanceShortcut).Current.Name -eq "Appearance mode: $otherMode"
+    }
+    [SidebarReviewKeyboard]::Tap(0x1B)
+    $null = Wait-UiRegressionState -Description 'title-bar flyout returns keyboard focus' -Condition {
+        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.HasKeyboardFocus
+    }
+    [SidebarReviewKeyboard]::Tap(0x0D)
+    (Find-SidebarElement AutomationId "AppearanceShortcut$originalMode").GetCurrentPattern(
+        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    [SidebarReviewKeyboard]::Tap(0x1B)
+    $null = Wait-UiRegressionState -Description 'keyboard title-bar choice restores shared mode' -Condition {
+        (Find-SidebarElement AutomationId TitleBarAppearanceButton).Current.Name -eq "Appearance mode: $originalMode"
+    }
+
+    $before = $root.Current.BoundingRectangle
+    $name = (Find-SidebarElement AutomationId TitleBarAppName).Current.BoundingRectangle
+    $x = [int]($name.Left + $name.Width / 2); $y = [int]($name.Top + $name.Height / 2)
+    [SidebarReviewKeyboard]::PressAt($x, $y)
+    try {
+        [SidebarReviewKeyboard]::MoveTo($x + [int](64 * $scale), $y + [int](40 * $scale))
+        Start-Sleep -Milliseconds 200
+    }
+    finally { [SidebarReviewKeyboard]::Release() }
+    $null = Wait-UiRegressionState -Description 'noninteractive title bar moves the window' -Condition {
+        [Math]::Abs($root.Current.BoundingRectangle.Left - $before.Left - 64 * $scale) -lt 4 * $scale -and
+            [Math]::Abs($root.Current.BoundingRectangle.Top - $before.Top - 40 * $scale) -lt 4 * $scale
+    }
+    $pattern = $root.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+    $pattern.SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Minimized)
+    $null = Wait-UiRegressionState -Description 'native minimize' -Condition {
+        $pattern.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Minimized
+    }
+    $pattern.SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Normal)
+    Focus-SidebarWindow
+    Set-SidebarWindowWidth $expandedWidth
+    Test-TitleBarLayout
+}
+
 function Test-SidebarContentInset([string] $Page) {
     $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
     $edge = $grip.Left + $grip.Width / 2
