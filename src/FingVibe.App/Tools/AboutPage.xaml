@@ -76,9 +76,13 @@
                     <TextBlock Text="Updates" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <TextBlock x:Name="UpdateInstalledVersion" TextWrapping="Wrap" />
                     <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                    <TextBlock x:Name="UpdateDetails" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                    <TextBlock x:Name="UpdateLastChecked" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock x:Name="UpdateDeploymentText" TextWrapping="Wrap" />
+                    <TextBlock x:Name="UpdateInstallOutcome" TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" Visibility="Collapsed" />
+                    <TextBlock x:Name="UpdateSecurityWarning" TextWrapping="Wrap" Visibility="Collapsed"
+                               Text="Windows may still ask for confirmation. SmartScreen, Defender, UAC or organization policy is not bypassed."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Button x:Name="CheckUpdatesButton" Content="Check for updates" Click="CheckUpdates_Click"
                             HorizontalAlignment="Left" />
                     <HyperlinkButton x:Name="UpdateReleaseLink"
@@ -99,8 +103,16 @@
                     <TextBlock x:Name="UpdateDownloadStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                     <Button x:Name="CancelUpdateDownloadButton" Content="Cancel download" Click="CancelDownload_Click"
                             Visibility="Collapsed" HorizontalAlignment="Left" />
-                    <Button x:Name="InstallUpdateButton" Content="Restart and update" Click="InstallUpdate_Click"
+                    <Button x:Name="InstallUpdateButton" Content="Update now" Click="InstallUpdate_Click"
                             Visibility="Collapsed" HorizontalAlignment="Left" />
+                    <Expander x:Name="UpdateDetailsExpander" Header="Update details"
+                              IsExpanded="False" HorizontalAlignment="Stretch">
+                        <StackPanel Spacing="6">
+                            <TextBlock x:Name="UpdateDetails" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="UpdateDeploymentText" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
             </Border>
         </StackPanel>

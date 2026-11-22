@@ -22,7 +22,9 @@ public sealed partial class MainWindow
         _updateHttp = fixture is null ? new HttpClient() : new HttpClient(fixture.CreateHandler());
         var source = new GitHubReleaseSource(_updateHttp, clock);
         _updates = new ReleaseUpdateSession(fixture is not null || BuildIdentity.Current.Kind == BuildKind.Release,
-            fixture is null ? BuildIdentity.Current.Version : "v1.2.99", source.GetLatestAsync, clock);
+            fixture is null
+                ? BuildIdentity.Current.ParsedVersion?.ToString() ?? BuildIdentity.Current.Version
+                : "v1.2.99", source.GetLatestAsync, clock);
         _updateActions = new ReleaseUpdateActions(_updateHttp, _updates, fixture);
         SettingsPage.ConfigureUpdates(_updates, _updateActions, fixture is not null, Close);
         _updates.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => ApplyUpdateIndicator(state));

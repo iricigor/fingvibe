@@ -19,6 +19,8 @@ public sealed partial class SettingsPageView : UserControl
     private bool _updatingNetworkMonitor;
     private string? _appearanceSaveError;
     private string? _materialStatus;
+    private ReleaseUpdateSession? _updates;
+    private ReleaseUpdateActions? _updateActions;
 
     public SettingsPageView()
     {
@@ -91,11 +93,16 @@ public sealed partial class SettingsPageView : UserControl
 
     internal void ConfigureUpdates(ReleaseUpdateSession session, ReleaseUpdateActions actions, bool isFixture, Action close)
     {
+        _updates = session;
+        _updateActions = actions;
         AboutView.ConfigureUpdates(session, actions, isFixture, close);
         void Apply(UpdateState state)
         {
             var available = state.ConfirmedUpdate is not null;
             AboutUpdateIndicator.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+            var canUpdate = actions.CanUpdateNow;
+            SettingsUpdateNowButton.Visibility = canUpdate ? Visibility.Visible : Visibility.Collapsed;
+            SettingsUpdateNowButton.IsEnabled = canUpdate && !state.IsChecking;
             AboutSummary.Text = available
                 ? $"Update available: {state.ConfirmedUpdate!.VersionText} \u00b7 Last confirmed {state.ConfirmedAt:u}"
                 : $"{BuildIdentity.Current.Version} \u00b7 Build information and updates";
@@ -113,6 +120,12 @@ public sealed partial class SettingsPageView : UserControl
     }
 
     private void AboutSettingsButton_Click(object sender, RoutedEventArgs e) => ShowAbout();
+    private async void SettingsUpdateNowButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_updateActions is null || _updates is null || !_updateActions.CanUpdateNow) return;
+        ShowAbout();
+        await AboutView.UpdateNowAsync();
+    }
 
     private void AboutView_BackRequested(object? sender, EventArgs e)
     {

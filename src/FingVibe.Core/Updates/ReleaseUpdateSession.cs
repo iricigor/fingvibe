@@ -29,7 +29,7 @@ public sealed class ReleaseUpdateSession : IDisposable
         InstalledVersion = parsed;
         IsEligible = isRelease && validVersion;
         _state = new UpdateState(isRelease ? validVersion ? UpdateOutcome.NotChecked : UpdateOutcome.Failed : UpdateOutcome.Disabled,
-            false, null, null, null, null, IsEligible ? _clock.GetUtcNow().AddMinutes(1) : null, null,
+            false, null, null, null, null, IsEligible ? _clock.GetUtcNow() : null, null,
             isRelease && !validVersion ? "The installed release version is invalid; use the stable releases page." : null);
     }
 
@@ -106,7 +106,7 @@ public sealed class ReleaseUpdateSession : IDisposable
         {
             if (_stopped) return;
             var now = _clock.GetUtcNow();
-            var next = now.AddMinutes(5);
+            var next = now.AddMinutes(10);
             if (retry is { } later && later > next) next = later;
             var newer = release is not null && release.Version > InstalledVersion;
             _state = _state with
