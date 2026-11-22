@@ -26,7 +26,6 @@ pencil appear beside the name on hover or keyboard focus, without moving the hea
 
 *Native test-build screenshot. The hostname belongs to the disposable CI runner;
 addresses and metadata are safe review data. Lower sections require scrolling.
-This capture predates the current header and tab layout.
 [Screenshot sources](screenshots.md).*
 
 ## Understand identification

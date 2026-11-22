@@ -24,10 +24,9 @@ Development builds do not check for updates or compare their versions with
 stable releases. See [update checks and downloads](manual/navigation.md#check-for-updates)
 and [installation and updates](manual/install.md).
 
-<a href="screenshots/manual/about.png"><img src="screenshots/manual/about.png" alt="November 20 FingVibe About capture with Connected home icon, test identity and non-release update explanation" width="960"></a>
+<a href="screenshots/manual/about.png"><img src="screenshots/manual/about.png" alt="Current FingVibe About page with Connected home icon, test identity and non-release update explanation" width="960"></a>
 
-November 20 native UI-review capture with the actual Test build's Updates state;
-it predates the current fixed header and shaded section headings.
+Current native UI-review capture with the actual Test build's Updates state.
 Not an official released executable or private LAN.
 Build identifiers belong to the captured application and will differ in your
 installation. [Capture provenance and reproduction](manual/screenshots.md).
