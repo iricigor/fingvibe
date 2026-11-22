@@ -36,7 +36,10 @@
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#6253C4" />
                             </Style>
-                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="#008575" />
+                            <Style x:Key="SidebarPeopleRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                                <Setter Property="Foreground" Value="#008575" />
+                            </Style>
                             <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#9A6700" />
@@ -55,7 +58,10 @@
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#B4A0FF" />
                             </Style>
-                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="#5BD6C3" />
+                            <Style x:Key="SidebarPeopleRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                                <Setter Property="Foreground" Value="#5BD6C3" />
+                            </Style>
                             <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#F9CF58" />
@@ -72,7 +78,9 @@
                             <Style x:Key="SidebarDevicesIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                             </Style>
-                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                            <Style x:Key="SidebarPeopleRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
                             <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                             </Style>
@@ -127,8 +135,8 @@
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="PeopleRoomsNavItem" Content="People &amp; rooms" Tag="PeopleRooms">
                     <NavigationViewItem.Icon>
-                        <PathIcon Foreground="{ThemeResource SidebarPeopleRoomsIconBrush}"
-                                  Data="M1,7 L8,1 L15,7 L15,15 L1,15 Z M9,9 L11,9 L11,11 L9,11 Z M8.5,11.5 L11.5,11.5 L11.5,14 L8.5,14 Z" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-32.png"
+                                    Style="{ThemeResource SidebarPeopleRoomsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

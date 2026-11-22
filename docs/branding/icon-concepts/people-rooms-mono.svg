@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">S1-P2 / People &amp; rooms</title><desc id="desc">A person and a three-room floor plan side by side as separate symbols</desc>
+<circle cx="66.4" cy="79.8" r="15.7" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M41.8 191.8 V135.8 A24.6 24.6 0 0 1 91 135.8 V191.8 Z" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="117.9" y="95.5" width="96.3" height="96.3" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="158.2,95.5 158.2,140.3" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="158.2,158.2 158.2,191.8" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="171.7,149.3 214.2,149.3" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
