@@ -27,8 +27,7 @@
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
-    <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
-                  HorizontalScrollBarVisibility="Disabled">
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
     <VisualStateManager.VisualStateGroups>
         <VisualStateGroup x:Name="DetailsSectionSelection">
             <VisualState x:Name="OverviewSelected">
@@ -68,7 +67,10 @@
             <VisualState x:Name="MergeUnavailable" />
         </VisualStateGroup>
     </VisualStateManager.VisualStateGroups>
-    <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
         <StackPanel Spacing="16">
             <Grid x:Name="HeaderGrid" ColumnSpacing="16" RowSpacing="12" SizeChanged="Header_SizeChanged">
                 <Grid.ColumnDefinitions>
@@ -112,6 +114,10 @@
                 </StackPanel>
             </Grid>
             </Grid>
+        </StackPanel>
+        <ScrollViewer x:Name="DevicePage" Grid.Row="1" AutomationProperties.AutomationId="DeviceDetailsScroll"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16">
             <Border x:Name="DeviceNameEditor" Visibility="Collapsed" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBox x:Name="DeviceNameInput" AutomationProperties.Name="Device name"
@@ -127,7 +133,6 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Border>
-        </StackPanel>
             <StackPanel x:Name="OverviewPanel" Spacing="16" AutomationProperties.AutomationId="DeviceOverviewPanel">
             <Grid x:Name="DetailsColumns" ColumnSpacing="16" RowSpacing="16" SizeChanged="DetailsColumns_SizeChanged">
                 <Grid.ColumnDefinitions>
@@ -382,7 +387,8 @@
                                            FontFamily="Segoe UI Emoji" AutomationProperties.AutomationId="MergeMacOtherName" />
                                 <TextBlock x:Name="MergeMacOtherStatus" TextWrapping="Wrap" />
                                 <TextBlock x:Name="MergeMacOtherAddresses" FontFamily="Consolas" TextWrapping="Wrap"
-                                           IsTextSelectionEnabled="True" AutomationProperties.AutomationId="MergeMacOtherAddresses" />
+                                           MinHeight="24" IsTextSelectionEnabled="True"
+                                           AutomationProperties.AutomationId="MergeMacOtherAddresses" />
                                 <TextBlock x:Name="MergeMacOtherDescription" TextWrapping="Wrap"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
@@ -798,5 +804,6 @@
             </Border>
             </StackPanel>
     </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

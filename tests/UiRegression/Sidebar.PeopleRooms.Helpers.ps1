@@ -4,7 +4,7 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     # Wait-UiRegressionState's $Condition parameter shadows caller variables in callbacks.
     $peopleRoomsCondition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
-    if ($OwnerId -in @('PersonDetailPage', 'PeopleRoomsPage', 'RoomMapPage')) {
+    if ($OwnerId -in @('PersonDetailPage', 'RoomDetailPage', 'PeopleRoomsPage', 'RoomMapPage')) {
         $getPage = {
             $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new(
@@ -12,7 +12,12 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
         }
         $getTarget = {
             $page = & $getPage
-            if ($page) { $page.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $peopleRoomsCondition) }
+            if (-not $page) { return }
+            $match = $page.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $peopleRoomsCondition)
+            if (-not $match) {
+                $match = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $peopleRoomsCondition)
+            }
+            $match
         }
         $target = Wait-UiRegressionState -Description "$OwnerId '$Value' peer" -Condition $getTarget
         if ($target.Current.IsKeyboardFocusable) {
@@ -40,8 +45,13 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $OwnerId))
     } -Find {
         param($Owner, $Match)
-        $Owner.FindAll([System.Windows.Automation.TreeScope]::Descendants, $Match) |
-            Where-Object { Test-UiRegressionElementVisible $_ } | Select-Object -First 1
+        $matches = @($Owner.FindAll([System.Windows.Automation.TreeScope]::Descendants, $Match) |
+            Where-Object { Test-UiRegressionElementVisible $_ })
+        if ($matches.Count -eq 0 -and $OwnerId -in @('PersonDetailPage', 'RoomDetailPage')) {
+            $matches = @($root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $Match) |
+                Where-Object { Test-UiRegressionElementVisible $_ })
+        }
+        $matches | Select-Object -First 1
     }
 }
 

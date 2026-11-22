@@ -4,16 +4,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-# The page shows only its header and the Test, Live measurement and Results cards, in that order.
+# The fixed header stays above the scrolling body, which shows only the Test, Live measurement and Results cards, in that order.
 $speedDocument = [System.Xml.XmlDocument]::new()
 $speedDocument.Load((Join-Path $PSScriptRoot '..\src\FingVibe.App\Tools\SpeedTestPage.xaml'))
 $xamlNamespace = 'http://schemas.microsoft.com/winfx/2006/xaml'
+$speedScroll = $speedDocument.SelectSingleNode("//*[local-name()='ScrollViewer']")
 $pageChildren = @($speedDocument.SelectNodes("//*[local-name()='ScrollViewer']/*[local-name()='StackPanel']/*"))
-$cardNames = @($pageChildren | Select-Object -Skip 1 | ForEach-Object { $_.GetAttribute('Name', $xamlNamespace) })
-if ($pageChildren.Count -ne 4 -or $pageChildren[0].LocalName -ne 'Grid' -or
-    @($pageChildren | Select-Object -Skip 1 | Where-Object LocalName -ne 'Border').Count -ne 0 -or
+$cardNames = @($pageChildren | ForEach-Object { $_.GetAttribute('Name', $xamlNamespace) })
+if (-not $speedScroll -or $speedScroll.PreviousSibling.LocalName -ne 'Grid' -or
+    -not $speedScroll.PreviousSibling.SelectSingleNode(".//*[@*[local-name()='AutomationProperties.Name']='Back to Tools']") -or
+    $pageChildren.Count -ne 3 -or @($pageChildren | Where-Object LocalName -ne 'Border').Count -ne 0 -or
     ($cardNames -join ',') -ne 'TestCard,LiveMeasurementCard,ResultsCard') {
-    throw 'The Speed test page must show the Test, Live measurement and Results cards in order, with no loose paragraphs.'
+    throw 'The Speed test page must keep its header fixed above the Test, Live measurement and Results cards, in order, with no loose paragraphs.'
 }
 foreach ($membership in @(
     @{ Card = 'TestCard'; Names = @('StatusText', 'TestProgress', 'StartTestButton', 'CancelTestButton') },

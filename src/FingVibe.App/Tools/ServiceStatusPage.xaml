@@ -39,23 +39,28 @@
             <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
         </Style>
     </UserControl.Resources>
-    <ScrollViewer x:Name="ServiceStatusScroll" HorizontalScrollBarVisibility="Disabled"
-                  AutomationProperties.AutomationId="ServiceStatusScroll">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Button Content="&#x2190; Network health" Click="BackButton_Click"
-                        MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                        MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                        AutomationProperties.Name="Back to Network health" Style="{StaticResource PageBackButtonStyle}" />
-                <local:PageHeaderIcon Grid.Column="1" Icon="network" />
-                <TextBlock Grid.Column="2" Text="Service status" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                           VerticalAlignment="Center" TextWrapping="Wrap" />
-            </Grid>
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Content="&#x2190; Network health" Click="BackButton_Click"
+                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                    AutomationProperties.Name="Back to Network health" Style="{StaticResource PageBackButtonStyle}" />
+            <local:PageHeaderIcon Grid.Column="1" Icon="network" />
+            <TextBlock Grid.Column="2" Text="Service status" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                       VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <ScrollViewer x:Name="ServiceStatusScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                      AutomationProperties.AutomationId="ServiceStatusScroll">
+        <StackPanel Spacing="16">
             <TextBlock Text="Provider reports, not measurements of your connection. A clear feed does not prove a service works for you."
                        TextWrapping="Wrap" />
             <Grid x:Name="ControlsLayout" ColumnSpacing="24" RowSpacing="12">
@@ -118,5 +123,6 @@
             <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Text="Outlook.com and Amazon.de shopping have no approved status source, and Apple pages are link-only, so these entries are not monitored. Provider reports never change this network's measured health, and this page sends no local network probes." />
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

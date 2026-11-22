@@ -106,7 +106,7 @@ $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot "AdditionalServices.Ui.Tests.ps1"), [ref]$null, [ref]$parseErrors)
 if ($parseErrors) { throw ($parseErrors.Message -join "; ") }
-foreach ($name in @("Wait-ServiceState", "Select-ServicePage", "Show-ServiceScanSection", "Show-ServiceCardFootnotes")) {
+foreach ($name in @("Wait-ServiceState", "Invoke-ServiceControl", "Select-ServicePage", "Show-ServiceScanSection", "Show-ServiceCardFootnotes")) {
     $definition = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -232,5 +232,22 @@ $failure = $null
 try { Show-ServiceCardFootnotes } catch { $failure = $_.Exception.Message }
 if ($failure -notlike "*physical details viewport*") {
     throw "Unreachable card footnotes must fail with physical viewport diagnostics."
+}
+
+$script:cancelInvocations = 0
+$invoke = [pscustomobject]@{}
+$invoke | Add-Member ScriptMethod Invoke { $script:cancelInvocations += 1 }
+$cancel = [pscustomobject]@{}
+$cancel | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $invoke }
+function Show-ServiceScanSection { throw "Cancel must not request scan-section positioning." }
+function Wait-ServiceState { throw "Cancel must not require the scan button to be visibly rendered." }
+function Find-ServiceControl {
+    param([string] $Value, [switch] $ByName)
+    if ($ByName -and $Value -ceq "Cancel") { return $cancel }
+    throw "Unexpected service control $Value."
+}
+Invoke-ServiceControl Cancel
+if ($script:cancelInvocations -ne 1) {
+    throw "Visible scan-button preparation changed ordinary service control invocation."
 }
 Write-Host "Additional service UI helper regression checks passed without desktop automation."

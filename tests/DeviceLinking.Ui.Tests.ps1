@@ -43,19 +43,31 @@ public static class LinkReviewAccessibility {
 $virtualExplanation = "A virtual device groups changing private MAC addresses automatically, so it can't be linked. You can still name it and assign it to a person or room."
 $linkedExplanation = "Linked by you. Edit the shared name, identification, Person, Room and usage category in their own sections."
 
+$script:linkLookupMilliseconds = 5000
+
 function Find-Link([string] $Value, [switch] $ByName, [switch] $Optional) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
+    $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
     $call = Start-UiRegressionCall lookup
     try {
-        $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
-        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+        # Saves, refreshes and theme changes rebuild Device Details asynchronously, so a required
+        # control's peer can be briefly absent. Required lookups await reconstruction within a bound;
+        # optional lookups stay single-shot so absence assertions keep their meaning.
+        $deadline = [DateTime]::UtcNow.AddMilliseconds($(if ($Optional) { 0 } else { $script:linkLookupMilliseconds }))
+        do {
             $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        }
+            if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+                $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            }
+            if ($element -or [DateTime]::UtcNow -ge $deadline) { break }
+            Start-Sleep -Milliseconds 100
+        } while ($true)
     }
     finally { Complete-UiRegressionCall $call }
-    if (-not $element -and -not $Optional) { throw "Missing device-linking control '$Value'." }
+    if (-not $element -and -not $Optional) {
+        throw "Missing device-linking control '$Value' after $($script:linkLookupMilliseconds) ms."
+    }
     return $element
 }
 
@@ -119,7 +131,11 @@ function Show-LinkDevices([string] $Search) {
     } else {
         (Find-Link DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     }
-    Wait-Link { $list = Find-Link ResultsList -Optional; $list -and -not $list.Current.IsOffscreen } "Devices"
+    Wait-Link {
+        $list = Find-Link ResultsList -Optional
+        $search = Find-Link "Search devices" -ByName -Optional
+        $list -and -not $list.Current.IsOffscreen -and $search
+    } "Devices"
     (Find-Link "Search devices" -ByName).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Search)
 }
 
@@ -139,27 +155,30 @@ function Open-LinkDevice([string] $Search, [string] $Name = $Search) {
     Wait-Link { $scroll = Find-Link DeviceDetailsScroll -Optional; $scroll -and -not $scroll.Current.IsOffscreen } "device details"
 }
 
+function Get-LinkBodyTop {
+    Get-UiRegressionDeviceDetailsBodyTop -Root $script:root `
+        -Scale ([UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0)
+}
+
 function Show-Link([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
-        $viewport = Find-Link DeviceDetailsScroll
-        $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        foreach ($percent in 0..100) {
-            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-            Start-Sleep -Milliseconds 10
-            $control = Find-Link $Id
-            $bounds = $control.Current.BoundingRectangle
-            $area = $viewport.Current.BoundingRectangle
-            $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-            if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-                $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
-        }
-        throw "Device-linking control '$Id' is clipped or unreachable."
+        Wait-Link { Find-Link DeviceDetailsScroll -Optional } "device details scroll viewer"
+        $null = Show-UiRegressionScrollTargets -Description "Device-linking control '$Id'" `
+            -GetViewport { Find-Link DeviceDetailsScroll -Optional } `
+            -GetTargets { Find-Link $Id -Optional } `
+            -GetTopEdge { Get-LinkBodyTop } `
+            -GetWindow { $script:root } -BottomMargin 16
+        return Find-Link $Id
     }
     finally { Complete-UiRegressionCall $call }
 }
 
 function Invoke-Link([string] $Id) {
+    # Device Details brings the focused control into view, which can revert a programmatic scroll away
+    # from earlier keyboard focus; focus the action first, as a keyboard user would, then verify visibility.
+    $target = Find-Link $Id
+    if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
     (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 
@@ -171,18 +190,25 @@ function Save-LinkCapture([string] $Name, [string] $Control = "MergeMacAddresses
 function Get-LinkSection {
     $section = Find-Link MergeMacAddresses -Optional
     if (-not $section) { return $null }
-    [pscustomobject]@{
-        Header = $section.Current.HelpText
-        State = $section.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState
-        Element = $section
+    try {
+        [pscustomobject]@{
+            Header = $section.Current.HelpText
+            State = [string]$section.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState
+            Element = $section
+        }
     }
+    catch [System.Windows.Automation.ElementNotAvailableException] { return $null }
 }
 
 function Assert-LinkSection([string] $Header, [string] $State) {
-    Wait-Link { $section = Get-LinkSection; $section -and $section.Header -eq $Header } "Merge MAC addresses showing '$Header'"
-    $section = Get-LinkSection
+    # Read header and state from one live peer; a peer replaced between reads reports no state.
+    Wait-Link {
+        $script:linkSection = Get-LinkSection
+        $script:linkSection -and $script:linkSection.Header -eq $Header -and $script:linkSection.State
+    } "Merge MAC addresses showing '$Header'"
+    $section = $script:linkSection
     if ($section.State -ne $State) { throw "Merge MAC addresses '$Header' must open $State, not $($section.State)." }
-    $identification = (Find-Link "Edit device identification" -ByName).Current.BoundingRectangle
+    $identification = (Show-Link DeviceClassificationEditButton).Current.BoundingRectangle
     if ($identification.Top -lt $section.Element.Current.BoundingRectangle.Bottom) {
         throw "Merge MAC addresses must sit directly above Device identification."
     }
@@ -224,7 +250,11 @@ function Close-LinkPicker {
 
 function Select-LinkChoice([string] $Id) {
     (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-Link { (Find-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "choice $Id"
+    Wait-Link {
+        $choice = Find-Link $Id -Optional
+        $choice -and $choice.GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    } "choice $Id"
 }
 
 function Set-LinkName([string] $Name) {
@@ -232,9 +262,13 @@ function Set-LinkName([string] $Name) {
 }
 
 function Assert-LinkMerge([bool] $Enabled, [string] $Unresolved) {
-    Wait-Link { (Find-Link MergeMacMerge).Current.IsEnabled -eq $Enabled } "Merge as one device enabled=$Enabled"
-    if ((Find-Link MergeMacUnresolved).Current.Name -notlike $Unresolved) {
-        throw "Unexpected unresolved summary: $((Find-Link MergeMacUnresolved).Current.Name)"
+    Wait-Link {
+        $merge = Find-Link MergeMacMerge -Optional
+        $merge -and $merge.Current.IsEnabled -eq $Enabled
+    } "Merge as one device enabled=$Enabled"
+    $summary = Show-Link MergeMacUnresolved
+    if ($summary.Current.Name -notlike $Unresolved) {
+        throw "Unexpected unresolved summary: $($summary.Current.Name)"
     }
 }
 
@@ -245,19 +279,23 @@ function Resolve-LinkDraft {
     $person.SetFocus()
     # Keyboard: Space selects the focused radio button.
     [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Wait-Link { (Find-Link MergeMacChoicePersonThis).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard person choice"
+    Wait-Link {
+        $choice = Find-Link MergeMacChoicePersonThis -Optional
+        $choice -and $choice.GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    } "keyboard person choice"
     Select-LinkChoice MergeMacChoiceRoomOther
     foreach ($field in @("Vendor", "Family", "Model")) {
         $id = "MergeMacChoice${field}Separate"
         $call = Start-UiRegressionCall positioning
         try {
             $choice = Show-UiRegressionScrollTargets -GetViewport { Find-Link DeviceDetailsScroll } `
-                -GetTargets { Find-Link $id } -GetWindow { $script:root } `
+                -GetTargets { Find-Link $id } -GetWindow { $script:root } -GetTopEdge { Get-LinkBodyTop } `
                 -Description "$field Keep separate choice" -BottomMargin 16
         }
         finally { Complete-UiRegressionCall $call }
         $choice.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        Wait-Link { (Find-Link $id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "$field Keep separate selected"
+        Wait-Link { ($c = Find-Link $id -Optional) -and $c.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "$field Keep separate selected"
         $label = if ($field -eq "Vendor") { "Vendor / manufacturer" } else { $field }
         if ((Find-Link "MergeMacResult$field").Current.Name -ne "Linked device ${label}: No shared value") {
             throw "$field must show that no value will be shared."
@@ -890,7 +928,7 @@ try {
         $separate = Show-Link MergeMacChoiceVendorSeparate
         $separate.SetFocus()
         [System.Windows.Forms.SendKeys]::SendWait(" ")
-        Wait-Link { (Find-Link MergeMacChoiceVendorSeparate).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard Keep separate choice at 200% text scale"
+        Wait-Link { ($c = Find-Link MergeMacChoiceVendorSeparate -Optional) -and $c.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard Keep separate choice at 200% text scale"
         Save-LinkCapture "link-comparison-text-scale-200" MergeMacMerge
         $cancel = Show-Link MergeMacCancel
         $cancel.SetFocus()

@@ -122,8 +122,15 @@ function Find-ServiceControl([string] $Value, [switch] $ByName, [switch] $Option
         [System.Windows.Automation.AutomationElement]::NameProperty
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
-    $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-    if (-not $element -and -not $Optional) { throw "Missing service-scan control '$Value'." }
+    # Port-scan progress rebuilds Device Details asynchronously, so a required peer can be briefly
+    # absent. Required lookups await reconstruction within a bound; optional lookups stay single-shot.
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($(if ($Optional) { 0 } else { 5000 }))
+    do {
+        $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($element -or [DateTime]::UtcNow -ge $deadline) { break }
+        Start-Sleep -Milliseconds 100
+    } while ($true)
+    if (-not $element -and -not $Optional) { throw "Missing service-scan control '$Value' after 5000 ms." }
     return $element
 }
 
@@ -137,6 +144,16 @@ function Wait-ServiceState([scriptblock] $Predicate, [string] $Description, [int
 }
 
 function Invoke-ServiceControl([string] $Name) {
+    if ($Name -ceq "Scan additional ports") {
+        Show-ServiceScanSection
+        Wait-ServiceState {
+            $control = Find-ServiceControl $Name -ByName -Optional
+            $control -and -not $control.Current.IsOffscreen
+        } "visible '$Name' control"
+        (Find-ServiceControl $Name -ByName).GetCurrentPattern(
+            [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        return
+    }
     (Find-ServiceControl $Name -ByName).GetCurrentPattern(
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
@@ -197,6 +214,8 @@ function Open-ServiceDetails {
 }
 
 function Show-ServiceScanSection([int] $ExtraSpace = 0) {
+    # The Device Details scroll peer can be briefly re-created under the fixed page header.
+    Wait-ServiceState { Find-ServiceControl DeviceDetailsScroll -Optional } "device details scroll viewer"
     $element = Find-ServiceControl DeviceDetailsScroll
     $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $center = [Math]::Clamp([int][Math]::Round($scroll.Current.VerticalScrollPercent), 0, 100)
@@ -214,8 +233,11 @@ function Show-ServiceScanSection([int] $ExtraSpace = 0) {
         $scale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
         $top = [Math]::Max($area.Top, $window.Top + 190 * $scale)
         $bottom = [Math]::Min($area.Bottom, $window.Bottom - 8 * $scale)
-        $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
-        $heading = (Find-ServiceControl DeviceIncludeUdpCheckBox).Current.BoundingRectangle
+        $buttonElement = Find-ServiceControl DevicePortScanButton -Optional
+        $headingElement = Find-ServiceControl DeviceIncludeUdpCheckBox -Optional
+        if (-not $buttonElement -or -not $headingElement) { continue }
+        $button = $buttonElement.Current.BoundingRectangle
+        $heading = $headingElement.Current.BoundingRectangle
         if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
             $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - (110 + $ExtraSpace) * $scale) {
             return
@@ -353,8 +375,10 @@ function Test-DeviceDetailsEditing {
     Show-ServiceScanSection
     (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
     Wait-ServiceState {
-        (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0 -and
-        (Find-ServiceControl DevicePortsHeading).Current.BoundingRectangle.Width -gt 0
+        $type = Find-ServiceControl "Device type" -ByName -Optional
+        $ports = Find-ServiceControl DevicePortsHeading -Optional
+        $type -and $ports -and $type.Current.BoundingRectangle.Width -gt 0 -and
+            $ports.Current.BoundingRectangle.Width -gt 0
     } "wide identification fields"
     $ports = (Find-ServiceControl DevicePortsHeading).Current.BoundingRectangle
     $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
@@ -583,7 +607,11 @@ try {
     if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "UDP must start unchecked." }
     Save-ServiceEvidence "services-default"
     Invoke-ServiceControl "Scan additional ports"
-    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "TCP: complete*" } "TCP-only completion"
+    Show-ServiceScanSection -ExtraSpace 24
+    Wait-ServiceState {
+        $status = Find-ServiceControl DeviceTcpScanStatus -Optional
+        $status -and $status.Current.Name -like "TCP: complete*"
+    } "TCP-only completion"
     if ($fixture.DnsRequests -ne 0 -or $fixture.NtpRequests -ne 0) { throw "Default scanning sent UDP requests." }
     if (Find-ServiceControl "2222/TCP - SSH alternate" -ByName -Optional) { throw "The TCP fixture unexpectedly responded before starting." }
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "usable TCP-only button"

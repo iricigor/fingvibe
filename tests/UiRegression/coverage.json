@@ -1415,6 +1415,20 @@
           "fixtureAssignments": []
         },
         {
+          "file": "Sidebar.FixedHeaders.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "introducedBy": "#656: scrolls each page body to the bottom in a short window (and at 200% text on disposable CI) and requires its title and Back to stay visible, stationary and below the network bar.",
+          "functions": [],
+          "captures": [
+            "4da6789e8048471dd9565bde03c5c3a45c84e084ac8f36de7bceab549b290908",
+            "4da6789e8048471dd9565bde03c5c3a45c84e084ac8f36de7bceab549b290908",
+            "608b9d8547470c9df8db4f4e4712247068e9f155cf14ccbbf77eac1ce55d20d1"
+          ],
+          "fixtureAssignments": []
+        },
+        {
           "file": "Sidebar.SettingsDisclosure.Scenario.ps1",
           "kind": "scenario",
           "originalRanges": [],
@@ -1459,6 +1473,7 @@
         "Responsive",
         "Refresh",
         "Progress",
+        "FixedHeaders",
         "PeopleRooms",
         "SettingsDisclosure",
         "Persistence",

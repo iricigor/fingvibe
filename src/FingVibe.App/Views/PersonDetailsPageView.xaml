@@ -4,8 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="PersonDetailPage" AutomationProperties.AutomationId="PersonDetailPage">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Spacing="16">
             <Button Click="BackToPeopleButton_Click" AutomationProperties.Name="Back to people and rooms">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="14" />
@@ -25,6 +29,9 @@
                 <Button x:Name="EditPersonDetailButton" Grid.Column="2" Content="Edit" Click="EditPersonButton_Click" />
                 <Button x:Name="DeletePersonDetailButton" Grid.Column="3" Content="Delete" Click="DeletePersonButton_Click" />
             </Grid>
+        </StackPanel>
+        <ScrollViewer x:Name="PersonDetailPage" Grid.Row="1" AutomationProperties.AutomationId="PersonDetailPage">
+        <StackPanel Spacing="16">
             <!-- The person's own symbol and short-name badge stay separate from the People family icon. -->
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -169,5 +176,6 @@
                        AutomationProperties.LiveSetting="Polite"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

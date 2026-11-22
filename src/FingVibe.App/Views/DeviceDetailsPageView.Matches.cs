@@ -499,6 +499,7 @@ public sealed partial class DeviceDetailsPageView
 
     private void UpdateUnlinkState()
     {
+        MergeMacUnlinkConfirmation.Visibility = _unlinkMac is null ? Visibility.Collapsed : Visibility.Visible;
         MergeMacUnlinkConfirm.IsEnabled = !_unlinking && _unlinkMac is not null;
         MergeMacUnlinkCancel.IsEnabled = !_unlinking;
         MergeMacUnlinkConfirm.Content = _unlinking ? "Unlinking..." : "Unlink";

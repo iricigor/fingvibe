@@ -33,8 +33,11 @@
         </Style>
     </UserControl.Resources>
     <Grid>
-    <ScrollViewer x:Name="SettingsPage" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+        <Grid x:Name="SettingsPage" Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -44,6 +47,9 @@
                 <TextBlock Grid.Column="1" Text="Settings" Style="{StaticResource ScannerPageTitleStyle}"
                            Margin="0" VerticalAlignment="Center" />
             </Grid>
+            <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                          AutomationProperties.AutomationId="SettingsPage">
+        <StackPanel Spacing="16">
             <StackPanel x:Name="SettingsCards" Spacing="4">
             <Expander x:Name="AppearanceSection" Style="{StaticResource SettingsSectionStyle}"
                       AutomationProperties.Name="Appearance preferences">
@@ -334,7 +340,8 @@
             </Grid>
             </StackPanel>
         </StackPanel>
-    </ScrollViewer>
+            </ScrollViewer>
+        </Grid>
     <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />
     </Grid>
 </UserControl>

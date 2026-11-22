@@ -177,7 +177,10 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
     $viewport = [pscustomobject]@{ Current = [pscustomobject]@{
         BoundingRectangle = [System.Drawing.RectangleF]::new(250, 107, 1000, 733) } }
     $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
-    function Find-Usage([string] $Id) {
+    function Wait-Usage([scriptblock] $Condition, [string] $Description) {
+        if (-not (& $Condition)) { throw "Timed out waiting for $Description." }
+    }
+    function Find-Usage([string] $Id, [switch] $Optional) {
         if ($Id -eq "DeviceDetailsScroll") { return $viewport }
         return $control
     }

@@ -4,8 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="RoomDetailPage">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Spacing="16">
             <Button x:Name="RoomBackButton" Click="BackToRoomsButton_Click"
                     AutomationProperties.AutomationId="RoomBackButton"
                     AutomationProperties.Name="Back to people and rooms">
@@ -27,6 +31,9 @@
                 <Button x:Name="EditRoomDetailButton" Grid.Column="2" Content="Edit" Click="EditRoomButton_Click" />
                 <Button x:Name="DeleteRoomDetailButton" Grid.Column="3" Content="Delete" Click="DeleteRoomButton_Click" />
             </Grid>
+        </StackPanel>
+        <ScrollViewer x:Name="RoomDetailPage" Grid.Row="1">
+        <StackPanel Spacing="16">
             <!-- The room's own symbol and short-name badge stay separate from the Rooms family icon. -->
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -99,5 +106,6 @@
                 </StackPanel>
             </Border>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

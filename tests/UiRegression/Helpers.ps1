@@ -60,13 +60,16 @@ function Show-UiRegressionScrollTargets {
         [Parameter(Mandatory)][scriptblock] $GetTargets,
         [Parameter(Mandatory)][scriptblock] $GetWindow,
         [Parameter(Mandatory)][string] $Description,
+        # Absolute top of the visible body when a scroller's own UIA rectangle can extend under fixed headers.
+        [scriptblock] $GetTopEdge,
         [double] $TopMargin = 0,
         [double] $BottomMargin = 0,
         [switch] $AlignBottom,
         [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000
     )
     $state = @{
-        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0
+        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0; LastMove = 0
+        MovedAt = $null; StartPercent = $null; RequestedPercent = $null
         StableGeometry = $null; StableSince = $null
     }
     $targetDescription = $Description
@@ -81,7 +84,21 @@ function Show-UiRegressionScrollTargets {
                 @($elements | Where-Object { -not $_ }).Count) { return $null }
             $area = $viewportElement.Current.BoundingRectangle
             $windowArea = $windowElement.Current.BoundingRectangle
+            $fixedElements = @($elements | Where-Object {
+                $bounds = $_.Current.BoundingRectangle
+                (Test-UiRegressionElementWithin $_ $windowElement $windowElement) -and
+                    ($bounds.Right -le $area.Left -or $bounds.Left -ge $area.Right -or
+                     $bounds.Bottom -le $area.Top -or $bounds.Top -ge $area.Bottom)
+            })
+            # Fixed headers remain visible outside the body scroller; scrolling that
+            # scroller cannot move them and must not be used to prove visibility.
+            if ($fixedElements.Count -eq $elements.Count) { return $elements[0] }
             $viewportTop = [Math]::Max($area.Top, $windowArea.Top)
+            if ($GetTopEdge) {
+                $edge = & $GetTopEdge
+                if ($null -eq $edge) { return $null }
+                $viewportTop = [Math]::Max($viewportTop, [double]$edge)
+            }
             $viewportBottom = [Math]::Min($area.Bottom, $windowArea.Bottom)
             $top = $viewportTop + $TopMargin
             $bottom = $viewportBottom - $BottomMargin
@@ -93,20 +110,27 @@ function Show-UiRegressionScrollTargets {
                     throw "$targetDescription has no rendered bounds in a non-scrollable viewport."
                 }
                 if ($state.Direction -eq 0) {
-                    $state.Direction = if ($scroll.Current.VerticalScrollPercent -ge 50) { -1 } else { 1 }
-                }
-                if ($state.MissingBoundsMoves -ge 8) {
-                    throw "$targetDescription remained unrealized after eight bounded viewport moves."
+                    # A target that vanished after a measured move overshot it; search back the way it came.
+                    $state.Direction = if ($state.LastMove) { -$state.LastMove }
+                        elseif ($scroll.Current.VerticalScrollPercent -ge 50) { -1 } else { 1 }
                 }
                 $currentPercent = $scroll.Current.VerticalScrollPercent
-                $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + 25 * $state.Direction))
+                # Step at most one viewport so a small view scans contiguously instead of jumping past the target;
+                # the move bound still allows one full sweep in each direction.
+                $view = [Math]::Min(99.0, [Math]::Max(0.1, $scroll.Current.VerticalViewSize)) / 100
+                $step = [Math]::Min(25.0, [Math]::Max(1.0, 100 * $view / (1 - $view)))
+                $maximumMoves = 2 * [Math]::Ceiling(100 / $step) + 2
+                if ($state.MissingBoundsMoves -ge $maximumMoves) {
+                    throw "$targetDescription remained unrealized after $maximumMoves bounded viewport moves."
+                }
+                $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
                 if ($nextPercent -eq $currentPercent) {
                     if ($state.Reversals -ge 1) {
                         throw "$targetDescription has no rendered bounds after reaching both scroll limits."
                     }
                     $state.Direction = -$state.Direction
                     $state.Reversals++
-                    $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + 25 * $state.Direction))
+                    $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
                 }
                 $state.MissingBoundsMoves++
                 $scroll.SetScrollPercent(-1, $nextPercent)
@@ -139,7 +163,11 @@ function Show-UiRegressionScrollTargets {
             $viewSize = $scroll.Current.VerticalViewSize
             if ($viewSize -le 0 -or $viewSize -ge 100) { return $null }
             $geometry = "$targetTop|$targetBottom|$top|$bottom|$viewSize"
-            if ($geometry -eq $state.Geometry) { throw "$targetDescription did not move after a measured scroll adjustment." }
+            if ($geometry -eq $state.Geometry) {
+                # WinUI can apply a UIA scroll after the next observation; wait briefly without reissuing it.
+                if ($state.MovedAt.ElapsedMilliseconds -lt 750) { return $null }
+                throw "$targetDescription did not move after a measured scroll adjustment (requested $($state.RequestedPercent)% from $($state.StartPercent)%; now $($scroll.Current.VerticalScrollPercent)%)."
+            }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
             # A single UIA peer may report a bottom edge clipped to the viewport.
             # Reveal it from its known top edge instead of chasing that clipped edge.
@@ -152,6 +180,10 @@ function Show-UiRegressionScrollTargets {
             $percent = [Math]::Max(0.0, [Math]::Min(100.0, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))
             $state.Geometry = $geometry
             $state.Moves++
+            $state.LastMove = [Math]::Sign($percent - $scroll.Current.VerticalScrollPercent)
+            $state.StartPercent = $scroll.Current.VerticalScrollPercent
+            $state.RequestedPercent = $percent
+            $state.MovedAt = [Diagnostics.Stopwatch]::StartNew()
             Write-Host "Positioning ${targetDescription}: target $targetTop-$targetBottom; viewport $top-$bottom; view $viewSize%; scroll $($scroll.Current.VerticalScrollPercent)% -> $percent%."
             $scroll.SetScrollPercent(-1, $percent)
             # The next bounded observation must see the actual target bounds, not just a changed percentage.
@@ -187,7 +219,7 @@ function Select-UiRegressionDeviceTab {
     $byId = { param($Id) $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)) }
     $item = & $byId "Device${Tab}Tab"
-    # The tab bar scrolls with the page; only a hidden Details page removes its peers.
+    # The tab bar stays in the fixed header; only a hidden Details page removes its peers.
     if (-not $item) {
         if ($IfOpen) { return $false }
         throw "Device Details is not open, so its $Tab tab cannot be selected."
@@ -235,6 +267,22 @@ function Show-UiRegressionDeviceTabFor {
     if (-not $item -or
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $false }
     Select-UiRegressionDeviceTab -Root $Root -Tab $tab
+}
+
+# The Device Details body starts one 16-DIP row gap below its fixed header. Its ScrollViewer's own UIA
+# rectangle can extend to the window top, so positioning uses the rendered header instead.
+function Get-UiRegressionDeviceDetailsBodyTop {
+    param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][double] $Scale)
+    $bottoms = foreach ($id in @("DeviceBackButton", "DeviceOverviewTab", "DeviceStatusText")) {
+        $element = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+        if (-not $element -or $element.Current.IsOffscreen) { continue }
+        $bounds = $element.Current.BoundingRectangle
+        if (-not $bounds.IsEmpty -and $bounds.Height -gt 0) { $bounds.Bottom }
+    }
+    if (@($bottoms).Count -eq 0) { return $null }
+    return ($bottoms | Measure-Object -Maximum).Maximum + 16 * $Scale
 }
 
 function Find-UiRegressionElement {

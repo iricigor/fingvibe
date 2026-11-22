@@ -23,7 +23,7 @@ public sealed partial class ToolsPage : UserControl
         foreach (var child in ToolsLandingGrid.Children)
         {
             if (child is not Button card) continue;
-            var row = index / columns + 1;
+            var row = index / columns;
             if (row >= ToolsLandingGrid.RowDefinitions.Count)
                 ToolsLandingGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             Grid.SetRow(card, row);
@@ -89,7 +89,7 @@ public sealed partial class ToolsPage : UserControl
         SqlEditorView.Visibility = Visibility.Collapsed;
         DatabaseBackupsView.Close();
         DatabaseBackupsView.Visibility = Visibility.Collapsed;
-        ToolsLanding.Visibility = Visibility.Visible;
+        ToolsLandingContainer.Visibility = Visibility.Visible;
         await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), NetworkHealthView.StopForNavigationAsync(),
             SqlEditorView.StopAsync());
         SpeedTestView.ResetForNavigation();
@@ -100,14 +100,14 @@ public sealed partial class ToolsPage : UserControl
 
     private void SqlEditorCard_Click(object sender, RoutedEventArgs e)
     {
-        ToolsLanding.Visibility = Visibility.Collapsed;
+        ToolsLandingContainer.Visibility = Visibility.Collapsed;
         SqlEditorView.Visibility = Visibility.Visible;
         SqlEditorView.Open();
     }
 
     private void DatabaseBackupsCard_Click(object sender, RoutedEventArgs e)
     {
-        ToolsLanding.Visibility = Visibility.Collapsed;
+        ToolsLandingContainer.Visibility = Visibility.Collapsed;
         DatabaseBackupsView.Visibility = Visibility.Visible;
         DatabaseBackupsView.Open();
     }
@@ -128,7 +128,7 @@ public sealed partial class ToolsPage : UserControl
 
     internal async Task OpenNetworkHealthAsync(bool focusServiceStatus = false, bool focusRoomMap = false)
     {
-        ToolsLanding.Visibility = Visibility.Collapsed;
+        ToolsLandingContainer.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
         ServiceStatusView.StopForNavigation();
         ServiceStatusView.Visibility = Visibility.Collapsed;
@@ -155,7 +155,7 @@ public sealed partial class ToolsPage : UserControl
 
     private void SpeedTestCard_Click(object sender, RoutedEventArgs e)
     {
-        ToolsLanding.Visibility = Visibility.Collapsed;
+        ToolsLandingContainer.Visibility = Visibility.Collapsed;
         SpeedTestView.Visibility = Visibility.Visible;
         SpeedTestView.FocusStartButton();
     }
@@ -174,7 +174,7 @@ public sealed partial class ToolsPage : UserControl
 
     private void ShowImport()
     {
-        ToolsLanding.Visibility = Visibility.Collapsed;
+        ToolsLandingContainer.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Visible;
         FingImportView.Open();
     }

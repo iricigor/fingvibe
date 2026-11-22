@@ -66,9 +66,19 @@ function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
                 }
             }
         }
+        if (-not $element -and -not $Optional) {
+            # Device Details rebuilds asynchronously after saves and restarts, so a required peer can be
+            # briefly absent. Await reconstruction within a bound; optional lookups stay single-shot.
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            while (-not $element -and [DateTime]::UtcNow -lt $deadline) {
+                Start-Sleep -Milliseconds 100
+                $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+            }
+        }
     }
     finally { Complete-UiRegressionCall $call }
-    if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value'." }
+    if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value' after 5000 ms." }
     return $element
 }
 
@@ -305,12 +315,15 @@ function Open-UsageDevice([string] $Name = "Usage laptop") {
 function Show-Usage([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
+        # The Device Details scroll peer can be briefly re-created under the fixed page header.
+        Wait-Usage { Find-Usage DeviceDetailsScroll -Optional } "device details scroll viewer"
         $viewport = Find-Usage DeviceDetailsScroll
         $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         foreach ($percent in 0..100) {
             if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
             Start-Sleep -Milliseconds 10
-            $control = Find-Usage $Id
+            $control = Find-Usage $Id -Optional
+            if (-not $control) { continue }
             $bounds = $control.Current.BoundingRectangle
             $area = $viewport.Current.BoundingRectangle
             # The scroll viewer's automation bounds can extend past the physical window frame.
@@ -500,6 +513,7 @@ try {
             if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
                 $bounds.Left, $bounds.Top, $width, $bounds.Height, 0x0044)) { throw "Unable to resize the category review window." }
             Start-Sleep -Milliseconds 300
+            Open-UsageDevice "Concurrent name"
             Choose-Usage Personal
             foreach ($id in @("UsageCategoryPicker", "UsageCategorySave", "UsageCategoryCancel", "UsageCategoryRefresh")) {
                 $control = Show-Usage $id

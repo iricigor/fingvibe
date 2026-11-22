@@ -1,0 +1,27 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 656,
+  "category": "ui",
+  "changedBehavior": "Keep page icons, titles, Back controls and Device Details tabs fixed below the network bar while only page bodies scroll.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-details-identity",
+    "native-tools-utilities",
+    "native-sidebar-scan-presentation",
+    "native-details-linking",
+    "native-details-usage",
+    "native-tools-device-data",
+    "native-tools-maintenance"
+  ],
+  "expectedAssertions": [
+    "Main-page and tool-page titles and Back controls are outside their body ScrollViewer.",
+    "Fixed headers remain visible while overflowing page bodies scroll at narrow widths and enlarged text.",
+    "Scrolling each short-window page body to the bottom, including at 200% text, leaves its title and Back visible, stationary and below the network bar.",
+    "Device-linking required lookups await asynchronous Device Details reconstruction within a bound; absence checks stay single-shot.",
+    "Measured positioning keeps Device Details targets below the fixed header and searches back in viewport-sized steps after an overshoot.",
+    "Page content remains reachable without adding nested vertical scroll regions.",
+    "Existing navigation, keyboard focus, high-contrast, and page-header appearance behavior remains unchanged."
+  ]
+}
