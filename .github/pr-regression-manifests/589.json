@@ -1,0 +1,20 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 589,
+  "category": "ui",
+  "changedBehavior": "People & rooms navigation and page header use the new S1-P2 person-and-floor-plan family icon, and Person and Room detail headers show the People and Rooms family icons before their titles while keeping each entity's symbol and short-name badge separate.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-sidebar-scan-flows",
+    "equipment-activity",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "People & rooms navigation shows one theme-colored single-color 32 px family mask instead of the interim PathIcon.",
+    "The People & rooms page header has exactly one shared 48-DIP people-rooms family icon beside its wrapping title.",
+    "Person and Room detail headers start with the People and Rooms family icons before their titles, with entity symbols and short-name badges outside the heading.",
+    "Every referenced page-family asset, including the new color, single-color and 32 px navigation files, is present in the published payload."
+  ]
+}

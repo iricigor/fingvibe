@@ -95,7 +95,7 @@ verifies the effective scale before checking narrow layouts, and restores the
 original setting. Idle-action captures cover all supported themes and high
 contrast; all-page capture navigation includes Tools subpages.
 
-Select the online-device or open-port summary card to open the corresponding Devices results. This clears older search and filter restrictions and selects the corresponding Status or Ports filter. **Clear filters** returns to the unrestricted inventory. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices. Inventory retains local observations and per-device scan history, not a physical-availability timeline. The compact **About FingVibe** card opens **Settings > About FingVibe & updates** directly. The same page is available from the separate About row in Settings and contains version/build details and links to the repository and creator's website (opened in the external browser). Back returns to Settings and focuses the About row. Official stable builds check for updates automatically while open; About offers manual checks, user-requested downloads and confirmed installer launch where a verified installation supports it. See the [update workflow](manual/navigation.md#check-for-updates); non-release builds do not check or install stable updates.
+Select the online-device or open-port summary card to open the corresponding Devices results. This clears older search and filter restrictions and selects the corresponding Status or Ports filter. **Clear filters** returns to the unrestricted inventory. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices. Inventory retains local observations and per-device scan history, not a physical-availability timeline. The compact **About FingVibe** card opens **Settings > About FingVibe & updates** directly. The same page is available from the separate About row in Settings and contains version/build details and links to the repository and creator's website (opened in the external browser). Back returns to Settings and focuses the About row. Official stable builds check for updates automatically while open. On unmetered connections, verified installations silently stage the confirmed Setup after its size, published SHA-256, GitHub origin/asset and Internet marking checks; metered/unknown-cost and ineligible builds do not background-download. A staged version is re-verified before restart reuse, duplicate downloads are suppressed and stale version/foreground folders are cleaned up. Verified installations use one **Update now** action on Settings or About; it joins an active background download or falls back to visible foreground progress. Its confirmation offers **Restart now**, **When I close** and **Cancel** (default). Restart now uses the close-first #666 handoff. The close schedule persists the target and verified installer metadata across restarts, moves to newer confirmed releases and can be cancelled; it keeps the orange availability dots hidden. On a completed normal close, a ready schedule uses #666's handoff with relaunch disabled, while a cancelled/forced/Windows-shutdown close or missing file does not install. About keeps a compact scheduled line, cancellation action, collapsed details (including silent background failures retained for retry), plain-text **What's new in X.Y.Z** release notes with a GitHub link for long/missing notes, and the verified install/relaunch outcome. Portable copies retain manual ZIP download. See the [update workflow](manual/navigation.md#check-for-updates); non-release builds do not check or install stable updates.
 
 The running version is visible near the top of Overview and in the window title. Official release builds have no ribbon. PR artifacts show their PR number and an amber diagonal **TEST BUILD** ribbon; local builds show **DEV**, and manually dispatched non-PR CI builds show **TEST**. A smaller second line visibly shows the UTC build date/time (for example, **Built Nov 1, 12:20 UTC**). The tooltip and About show the full timestamp, including year and seconds, and commit information when recorded. Click or keyboard-activate the ribbon to acknowledge it until the app closes. The title and About details retain the build identity after acknowledgment. The ribbon floats above the page at the top-right client-area corner below the unchanged native title bar, extending continuously to the top and right edges. The header keeps a consistent right-hand clearance in every build, so showing or acknowledging the ribbon never shifts or resizes page content. The ribbon uses system colors in Windows high contrast.
 
@@ -208,6 +208,22 @@ explanation anchored at the bottom. They stack at natural height in narrow windo
 second row pairs **Observation summary** with compact **Usage category**, using
 the same column widths and equal card heights within each row. A full-width,
 read-first **Device identification** card follows, then **Ports & services**.
+Every Device details card on both tabs opens with the shared card heading from
+`CardHeadingResources.xaml`. It is a shaded band across the card top with a
+small decorative section icon, a 16-px semibold heading and a 1-DIP divider.
+Heading text, counts and Edit actions stay in the band, and the band grows when
+the heading wraps. Windows high contrast draws the band and its edge in system
+colors. Activity's period and hour controls now sit below the band at full card
+width.
+The same heading opens the applicable content cards on **Overview** (Network,
+Network setup), **Network** (the network identity card, Network health and
+Device activity), **Settings** (Appearance, Devices page, Background activity
+and About FingVibe & updates), **People & rooms** (People and Rooms, with their
+counts and Add actions in the band), **Person details** (Equipment activity) and
+**Room details** (Assigned devices). Settings keeps its native Expander and
+navigation-button controls inside the shared header treatment, while the Room
+assigned-device action stays in its band. Whole-card navigation tiles and
+summary tiles without a heading keep their own treatments.
 Identification and compact service tiles use up to three columns,
 reducing to one as width and text scaling require. The **Rename device** pencil in the
 identity header reveals the existing name editor only when requested. Copy and
@@ -911,7 +927,7 @@ running without either switch exercises both. Never run it on a working
 user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
 fixtures from real user data, like the existing review snapshot override.
 
-The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with colored navigation icons and a wrapping FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
+The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with colored 24-DIP navigation icons and a wrapping FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
 
 ### Device identification
 
@@ -1367,6 +1383,7 @@ one published payload:
 | `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks) |
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
+| `tools-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |
 | `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui, SpeedTest.Ui |
 
 This is the assertion/capture ownership boundary: each original behavior module
@@ -1401,6 +1418,13 @@ checks. They are not predicted acceptance results: compare repeated final-source
 native jobs, capture inventories, setup/download/cleanup and aggregate runner
 consumption with this baseline, keeping queue time and pipeline critical path
 separate. See #314 for the fresh Devices prerequisite and delivered measurements.
+
+For #696, rejected-head run 45000935269 spent 192s in the `tools-utilities`
+suite (Identity 47s, Network health 49s, Import 43s, Updates 30s, Backups 23s)
+inside a 253s job. `tools-maintenance` moves the already-independent Updates and
+Backups checks to their own worker in the same relative order, without changing
+any assertions, sleeps or timeouts. The resulting job durations must be measured
+on the new revision rather than treating projected headroom as acceptance.
 
 Device Details regression follows the #262 Overview/History tab boundary
 across independent matrix jobs (#292): `details-summary`

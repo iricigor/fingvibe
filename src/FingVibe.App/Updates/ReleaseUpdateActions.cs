@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Security;
 using System.Security.Cryptography;
+using System.Text;
 using System.Runtime.Versioning;
 using FingVibe.Core.Updates;
 using Microsoft.Win32;
@@ -8,49 +10,392 @@ using Microsoft.Win32;
 namespace FingVibe.App;
 
 [SupportedOSPlatform("windows")]
-internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession session, UpdateReviewFixture? fixture) : IDisposable
+internal sealed class ReleaseUpdateActions : IDisposable
 {
+    private readonly HttpClient http;
+    private readonly ReleaseUpdateSession session;
+    private readonly UpdateReviewFixture? fixture;
+    private readonly Func<bool> _isMeteredOrUnknown;
+    private readonly object _downloadGate = new();
     private CancellationTokenSource? _downloadCancellation;
     private readonly CancellationTokenSource _lifetime = new();
+    private Task? _downloadTask;
+    private Task? _backgroundWorkTask;
+    private IProgress<double>? _foregroundProgress;
+    private bool _backgroundDownload;
     private (string Path, string Hash, ReleaseAsset Asset, Version Version)? _downloaded;
+    private DateTimeOffset? _lastBackgroundCheckAt;
     private bool _disposed;
 
-    public UpdateDeployment Deployment { get; } = fixture?.Deployment ?? DetectDeployment(session.InstalledVersion);
-    public bool IsDownloading => _downloadCancellation is not null;
+    public ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession session, UpdateReviewFixture? fixture,
+        Func<bool>? isMeteredOrUnknown = null)
+    {
+        this.http = http;
+        this.session = session;
+        this.fixture = fixture;
+        _isMeteredOrUnknown = isMeteredOrUnknown ?? (() => true);
+        Deployment = fixture?.Deployment ?? DetectDeployment(session.InstalledVersion);
+        LatestInstallHandoffRecordPath = fixture is null
+            ? ReleaseInstallHandoffStore.DefaultRecordPath
+            : Path.Combine(fixture.DownloadRoot, "install-handoff.json");
+        CleanupOldDownloads();
+        session.Changed += Session_Changed;
+    }
+
+    public UpdateDeployment Deployment { get; }
+    public bool IsDownloading => _downloadTask is not null;
+    public bool IsBackgroundDownloading => IsDownloading && _backgroundDownload;
+    public double DownloadProgress { get; private set; }
+    public string? BackgroundDownloadStatus { get; private set; }
+    public string? BackgroundDownloadError { get; private set; }
     public bool IsDisposed => _disposed;
     public string? DownloadedPath => _downloaded?.Path;
+    internal ReleaseUpdateDownloadSnapshot? Downloaded => _downloaded is { } downloaded
+        ? new(downloaded.Path, downloaded.Hash, downloaded.Asset.Size, downloaded.Version)
+        : null;
+    public string? InstallHandoffRecordPath { get; private set; }
+    public string LatestInstallHandoffRecordPath { get; }
     public bool CanInstall => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsDownloading
         && _downloaded is { } file && session.State.ConfirmedUpdate?.Version == file.Version;
+    public bool CanUpdateNow => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsForegroundDownloading
+        && SelectedAsset is not null && session.State.ConfirmedUpdate is not null;
+    public event EventHandler? Changed;
 
     public ReleaseAsset? SelectedAsset => session.State.ConfirmedUpdate is { } release
         ? SelectAsset(release) : null;
 
     private ReleaseAsset? SelectAsset(StableRelease release) => Deployment.IsInstalled ? release.Setup : release.Portable;
+    private bool IsForegroundDownloading => IsDownloading && !_backgroundDownload;
+
+    internal async Task<bool> RestoreDownloadedAsync(ReleaseUpdateSchedule schedule, StableRelease release)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!schedule.IsArmed || !session.IsEligible || !Deployment.IsInstalled ||
+            SelectAsset(release) is not { } asset ||
+            !StableRelease.TryParseVersion(schedule.Version, out var expectedVersion) ||
+            expectedVersion != release.Version)
+            return false;
+        try
+        {
+            var root = Path.GetFullPath(DownloadRoot()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var path = Path.GetFullPath(schedule.InstallerPath!);
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) ||
+                Path.GetFileName(path) != asset.Name || !File.Exists(path))
+                return false;
+            var file = new FileInfo(path);
+            if (file.Length != schedule.InstallerSize || file.Length != asset.Size) return false;
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, _lifetime.Token).ConfigureAwait(false));
+            if (!hash.Equals(schedule.InstallerSha256, StringComparison.OrdinalIgnoreCase) ||
+                (asset.Sha256 is not null && !hash.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
+                !(await File.ReadAllTextAsync(path + ":Zone.Identifier", _lifetime.Token).ConfigureAwait(false))
+                    .Split('\n').Any(line => line.Trim() == "ZoneId=3"))
+                return false;
+            _downloaded = (path, hash, asset, release.Version);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or SecurityException or OperationCanceledException or ArgumentException or NotSupportedException)
+        {
+            Trace.TraceWarning($"Scheduled update file could not be restored: {exception}");
+            return false;
+        }
+    }
 
     public async Task DownloadAsync(IProgress<double> progress)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (!session.IsEligible || IsDownloading) throw new InvalidOperationException("A download cannot start in the current update state.");
+        if (!session.IsEligible) throw new InvalidOperationException("A download cannot start in the current update state.");
         var release = session.State.ConfirmedUpdate ?? throw new InvalidOperationException("No newer release has been confirmed.");
         var asset = SelectAsset(release) ?? throw new InvalidOperationException("The release does not provide the required asset. Use its release page.");
-        using var cancellation = new CancellationTokenSource();
-        _downloadCancellation = cancellation;
-        _downloaded = null;
+        lock (_downloadGate)
+        {
+            _foregroundProgress = progress;
+            progress.Report(DownloadProgress);
+        }
         try
         {
-            var root = fixture?.DownloadRoot ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "Updates");
-            var directory = Path.Combine(root, Guid.NewGuid().ToString("N"));
-            var path = await ReleaseDownload.DownloadAsync(http, asset, directory, progress, cancellation.Token).ConfigureAwait(false);
-            await using var stream = File.OpenRead(path);
-            var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellation.Token).ConfigureAwait(false));
-            _downloaded = (path, hash, asset, release.Version);
+            while (true)
+            {
+                Task task;
+                lock (_downloadGate)
+                {
+                    if (_downloaded is { } current && current.Version == release.Version)
+                    {
+                        progress.Report(100);
+                        return;
+                    }
+                    task = StartDownloadLocked(release, asset, background: false);
+                }
+                await task.ConfigureAwait(false);
+            }
         }
         finally
         {
-            _downloadCancellation = null;
+            lock (_downloadGate)
+                _foregroundProgress = null;
         }
     }
+
+    public async Task WaitForDownloadAsync()
+    {
+        Task? task;
+        lock (_downloadGate)
+            task = _backgroundWorkTask is { IsCompleted: false }
+                ? _backgroundWorkTask
+                : _downloadTask;
+        if (task is not null) await task.ConfigureAwait(false);
+    }
+
+    private Task StartDownloadLocked(StableRelease release, ReleaseAsset asset, bool background)
+    {
+        if (_downloaded is { } current && current.Version == release.Version)
+            return Task.CompletedTask;
+        if (_downloadTask is not null) return _downloadTask;
+        if (_downloadCancellation is not null) throw new InvalidOperationException("A download cancellation is still completing.");
+        _backgroundDownload = background;
+        DownloadProgress = 0;
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _downloadCancellation = cancellation;
+        if (background)
+        {
+            BackgroundDownloadStatus = $"Downloading update {release.VersionText.TrimStart('v', 'V')} in the background.";
+            BackgroundDownloadError = null;
+        }
+        var task = DownloadCoreAsync(release, asset, background, cancellation);
+        _downloadTask = task;
+        RaiseChanged();
+        return task;
+    }
+
+    private async Task DownloadCoreAsync(StableRelease release, ReleaseAsset asset, bool background,
+        CancellationTokenSource cancellation)
+    {
+        await Task.Yield();
+        try
+        {
+            var root = DownloadRoot();
+            // Installed copies keep one per-version Setup that startup cleanup preserves, so a scheduled
+            // or restarted update can re-verify it instead of downloading again; portable ZIPs stay unique.
+            var staged = background || Deployment.IsInstalled;
+            var directory = staged ? StagedDirectory(root, release.Version) : Path.Combine(root, Guid.NewGuid().ToString("N"));
+            if (staged && Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+            var progress = new Progress<double>(value =>
+            {
+                lock (_downloadGate)
+                {
+                    DownloadProgress = value;
+                    _foregroundProgress?.Report(value);
+                }
+                RaiseChanged();
+            });
+            var path = await ReleaseDownload.DownloadAsync(http, asset, directory, progress, cancellation.Token).ConfigureAwait(false);
+            var hash = await ReleaseDownload.VerifyAsync(path, asset, cancellation.Token).ConfigureAwait(false);
+            lock (_downloadGate)
+                _downloaded = (path, hash, asset, release.Version);
+            if (background)
+            {
+                CleanupStaleDownloads(release.Version);
+                BackgroundDownloadStatus = $"A verified update to {release.VersionText.TrimStart('v', 'V')} is ready.";
+                BackgroundDownloadError = null;
+            }
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or HttpRequestException
+            or UnauthorizedAccessException or SecurityException or OperationCanceledException)
+        {
+            if (background || Deployment.IsInstalled)
+                DeleteStagedDirectoryFor(release.Version);
+            if (background)
+            {
+                BackgroundDownloadError = exception is OperationCanceledException
+                    ? "The background update download was cancelled."
+                    : exception.GetBaseException().Message;
+                BackgroundDownloadStatus = "Background download failed; the next update check will retry.";
+            }
+            throw;
+        }
+        finally
+        {
+            lock (_downloadGate)
+            {
+                _downloadCancellation = null;
+                _downloadTask = null;
+                _foregroundProgress = null;
+            }
+            RaiseChanged();
+        }
+    }
+
+    private void Session_Changed(object? sender, UpdateState state)
+    {
+        if (state.ConfirmedUpdate is null)
+        {
+            _downloaded = null;
+            RaiseChanged();
+            return;
+        }
+        if (state.IsChecking || state.CheckedAt is not { } checkedAt || checkedAt == _lastBackgroundCheckAt)
+            return;
+        _lastBackgroundCheckAt = checkedAt;
+        lock (_downloadGate)
+            _backgroundWorkTask = EnsureBackgroundDownloadAsync(state.ConfirmedUpdate);
+    }
+
+    private async Task EnsureBackgroundDownloadAsync(StableRelease release)
+    {
+        if (_disposed || !session.IsEligible || !Deployment.IsInstalled || SelectAsset(release) is not { } asset)
+            return;
+        if (string.IsNullOrWhiteSpace(asset.Sha256))
+        {
+            BackgroundDownloadStatus = "Background download skipped because the release does not publish a SHA-256 digest.";
+            BackgroundDownloadError = null;
+            RaiseChanged();
+            return;
+        }
+        try
+        {
+            if (_downloaded is { } existing && existing.Version == release.Version)
+                return;
+            if (await TryRestoreStagedDownloadAsync(release, asset).ConfigureAwait(false))
+                return;
+            if (_isMeteredOrUnknown())
+            {
+                BackgroundDownloadStatus = "Background download skipped because the connection is metered or its cost is unknown.";
+                BackgroundDownloadError = null;
+                RaiseChanged();
+                return;
+            }
+            while (true)
+            {
+                Task task;
+                lock (_downloadGate)
+                {
+                    if (_downloaded is { } current && current.Version == release.Version)
+                        return;
+                    task = StartDownloadLocked(release, asset, background: true);
+                }
+                await task.ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or HttpRequestException
+            or UnauthorizedAccessException or SecurityException or OperationCanceledException)
+        {
+            if (_disposed) return;
+            BackgroundDownloadError = exception is OperationCanceledException
+                ? "The background update download was cancelled."
+                : exception.GetBaseException().Message;
+            BackgroundDownloadStatus = "Background download failed; the next update check will retry.";
+            RaiseChanged();
+        }
+    }
+
+    private async Task<bool> TryRestoreStagedDownloadAsync(StableRelease release, ReleaseAsset asset)
+    {
+        var directory = StagedDirectory(DownloadRoot(), release.Version);
+        var path = Path.Combine(directory, asset.Name);
+        if (!File.Exists(path)) return false;
+        try
+        {
+            var hash = await ReleaseDownload.VerifyAsync(path, asset, _lifetime.Token).ConfigureAwait(false);
+            lock (_downloadGate)
+                _downloaded = (path, hash, asset, release.Version);
+            CleanupStaleDownloads(release.Version);
+            DownloadProgress = 100;
+            BackgroundDownloadStatus = $"A verified update to {release.VersionText.TrimStart('v', 'V')} is ready.";
+            BackgroundDownloadError = null;
+            RaiseChanged();
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+            or SecurityException or OperationCanceledException)
+        {
+            if (_lifetime.IsCancellationRequested) throw;
+            DeleteDirectory(directory);
+            BackgroundDownloadError = $"Discarded an invalid staged update: {exception.GetBaseException().Message}";
+            RaiseChanged();
+            return false;
+        }
+    }
+
+    private string DownloadRoot() => fixture?.DownloadRoot ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "Updates");
+
+    private static string VersionDirectoryName(Version version) =>
+        "v" + version.ToString(version.Revision >= 0 ? 4 : 3);
+
+    private static string StagedDirectory(string root, Version version) =>
+        Path.Combine(root, VersionDirectoryName(version));
+
+    private void CleanupOldDownloads()
+    {
+        var root = DownloadRoot();
+        try
+        {
+            Directory.CreateDirectory(root);
+            foreach (var directory in Directory.EnumerateDirectories(root))
+            {
+                var name = Path.GetFileName(directory);
+                if (Guid.TryParseExact(name, "N", out _) ||
+                    (name.StartsWith('v') && Version.TryParse(name[1..], out var version)
+                        && version.CompareTo(session.InstalledVersion) <= 0))
+                    DeleteDirectory(directory);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning($"Old update download cleanup failed: {exception}");
+        }
+    }
+
+    private void CleanupStaleDownloads(Version keep)
+    {
+        var root = DownloadRoot();
+        try
+        {
+            if (!Directory.Exists(root)) return;
+            foreach (var directory in Directory.EnumerateDirectories(root))
+            {
+                var name = Path.GetFileName(directory);
+                var versionDirectory = name.StartsWith('v') && Version.TryParse(name[1..], out _);
+                if (!string.Equals(name, VersionDirectoryName(keep), StringComparison.OrdinalIgnoreCase) &&
+                    (versionDirectory || Guid.TryParseExact(name, "N", out _)))
+                    DeleteDirectory(directory);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning($"Stale update download cleanup failed: {exception}");
+        }
+    }
+
+    private void DeleteStagedDirectoryFor(Version version) =>
+        DeleteDirectory(StagedDirectory(DownloadRoot(), version));
+
+    private static void DeleteDirectory(string path)
+    {
+        try
+        {
+            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Trace.TraceWarning($"Update download cleanup failed for {path}: {exception}");
+        }
+    }
+
+    private void RaiseChanged() => Changed?.Invoke(this, EventArgs.Empty);
+
+    public async Task<ReleaseInstallHandoffRecord> UpdateNowAsync(IProgress<double> progress)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!CanUpdateNow) throw new InvalidOperationException("Update now is unavailable for this installation.");
+        if (!CanInstall) await DownloadAsync(progress).ConfigureAwait(false);
+        return await StartInstallHandoffAsync(relaunch: true).ConfigureAwait(false);
+    }
+
+    public Task<ReleaseInstallHandoffRecord?> ReadLatestInstallHandoffAsync() =>
+        ReleaseInstallHandoffStore.ReadAsync(LatestInstallHandoffRecordPath);
 
     public void CancelDownload()
     {
@@ -62,13 +407,81 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         }
     }
 
-    public async Task LaunchInstallerAsync()
+    public async Task<ReleaseInstallHandoffRecord> StartInstallHandoffAsync(bool relaunch)
+    {
+        if (!CanInstall || _downloaded is null)
+            throw new InvalidOperationException("A complete Setup for the currently confirmed update is required.");
+        using var admission = new Semaphore(1, 1, "FingVibe-Update-Handoff-Admission");
+        if (!admission.WaitOne(TimeSpan.FromSeconds(10)))
+            throw new InvalidOperationException("Another update handoff is still being prepared.");
+        try
+        {
+            return await StartInstallHandoffCoreAsync(relaunch).ConfigureAwait(false);
+        }
+        finally
+        {
+            admission.Release();
+        }
+    }
+
+    private async Task<ReleaseInstallHandoffRecord> StartInstallHandoffCoreAsync(bool relaunch)
     {
         if (!CanInstall || _downloaded is not { } downloaded)
             throw new InvalidOperationException("A complete Setup for the currently confirmed update is required.");
+        var previous = await ReleaseInstallHandoffStore.ReadAsync(LatestInstallHandoffRecordPath).ConfigureAwait(false);
+        if (previous?.State is ReleaseInstallHandoffState.Requested or ReleaseInstallHandoffState.Waiting
+            or ReleaseInstallHandoffState.Installing)
+        {
+            var helperAlive = IsMatchingProcess(previous.HelperProcessId, previous.HelperProcessStartedUtc);
+            var installerAlive = IsMatchingProcess(previous.InstallerProcessId, previous.InstallerProcessStartedUtc);
+            if (helperAlive || installerAlive)
+                throw new InvalidOperationException("Another update handoff or installer is still in progress.");
+            var stale = previous with
+            {
+                State = ReleaseInstallHandoffState.Failed,
+                Outcome = new ReleaseInstallOutcome(DateTimeOffset.UtcNow, null, false, null,
+                    "The previous update helper is no longer running; the attempt can be reconciled and retried.")
+            };
+            await ReleaseInstallHandoffStore.WriteAsync(previous.RecordPath, stale).ConfigureAwait(false);
+            await ReleaseInstallHandoffStore.WriteAsync(LatestInstallHandoffRecordPath, stale).ConfigureAwait(false);
+        }
+        var attemptId = Guid.NewGuid().ToString("N");
+        InstallHandoffRecordPath = fixture is null
+            ? ReleaseInstallHandoffStore.AttemptRecordPath(attemptId)
+            : Path.Combine(fixture.DownloadRoot, "Handoffs", attemptId, "install-handoff.json");
+        var handoffDirectory = Path.GetDirectoryName(InstallHandoffRecordPath)
+            ?? throw new InvalidOperationException("The update handoff record needs a parent directory.");
+        Directory.CreateDirectory(handoffDirectory);
+        using var origin = Process.GetCurrentProcess();
+        var installationDirectory = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar);
+        var request = new ReleaseInstallHandoffRecord
+        {
+            AttemptId = attemptId,
+            State = ReleaseInstallHandoffState.Requested,
+            RequestedUtc = DateTimeOffset.UtcNow,
+            OriginProcessId = origin.Id,
+            OriginProcessStartedUtc = origin.StartTime.ToUniversalTime(),
+            OriginExecutablePath = Environment.ProcessPath
+                ?? Path.Combine(installationDirectory, "FingVibe.App.exe"),
+            RecordPath = InstallHandoffRecordPath,
+            InstallerPath = downloaded.Path,
+            InstallerSize = downloaded.Asset.Size,
+            InstallerSha256 = downloaded.Hash,
+            ExpectedZoneId = 3,
+            ExpectedVersion = downloaded.Version.ToString(),
+            InstallationDirectory = installationDirectory,
+            RelaunchRequested = relaunch,
+            RelaunchExecutablePath = Path.Combine(installationDirectory, "FingVibe.App.exe"),
+            InstallerLogPath = Path.Combine(handoffDirectory, "installer.log"),
+            LatestRecordPath = LatestInstallHandoffRecordPath
+        };
+        await ReleaseInstallHandoffStore.WriteAsync(InstallHandoffRecordPath, request).ConfigureAwait(false);
+        await ReleaseInstallHandoffStore.WriteAsync(LatestInstallHandoffRecordPath, request).ConfigureAwait(false);
+        var activeRecord = request;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var verified = false;
+        Process? helper = null;
         try
         {
             await using var file = new FileStream(downloaded.Path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
@@ -81,13 +494,106 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
             timeout.Token.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (fixture is not null) UpdateReviewFixture.RejectLaunch();
-            using var process = Process.Start(new ProcessStartInfo(downloaded.Path) { UseShellExecute = true })
-                ?? throw new IOException("Windows did not accept the installer launch.");
+            var scriptSource = Path.Combine(AppContext.BaseDirectory, "Assets", "InstallUpdateHandoff.ps1");
+            if (!File.Exists(scriptSource)) throw new IOException("The packaged update handoff helper is unavailable.");
+            var encodedScript = Convert.ToBase64String(Encoding.Unicode.GetBytes(
+                File.ReadAllText(scriptSource)));
+            var start = new ProcessStartInfo(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "System32", "WindowsPowerShell", "v1.0", "powershell.exe"))
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = handoffDirectory
+            };
+            start.ArgumentList.Add("-NoLogo");
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-NonInteractive");
+            start.ArgumentList.Add("-EncodedCommand");
+            start.ArgumentList.Add(encodedScript);
+            start.Environment["FINGVIBE_UPDATE_HANDOFF_RECORD"] = InstallHandoffRecordPath;
+            helper = Process.Start(start)
+                ?? throw new IOException("Windows did not accept the update handoff launch.");
+            await WaitForHandoffReadyAsync(helper, InstallHandoffRecordPath).ConfigureAwait(false);
+            return activeRecord;
         }
-        catch (Exception exception) when (!verified && exception is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException)
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+            or SecurityException or Win32Exception or InvalidOperationException or OperationCanceledException)
         {
-            _downloaded = null;
-            throw new InvalidDataException("Setup verification failed. Do not run this file; obtain a fresh update manually.", exception);
+            var current = await ReleaseInstallHandoffStore.ReadAsync(InstallHandoffRecordPath).ConfigureAwait(false);
+            var failed = (current?.AttemptId == activeRecord.AttemptId ? current : activeRecord) with
+            {
+                State = ReleaseInstallHandoffState.Failed,
+                Outcome = new ReleaseInstallOutcome(DateTimeOffset.UtcNow, null, false, null,
+                    exception.GetBaseException().Message)
+            };
+            await ReleaseInstallHandoffStore.WriteAsync(InstallHandoffRecordPath, failed).ConfigureAwait(false);
+            var latest = await ReleaseInstallHandoffStore.ReadAsync(LatestInstallHandoffRecordPath).ConfigureAwait(false);
+            if (latest?.AttemptId == failed.AttemptId)
+                await ReleaseInstallHandoffStore.WriteAsync(LatestInstallHandoffRecordPath, failed).ConfigureAwait(false);
+            if (!verified && exception is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException)
+            {
+                _downloaded = null;
+                throw new InvalidDataException("Setup verification failed. Do not run this file; obtain a fresh update manually.", exception);
+            }
+
+            throw;
+        }
+        finally
+        {
+            helper?.Dispose();
+        }
+    }
+
+    private static async Task WaitForHandoffReadyAsync(Process helper, string recordPath)
+    {
+        var deadline = Stopwatch.StartNew();
+        while (deadline.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            var record = await ReleaseInstallHandoffStore.ReadAsync(recordPath).ConfigureAwait(false);
+            helper.Refresh();
+            if (helper.HasExited)
+            {
+                if (record?.State == ReleaseInstallHandoffState.Failed)
+                    throw new IOException(record.Outcome?.Error ?? "The update handoff failed before it was ready.");
+                throw new IOException("The update handoff exited before it acknowledged readiness.");
+            }
+            if (record?.State == ReleaseInstallHandoffState.Failed)
+            {
+                if (!helper.HasExited) helper.Kill(entireProcessTree: true);
+                await helper.WaitForExitAsync().ConfigureAwait(false);
+                throw new IOException(record.Outcome?.Error ?? "The update handoff failed before it was ready.");
+            }
+            if (record?.State is ReleaseInstallHandoffState.Waiting or ReleaseInstallHandoffState.Installing
+                or ReleaseInstallHandoffState.Succeeded)
+                return;
+            await Task.Delay(100).ConfigureAwait(false);
+        }
+        if (!helper.HasExited) helper.Kill(entireProcessTree: true);
+        await helper.WaitForExitAsync().ConfigureAwait(false);
+        throw new IOException("The update handoff did not acknowledge readiness in time.");
+    }
+
+    private static bool IsMatchingProcess(int? processId, DateTimeOffset? startedUtc)
+    {
+        if (processId is not int id || startedUtc is not DateTimeOffset started) return false;
+        try
+        {
+            using var process = Process.GetProcessById(id);
+            return !process.HasExited &&
+                Math.Abs(((DateTimeOffset)process.StartTime.ToUniversalTime() - started).TotalSeconds) <= 2;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (Win32Exception)
+        {
+            return false;
         }
     }
 
@@ -119,5 +625,9 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         _disposed = true;
         _lifetime.Cancel();
         CancelDownload();
+        session.Changed -= Session_Changed;
     }
 }
+
+internal sealed record ReleaseUpdateDownloadSnapshot(
+    string Path, string Sha256, long Size, Version Version);

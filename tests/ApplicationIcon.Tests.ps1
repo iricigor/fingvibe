@@ -173,6 +173,46 @@ $appSource = Join-Path $PSScriptRoot "..\src\FingVibe.App"
 $pageIconSource = Join-Path $appSource "Assets\PageIcons"
 $pageIcons = @(Get-ChildItem -LiteralPath $pageIconSource -Filter *.png -File)
 if ($pageIcons.Count -eq 0) { throw "No page-family icons were found in $pageIconSource." }
+$pageIconConcepts = Join-Path $PSScriptRoot "..\docs\branding\icon-concepts"
+foreach ($icon in $pageIcons | Where-Object Name -like "*-color.png") {
+    $source = Join-Path $pageIconConcepts $icon.Name
+    $svg = [IO.Path]::ChangeExtension($source, ".svg")
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or -not (Test-Path -LiteralPath $svg -PathType Leaf)) {
+        throw "Full-color PageIcon $($icon.Name) must retain matching concept PNG and SVG masters."
+    }
+    if ((Get-FileHash -LiteralPath $icon.FullName).Hash -ne (Get-FileHash -LiteralPath $source).Hash) {
+        throw "Runtime PageIcon $($icon.Name) differs from its documented 256 px master."
+    }
+    $vector = Get-Content -LiteralPath $svg -Raw
+    if ($vector -notmatch 'stroke="none"' -or $vector -match 'stroke="#38577B"') {
+        throw "Full-color PageIcon $($icon.Name) must not retain the halo-producing #38577B tile stroke."
+    }
+    $bitmap = [Drawing.Bitmap]::new((Resolve-Path -LiteralPath $icon.FullName).Path)
+    try {
+        if ($bitmap.Width -ne 256 -or $bitmap.Height -ne 256) {
+            throw "Full-color PageIcon $($icon.Name) must remain 256 x 256."
+        }
+        foreach ($coordinate in 60..195) {
+            $points = @(
+                [Drawing.Point]::new($coordinate, 15),
+                [Drawing.Point]::new($coordinate, 16),
+                [Drawing.Point]::new($coordinate, 239),
+                [Drawing.Point]::new($coordinate, 240),
+                [Drawing.Point]::new(15, $coordinate),
+                [Drawing.Point]::new(16, $coordinate),
+                [Drawing.Point]::new(239, $coordinate),
+                [Drawing.Point]::new(240, $coordinate)
+            )
+            foreach ($point in $points) {
+                $color = $bitmap.GetPixel($point.X, $point.Y)
+                if ($color.A -gt 32 -and $color.G -gt 70 -and $color.B -gt 105) {
+                    throw "Full-color PageIcon $($icon.Name) contains a pale tile-edge halo pixel at $point."
+                }
+            }
+        }
+    }
+    finally { $bitmap.Dispose() }
+}
 $referenced = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($xaml in Get-ChildItem -LiteralPath $appSource -Filter *.xaml -File -Recurse |
     Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
@@ -192,21 +232,38 @@ foreach ($name in $referenced) {
         throw "Page-family icon $name is referenced but missing from the source assets."
     }
 }
-# BitmapIcon point-samples monochrome masks, so 16-DIP sidebar icons need 2x (32 px) art to stay legible.
+# BitmapIcon point-samples monochrome masks, so 24-DIP sidebar icons need 2x (48 px) art to stay crisp up to 200%.
 $mainWindow = Get-Content -LiteralPath (Join-Path $appSource "MainWindow.xaml") -Raw
-$sidebarIcons = @([regex]::Matches($mainWindow,
-        '<BitmapIcon\b[^>]*\bUriSource="ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)"') |
-    ForEach-Object { $_.Groups[1].Value })
-if ($sidebarIcons.Count -ne 4) { throw "Expected four sidebar family BitmapIcons; found $($sidebarIcons.Count)." }
-foreach ($name in $sidebarIcons) {
-    $image = [System.Drawing.Image]::FromFile((Join-Path $pageIconSource $name))
+$sidebarItems = @([regex]::Matches($mainWindow, '(?s)<NavigationViewItem x:Name="[A-Za-z]+NavItem".*?</NavigationViewItem>') |
+    Where-Object Value -match '<BitmapIcon\b')
+if ($sidebarItems.Count -ne 5) { throw "Expected five sidebar family BitmapIcons; found $($sidebarItems.Count)." }
+foreach ($item in $sidebarItems) {
+    if ($item.Value -notmatch '<x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>') {
+        throw "Every sidebar family icon must use a 24-DIP icon box."
+    }
+    $name = [regex]::Match($item.Value, 'UriSource="ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)"').Groups[1].Value
+    $bitmap = [System.Drawing.Bitmap]::new((Join-Path $pageIconSource $name))
     try {
-        if ($name -notlike "*-mono-32.png" -or $image.Width -ne 32 -or $image.Height -ne 32 -or
-            -not [System.Drawing.Image]::IsAlphaPixelFormat($image.PixelFormat)) {
-            throw "Sidebar icon $name must be a 32 px single-color mask with alpha."
+        if ($name -notlike "*-mono-48.png" -or $bitmap.Width -ne 48 -or $bitmap.Height -ne 48 -or
+            -not [System.Drawing.Image]::IsAlphaPixelFormat($bitmap.PixelFormat)) {
+            throw "Sidebar icon $name must be a 48 px single-color mask with alpha."
+        }
+        $left = 48; $top = 48; $right = -1; $bottom = -1
+        for ($y = 0; $y -lt 48; $y++) {
+            for ($x = 0; $x -lt 48; $x++) {
+                if ($bitmap.GetPixel($x, $y).A -ge 128) {
+                    $left = [Math]::Min($left, $x); $right = [Math]::Max($right, $x)
+                    $top = [Math]::Min($top, $y); $bottom = [Math]::Max($bottom, $y)
+                }
+            }
+        }
+        # Equal visible weight: the artwork's longer side fills about 85-90% of the box.
+        $longer = [Math]::Max($right - $left + 1, $bottom - $top + 1)
+        if ($longer -lt 41 -or $longer -gt 43) {
+            throw "Sidebar icon $name artwork spans $longer px; expected about 42 px (85-90% of 48)."
         }
     }
-    finally { $image.Dispose() }
+    finally { $bitmap.Dispose() }
 }
 foreach ($icon in $pageIcons) {
     $deployed = Join-Path $AppDirectory "Assets\PageIcons\$($icon.Name)"

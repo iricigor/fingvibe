@@ -49,16 +49,39 @@
     $peopleRoomsCode = Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml.cs") -Raw
     $headingRow = $peopleRoomsDocument.SelectSingleNode("//*[@*[local-name()='Name']='PeopleRoomsHeadingRow']")
     if (-not $headingRow) { throw "People & rooms must expose its shared icon/title layout." }
-    $headingIcon = $headingRow.SelectSingleNode("./*[local-name()='Viewbox']")
+    $headingIcon = $headingRow.SelectSingleNode("./*[local-name()='PageHeaderIcon']")
     $headingTitle = $headingRow.SelectSingleNode("./*[local-name()='TextBlock']")
-    if (-not $headingIcon -or $headingIcon.GetAttribute("Width") -cne "48" -or
-        $headingIcon.GetAttribute("Height") -cne "48" -or
-        $headingIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+    if (-not $headingIcon -or $headingIcon.GetAttribute("Icon") -cne "people-rooms" -or
+        $headingIcon.HasAttribute("Width") -or $headingIcon.HasAttribute("Height") -or
+        $headingRow.SelectNodes("./*[local-name()='PageHeaderIcon' or local-name()='Viewbox']").Count -ne 1 -or
         $headingRow.GetAttribute("ColumnSpacing") -cne "12" -or
         $headingTitle.GetAttribute("Grid.Column") -cne "1" -or
         $headingTitle.GetAttribute("VerticalAlignment") -cne "Center" -or
         $headingTitle.GetAttribute("TextWrapping") -cne "Wrap") {
-        throw "People & rooms must align its wrapping title beside one decorative 48-DIP icon with a 12-DIP gap."
+        throw "People & rooms must align its wrapping title beside one shared 48-DIP 'people-rooms' family icon with a 12-DIP gap."
+    }
+    $navItem = [regex]::Match((Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw),
+        '(?s)<NavigationViewItem x:Name="PeopleRoomsNavItem".*?</NavigationViewItem>').Value
+    if ($navItem -notmatch 'UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-48\.png"' -or
+        $navItem -notmatch 'Style="\{ThemeResource SidebarPeopleRoomsIconStyle\}"' -or $navItem -match '<PathIcon\b') {
+        throw "People & rooms navigation must use one theme-colored single-color 'people-rooms' family icon."
+    }
+    foreach ($detail in @(
+        @{ View = "PersonDetailsPageView"; Heading = "PersonDetailHeading"; Icon = "people"; Name = "PersonDetailName"; Symbol = "PersonDetailIcon"; Badge = "PersonDetailShortName" },
+        @{ View = "RoomDetailsPageView"; Heading = "RoomDetailHeading"; Icon = "rooms"; Name = "RoomDetailName"; Symbol = "RoomDetailIcon"; Badge = "RoomDetailShortName" }
+    )) {
+        $detailDocument = [xml](Get-Content (Join-Path $appDirectory "Views\$($detail.View).xaml") -Raw)
+        $heading = $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Heading)']")
+        $first = if ($heading) { $heading.SelectSingleNode("./*[not(starts-with(local-name(), 'Grid.'))]") }
+        $detailName = if ($heading) { $heading.SelectSingleNode("./*[@*[local-name()='Name']='$($detail.Name)']") }
+        if (-not $first -or $first.LocalName -cne "PageHeaderIcon" -or $first.GetAttribute("Icon") -cne $detail.Icon -or
+            $heading.SelectNodes(".//*[local-name()='PageHeaderIcon']").Count -ne 1 -or
+            -not $detailName -or $detailName.GetAttribute("Grid.Column") -cne "1" -or
+            $heading.SelectSingleNode(".//*[@*[local-name()='Name']='$($detail.Symbol)' or @*[local-name()='Name']='$($detail.Badge)']") -or
+            -not $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Symbol)']") -or
+            -not $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Badge)']")) {
+            throw "$($detail.View) must show the '$($detail.Icon)' family icon before its title and keep the entity symbol and short-name badge separate."
+        }
     }
     foreach ($section in @(
         @{ Name = "People"; Add = "AddPersonButton" },
@@ -116,31 +139,48 @@
             throw "$styleName must retain its native template and a growing 68-DIP minimum, not a fixed height."
         }
     }
-    $titleStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardTitleStyle']")
-    if ($titleStyle.SelectSingleNode("./*[@Property='FontSize']").GetAttribute("Value") -cne "14" -or
-        $titleStyle.SelectSingleNode("./*[@Property='FontWeight']").GetAttribute("Value") -cne "Normal" -or
-        $titleStyle.SelectSingleNode("./*[@Property='TextWrapping']").GetAttribute("Value") -cne "Wrap") {
-        throw "Settings card titles must use regular 14-DIP wrapping text."
+    $headingBandStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardHeadingBandStyle']")
+    if (-not $headingBandStyle -or
+        $headingBandStyle.GetAttribute("BasedOn") -cne "{StaticResource CardHeadingBandStyle}" -or
+        $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Margin']").GetAttribute("Value") -cne "0") {
+        throw "Settings card headings must inherit the shared H4 band without the scanner-card offset."
     }
-    $iconStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardIconStyle']")
-    if ($iconStyle.SelectSingleNode("./*[@Property='Width']").GetAttribute("Value") -cne "32" -or
-        $iconStyle.SelectSingleNode("./*[@Property='AutomationProperties.AccessibilityView']").GetAttribute("Value") -cne "Raw") {
-        throw "Settings leading icons must reserve a fixed column without duplicating accessible labels."
+    $navigationCardPadding = $settings.SelectSingleNode(
+        "//*[@*[local-name()='Key']='SettingsNavigationCardStyle']/*[local-name()='Setter' and @Property='Padding']")
+    if (-not $navigationCardPadding -or $navigationCardPadding.GetAttribute("Value") -cne "16,0,8,0") {
+        throw "The About card must keep the Expander header's 16-DIP inset so all Settings titles share one column."
     }
     foreach ($entry in @(
-        @{ Id = "AppearanceSection"; Type = "Expander"; Summary = "AppearanceSummary" },
-        @{ Id = "DevicesSection"; Type = "Expander"; Summary = "DevicesSummary" },
-        @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary" },
-        @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary" }
+        @{ Id = "AppearanceSection"; Type = "Expander"; Summary = "AppearanceSummary"; Heading = "AppearanceSettingsHeading" },
+        @{ Id = "DevicesSection"; Type = "Expander"; Summary = "DevicesSummary"; Heading = "DevicesSettingsHeading" },
+        @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary"; Heading = "ScheduledScansHeading" },
+        @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary"; Heading = "AboutSettingsHeading" }
     )) {
-        $card = $cards.SelectSingleNode("./*[@*[local-name()='Name']='$($entry.Id)']")
-        $header = $card.SelectSingleNode(".//*[local-name()='Grid' and @Style='{StaticResource SettingsCardHeaderStyle}']")
-        if ($card.LocalName -cne $entry.Type -or -not $header -or
-            $header.SelectSingleNode("./*[local-name()='Grid.ColumnDefinitions']/*[1]").GetAttribute("Width") -cne "32" -or
-            -not $header.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource SettingsCardIconStyle}']") -or
-            -not $header.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Summary)' and @Style='{StaticResource SettingsCardSummaryStyle}']")) {
-            throw "$($entry.Id) must preserve its native interaction and use the shared icon/text header treatment."
+        $card = $cards.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Id)']")
+        $band = $card.SelectSingleNode(".//*[local-name()='Border' and @Style='{StaticResource SettingsCardHeadingBandStyle}']")
+        $row = if ($band) { $band.SelectSingleNode("./*[local-name()='Grid' and @Style='{StaticResource CardHeadingRowStyle}']") }
+        $icon = if ($row) { $row.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']") }
+        $title = if ($row) { $row.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Heading)' and @Style='{StaticResource CardHeadingTextStyle}']") }
+        $summary = if ($row) { $row.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Summary)' and @Style='{StaticResource SettingsCardSummaryStyle}']") }
+        if ($card.LocalName -cne $entry.Type -or -not $band -or -not $row -or -not $icon -or
+            -not $icon.GetAttribute("Glyph") -or -not $title -or -not $summary -or
+            $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or $title.HasAttribute("Foreground")) {
+            throw "$($entry.Id) must preserve its native interaction and use the shared H4 icon, band and styled heading."
         }
+    }
+    $aboutRow = $cards.SelectSingleNode("./*[local-name()='Grid' and @*[local-name()='Name']='AboutSettingsRow']")
+    $settingsUpdate = $aboutRow.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Name']='SettingsUpdateNowButton']")
+    $aboutButton = $aboutRow.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Name']='AboutSettingsButton']")
+    if (-not $aboutRow -or -not $aboutButton -or -not $settingsUpdate -or
+        $aboutButton.ParentNode -ne $aboutRow -or $settingsUpdate.ParentNode -ne $aboutRow) {
+        throw "Settings Update now must remain a sibling action, not a nested About row control."
+    }
+    if ($settingsUpdate.GetAttribute("Content") -cne "Update now" -or
+        $settingsUpdate.GetAttribute("Click") -cne "SettingsUpdateNowButton_Click") {
+        throw "Settings must expose the shared Update now action."
+    }
+    if ($aboutRow.HasAttribute("ColumnSpacing") -or $settingsUpdate.GetAttribute("Margin") -cne "12,0,0,0") {
+        throw "A collapsed Settings Update now action must not narrow the About card; keep its spacing on the button margin."
     }
     $scheduled = $settings.SelectSingleNode("//*[@*[local-name()='Name']='ScheduledScansSection']")
     $monitorSwitch = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringSwitch']")
@@ -152,6 +192,11 @@
         $monitorDisclosure.GetAttribute("TextWrapping") -cne "Wrap" -or
         $monitorStatus.GetAttribute("AutomationProperties.LiveSetting") -cne "Polite") {
         throw "Background activity must group an accessible monitoring toggle, disclosure and polite status with scheduled scans."
+    }
+    $closeSource = Get-Content (Join-Path $appDirectory "MainWindow.xaml.cs") -Raw
+    if ($closeSource -notmatch '(?s)await ToolsPage\.StopForWindowCloseAsync\(\);\s*await TryInstallScheduledUpdateOnCloseAsync\(\);' -or
+        $closeSource -notmatch '(?s)finally\s*\{\s*_updateCloseScheduler\?\.Dispose\(\);\s*StopUpdates\(\);') {
+        throw "Postponed update handoff must run after existing activity shutdown and before the final close cleanup."
     }
     $shellDocument = [xml](Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw)
     $rootGrid = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='RootGrid']")
@@ -315,6 +360,40 @@
             throw "Overview navigation cards must use one separate trailing chevron and no embedded arrow."
         }
     }
+    # #688: content cards on the main pages start with the shared H4 card heading used by Device Details (#578).
+    foreach ($page in @(
+        @{ Path = "Views\OverviewPageView.xaml"; Headings = @("Network", "Network setup") },
+        @{ Path = "Views\NetworkPageView.xaml"; Headings = @("NetworkIdentityText", "Network health", "Device activity") },
+        @{ Path = "Views\PeopleRoomsPageView.xaml"; Headings = @("People", "Rooms") },
+        @{ Path = "Views\PersonDetailsPageView.xaml"; Headings = @("Equipment activity") },
+        @{ Path = "Views\RoomDetailsPageView.xaml"; Headings = @("Assigned devices") }
+    )) {
+        $document = [System.Xml.XmlDocument]::new()
+        $document.Load((Join-Path $appDirectory $page.Path))
+        $bands = @($document.SelectNodes("//*[local-name()='Border' and @Style='{StaticResource CardHeadingBandStyle}']"))
+        $titles = @()
+        foreach ($band in $bands) {
+            $card = $band.ParentNode.ParentNode
+            $first = $card.SelectSingleNode("./*/*[not(contains(local-name(), '.'))]")
+            $icon = $band.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']")
+            $title = $band.SelectSingleNode(".//*[local-name()='TextBlock' and @Style='{StaticResource CardHeadingTextStyle}']")
+            if ($card.GetAttribute("Style") -cne "{StaticResource ScannerSummaryCardStyle}" -or $first -ne $band -or
+                -not $icon -or -not $icon.GetAttribute("Glyph") -or -not $title -or
+                $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight") -or $title.HasAttribute("Foreground")) {
+                throw "$($page.Path) card headings must start their card with one shared band holding an icon and styled heading."
+            }
+            # Zero-padding table cards keep the band flush and the 12-DIP inset shared with their column headers.
+            $zeroPadding = $card.GetAttribute("Padding") -eq "0"
+            if (($zeroPadding -and ($band.GetAttribute("Margin") -cne "0" -or $band.GetAttribute("Padding") -cne "12,10")) -or
+                (-not $zeroPadding -and ($band.HasAttribute("Margin") -or $band.HasAttribute("Padding")))) {
+                throw "$($page.Path) heading bands may only override their insets inside zero-padding table cards."
+            }
+            $titles += if ($title.HasAttribute("x:Name")) { $title.GetAttribute("x:Name") } else { $title.GetAttribute("Text") }
+        }
+        if (($titles -join "|") -cne ($page.Headings -join "|")) {
+            throw "$($page.Path) must use the shared card heading for exactly: $($page.Headings -join ', '); found $($titles -join ', ')."
+        }
+    }
     foreach ($link in @(
         @{ Path = "Views\NetworkPageView.xaml"; Id = "OpenNetworkHealthButton" },
         @{ Path = "Tools\NetworkHealthPage.xaml"; Id = "OpenServiceStatusButton" },
@@ -338,9 +417,19 @@
     }
     $aboutDocument = [System.Xml.XmlDocument]::new()
     $aboutDocument.Load((Join-Path $appDirectory "Tools\AboutPage.xaml"))
+    $scheduledStatus = $aboutDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='UpdateScheduledStatus']")
+    $cancelScheduled = $aboutDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='CancelScheduledUpdateButton']")
+    if (-not $scheduledStatus -or $scheduledStatus.GetAttribute("AutomationProperties.LiveSetting") -cne "Polite" -or
+        $scheduledStatus.GetAttribute("Visibility") -cne "Collapsed" -or -not $cancelScheduled -or
+        $cancelScheduled.GetAttribute("Click") -cne "CancelScheduledUpdate_Click" -or
+        $cancelScheduled.GetAttribute("Visibility") -cne "Collapsed") {
+        throw "About must expose one polite scheduled-update line and one collapsed Cancel scheduled update action."
+    }
     $browserLinks = @($aboutDocument.SelectNodes(
         "//*[local-name()='HyperlinkButton' and contains(@AutomationProperties.Name,'opens in browser')]"))
-    if ($browserLinks.Count -ne 5) { throw "About must retain all five browser destinations." }
+    if ($browserLinks.Count -ne 7) { throw "About must retain all seven browser destinations." }
     foreach ($link in $browserLinks) {
         $externalIcons = @($link.SelectNodes(
             ".//*[local-name()='FontIcon' and @Style='{StaticResource ExternalLinkIconStyle}']"))
@@ -349,6 +438,17 @@
         if ($externalIcons.Count -ne 1 -or $embeddedArrows.Count -ne 0) {
             throw "About browser links must use one separate external-link icon."
         }
+    }
+    $updateItems = @($aboutDocument.SelectSingleNode("//*[@*[local-name()='Name']='InstallUpdateButton']").ParentNode.ChildNodes |
+        Where-Object { $_.NodeType -eq 'Element' } | ForEach-Object { $_.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") })
+    $notesExpander = $aboutDocument.SelectSingleNode("//*[@*[local-name()='Name']='ReleaseNotesExpander']")
+    if ([Array]::IndexOf($updateItems, "CancelScheduledUpdateButton") -ne [Array]::IndexOf($updateItems, "InstallUpdateButton") + 1 -or
+        [Array]::IndexOf($updateItems, "ReleaseNotesExpander") -ne [Array]::IndexOf($updateItems, "CancelScheduledUpdateButton") + 1 -or
+        [Array]::IndexOf($updateItems, "ReleaseNotesFallbackLink") -ne [Array]::IndexOf($updateItems, "ReleaseNotesExpander") + 1 -or
+        $notesExpander.GetAttribute("IsExpanded") -cne "False" -or
+        $notesExpander.SelectSingleNode(".//*[local-name()='ScrollViewer' or local-name()='WebView2' or local-name()='RichTextBlock' or local-name()='Hyperlink']") -or
+        @($notesExpander.SelectNodes(".//*[local-name()='HyperlinkButton']")).Count -ne 1) {
+        throw "Release notes must be a collapsed expander below Update now, using page scrolling, plain text and one explicit GitHub link."
     }
     $toolIcons = @(
         @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Icon = "speed-test" },

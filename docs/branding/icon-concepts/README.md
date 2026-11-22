@@ -23,16 +23,24 @@ implementation work copies this selected family into
 usage where concepts already exist. Page headers and Tools cards use the shared
 `PageHeaderIcon` control: full-color art in light/dark themes and the matching
 theme-colored single-color variant in Windows high contrast, at the same 48-DIP
-size and position. Dedicated concepts for Settings, SQL editor,
-Database backups, and the combined People & rooms destination are still pending
-separate design additions to this record.
+size and position. Dedicated concepts for Settings, SQL editor and
+Database backups are still pending separate design additions to this record.
+
+[Task #589](https://github.com/iricigor/fingvibe/issues/589) adds the combined
+**People & rooms** design selected by @iricigor on **2026-11-22** (concept
+S1-P2): a person and a three-room floor plan side by side as separate symbols,
+never a person inside a room. It replaces the interim People & rooms navigation
+PathIcon and Segoe composite page-header icon. Person and Room detail headers
+reuse the People and Rooms family icons before their titles. Each entity's own
+symbol and short-name badge stays in a separate card below the heading.
 
 ## Selected family
 
 ![Eleven selected concepts, each in simplified single-color and detailed full-color versions](comparison.png)
 
 [Open the full comparison PNG](comparison.png). The sheet shows reduced
-previews; every individual PNG is **256 x 256 pixels**.
+previews of the original eleven concepts; People & rooms was added later and is
+not on it. Every individual PNG is **256 x 256 pixels**.
 
 The subjects below describe design intent, not commitments about where icons
 will appear. In particular, **Scan history** does not establish a new
@@ -52,6 +60,7 @@ history represents scan observations, not continuous monitoring.
 | Import | Spreadsheet with an incoming arrow | [PNG](import-mono.png) / [SVG](import-mono.svg) | [PNG](import-color.png) / [SVG](import-color.svg) |
 | Troubleshooting | Magnifying glass inspecting a network response | [PNG](troubleshooting-mono.png) / [SVG](troubleshooting-mono.svg) | [PNG](troubleshooting-color.png) / [SVG](troubleshooting-color.svg) |
 | About | Information mark with circular accents | [PNG](about-mono.png) / [SVG](about-mono.svg) | [PNG](about-color.png) / [SVG](about-color.svg) |
+| People & rooms | **S1-P2**: a person with a taller torso beside a three-room floor plan, as separate symbols on one baseline; [32 px navigation mask SVG](people-rooms-mono-32.svg) | [PNG](people-rooms-mono.png) / [SVG](people-rooms-mono.svg) | [PNG](people-rooms-color.png) / [SVG](people-rooms-color.svg) |
 
 ## Visual language and assets
 
@@ -65,10 +74,12 @@ history represents scan observations, not continuous monitoring.
 
 Each subject has two self-contained SVG masters with `width="256"`,
 `height="256"`, and `viewBox="0 0 256 256"`, plus corresponding transparent
-256px PNG exports: **22 SVGs and 22 individual PNGs**, with one additional
-comparison PNG. The SVG artwork uses no fonts, external images, scripts, or
-remote resources. Comparison labels are rasterized and are not part of the
-individual icons.
+256px PNG exports: **24 SVGs and 24 individual PNGs**, with one additional
+comparison PNG. People & rooms also has a simplified 32 px navigation-mask
+master, `people-rooms-mono-32.svg`. The 24-DIP sidebar uses separate 48 px
+navigation masks described below. The SVG artwork
+uses no fonts, external images, scripts, or remote resources. Comparison labels
+are rasterized and are not part of the individual icons.
 
 The preserved files are the selected original concept outputs, not redesigned
 production assets. They were drawn as vector geometry and exported by a
@@ -77,6 +88,44 @@ monochrome exports retain only the teal RGB color, with alpha for edge
 antialiasing. Equivalent SVG rendering may differ slightly at antialiased
 edges. The SVGs are the editable masters: to regenerate a PNG, render its SVG
 at 256px on a transparent background without stretching the viewBox.
+
+On 2026-11-22, task #685 established that the pale halo on dark surfaces was
+not a WinUI compositing or non-premultiplied-alpha defect. Every full-color SVG
+also rendered a separate 2-pixel `#38577B` stroke over the rounded navy tile
+edge. At 48-DIP that deliberately light edge became the visible outline. The
+family now uses `stroke="none"` on the tile; the interior gloss/detail artwork
+and the gradient/tile shape are unchanged. Runtime and concept PNGs rebuild
+only the outer antialiased tile boundary from the same fill gradient, so
+transparent corners and the existing interior artwork remain byte-consistent
+apart from the removed edge stroke.
+
+The People & rooms files were drawn the same way for #589. Its 32 px navigation
+mask was rendered at 4x and downsampled to 32 px.
+
+### 24-DIP sidebar navigation masks
+
+[Task #661](https://github.com/iricigor/fingvibe/issues/661) sets the sidebar
+family icons to **24 DIP**, selected by @iricigor on 2026-11-22; page headers
+and Tools cards stay at 48 DIP. `BitmapIcon` point-samples its monochrome
+mask, so each sidebar icon is a 48 px (2x) single-color mask that stays crisp
+at 100-200% scaling: `overview`, `network`, `devices`, `people-rooms` and
+`tools` `-mono-48.svg` here, exported only to
+`src/FingVibe.App/Assets/PageIcons/<name>-mono-48.png`.
+
+Each 48 px master wraps the unchanged geometry of its 256 px single-color
+master (People & rooms: its simplified 32 px mask) in one translate/scale
+group. Only placement and stroke widths change, so the designs stay as
+selected. The visible-weight rule is:
+
+- The artwork's longer side spans 42 px, 87.5% of the box, centered.
+- Each icon's heaviest stroke is 3 px (1.5 DIP); lighter strokes keep their
+  original proportion, with a 2 px minimum so that 2x point sampling keeps
+  them at 100% scaling.
+
+The previous 32 px masks filled 63-69% of their box except People & rooms
+(88%), and their strokes ranged from 1 to 2 px. To regenerate a PNG, render its
+48 px SVG at 4x (192 px) on a transparent background, box-filter alpha down to
+48 px and keep only the teal RGB color.
 
 Before any later adoption, agree the actual surfaces, variants, sizing,
 theme/high-contrast behavior, and accessibility requirements. Legibility at

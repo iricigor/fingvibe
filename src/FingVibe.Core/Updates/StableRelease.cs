@@ -8,10 +8,11 @@ namespace FingVibe.Core.Updates;
 
 public sealed record ReleaseAsset(string Name, Uri DownloadUri, long Size, string? Sha256);
 
-public sealed record StableRelease(Version Version, Uri PageUri, ReleaseAsset? Setup, ReleaseAsset? Portable)
+public sealed record StableRelease(Version Version, Uri PageUri, ReleaseAsset? Setup, ReleaseAsset? Portable, string? Body = null)
 {
     public static readonly Uri ReleasesUri = new("https://github.com/iricigor/fingvibe/releases/latest");
     public string VersionText => $"v{Version.ToString(Version.Revision == 0 ? 3 : 4)}";
+    public ReleaseNotes? Notes => ReleaseNotes.Parse(Body);
 
     public static bool TryParseVersion(string value, out Version version)
     {
@@ -72,7 +73,9 @@ public sealed record StableRelease(Version Version, Uri PageUri, ReleaseAsset? S
                 portable = asset;
             }
         }
-        return new StableRelease(version, page, setup, portable);
+        var body = root.TryGetProperty("body", out var bodyValue) && bodyValue.ValueKind == JsonValueKind.String
+            ? bodyValue.GetString() : null;
+        return new StableRelease(version, page, setup, portable, body);
     }
 }
 

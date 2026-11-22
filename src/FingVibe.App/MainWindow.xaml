@@ -36,7 +36,10 @@
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#6253C4" />
                             </Style>
-                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="#008575" />
+                            <Style x:Key="SidebarPeopleRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                                <Setter Property="Foreground" Value="#008575" />
+                            </Style>
                             <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#9A6700" />
@@ -55,7 +58,10 @@
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#B4A0FF" />
                             </Style>
-                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="#5BD6C3" />
+                            <Style x:Key="SidebarPeopleRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                                <Setter Property="Foreground" Value="#5BD6C3" />
+                            </Style>
                             <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#F9CF58" />
@@ -72,7 +78,9 @@
                             <Style x:Key="SidebarDevicesIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                             </Style>
-                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                            <Style x:Key="SidebarPeopleRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
                             <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
                                 <Setter Property="ShowAsMonochrome" Value="True" />
                             </Style>
@@ -106,36 +114,53 @@
                     </StackPanel>
                 </Grid>
             </NavigationView.PaneCustomContent>
+            <!-- Family icons use a 24-DIP icon box with 48 px masks; BitmapIcon point-samples, so 2x art stays crisp.
+                 The override is per item so Settings keeps the native 16-DIP glyph. -->
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="OverviewNavItem" Content="Overview" Tag="Overview">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono-48.png"
                                     Style="{ThemeResource SidebarOverviewIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="NetworkNavItem" Content="Network" Tag="Network">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono-48.png"
                                     Style="{ThemeResource SidebarNetworkIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="DevicesNavItem" Content="Devices" Tag="Devices">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono-48.png"
                                     Style="{ThemeResource SidebarDevicesIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="PeopleRoomsNavItem" Content="People &amp; rooms" Tag="PeopleRooms">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <PathIcon Foreground="{ThemeResource SidebarPeopleRoomsIconBrush}"
-                                  Data="M1,7 L8,1 L15,7 L15,15 L1,15 Z M9,9 L11,9 L11,11 L9,11 Z M8.5,11.5 L11.5,11.5 L11.5,14 L8.5,14 Z" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-48.png"
+                                    Style="{ThemeResource SidebarPeopleRoomsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono-48.png"
                                     Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
