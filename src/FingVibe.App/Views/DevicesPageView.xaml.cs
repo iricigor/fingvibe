@@ -576,16 +576,16 @@ public sealed partial class DevicesPageView : UserControl
             var flyout = new Flyout { Content = choices };
             if (_selection.Choices.Count > SearchThreshold)
             {
-                flyout.Content = CreateSearchableContent(choices, searchable, out var search);
+                flyout.Content = CreateSearchableContent(choices, searchable, out var resetSearch);
                 // Each opening starts from the full list; hidden choices keep their checked state.
-                flyout.Opening += (_, _) => search.Text = string.Empty;
+                flyout.Opening += (_, _) => resetSearch();
             }
             _button.Flyout = flyout;
             UpdateLabel();
         }
 
         private FrameworkElement CreateSearchableContent(ScrollViewer choices,
-            IReadOnlyList<(string Label, FrameworkElement Element)> searchable, out TextBox search)
+            IReadOnlyList<(string Label, FrameworkElement Element)> searchable, out Action reset)
         {
             var noun = _category.ToLowerInvariant();
             var searchBox = new TextBox { PlaceholderText = $"Search {noun}", Margin = new Thickness(0, 0, 0, 8) };
@@ -600,9 +600,9 @@ public sealed partial class DevicesPageView : UserControl
             };
             AutomationProperties.SetAutomationId(noMatches, _button.Name + "NoMatches");
             AutomationProperties.SetLiveSetting(noMatches, AutomationLiveSetting.Polite);
-            searchBox.TextChanged += (_, _) =>
+            void Apply(string query)
             {
-                var term = searchBox.Text.Trim();
+                var term = query.Trim();
                 var shown = 0;
                 foreach (var (label, element) in searchable)
                 {
@@ -611,12 +611,18 @@ public sealed partial class DevicesPageView : UserControl
                     if (match) shown++;
                 }
                 noMatches.Visibility = shown == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+            searchBox.TextChanged += (_, _) => Apply(searchBox.Text);
+            // The flyout content is not loaded yet when it opens, so TextChanged cannot be relied on to reset it.
+            reset = () =>
+            {
+                searchBox.Text = string.Empty;
+                Apply(string.Empty);
             };
             var content = new StackPanel { MaxWidth = 280 };
             content.Children.Add(searchBox);
             content.Children.Add(noMatches);
             content.Children.Add(choices);
-            search = searchBox;
             return content;
         }
 
