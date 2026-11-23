@@ -459,6 +459,7 @@ function Test-ScanTextScaling {
         foreach ($width in @(640, 480)) {
             Set-SidebarWindowWidth $width
             Assert-ScaledScanAction -NormalTextBounds $normalTextBounds -Width $width
+            Test-TitleBarLayout
             Test-SharedScanContext OverviewPage -SentinelProperty AutomationId -Cancel
             if ($width -eq 640) { Save-SidebarAppearance 'scan-action-text-scale-200' }
         }

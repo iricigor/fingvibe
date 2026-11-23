@@ -28,6 +28,11 @@ public static class UiReviewNativeWindow
     [DllImport("user32.dll")]
     public static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll")]
+    public static extern bool IsZoomed(IntPtr window);
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr window, uint attribute,
+        out RECT rectangle, int size);
+    [DllImport("user32.dll")]
     public static extern uint GetDpiForWindow(IntPtr window);
 }
 "@
@@ -36,7 +41,13 @@ function Get-UiReviewWindowBounds {
     param([Parameter(Mandatory)][IntPtr] $WindowHandle)
 
     $rectangle = [UiReviewNativeWindow+RECT]::new()
-    if (-not [UiReviewNativeWindow]::GetWindowRect($WindowHandle, [ref] $rectangle)) {
+    if ([UiReviewNativeWindow]::IsZoomed($WindowHandle)) {
+        # DWMWA_EXTENDED_FRAME_BOUNDS excludes the maximized window's invisible resize border.
+        $result = [UiReviewNativeWindow]::DwmGetWindowAttribute($WindowHandle, 9, [ref] $rectangle,
+            [System.Runtime.InteropServices.Marshal]::SizeOf($rectangle))
+        [System.Runtime.InteropServices.Marshal]::ThrowExceptionForHR($result)
+    }
+    elseif (-not [UiReviewNativeWindow]::GetWindowRect($WindowHandle, [ref] $rectangle)) {
         throw [System.ComponentModel.Win32Exception]::new()
     }
     [System.Drawing.Rectangle]::FromLTRB(
@@ -148,7 +159,7 @@ function Save-UiReviewWindowScreenshot {
         if (-not [UiReviewNativeWindow]::IsWindowVisible($WindowHandle) -or
             [UiReviewNativeWindow]::IsIconic($WindowHandle) -or
             [UiReviewNativeWindow]::GetForegroundWindow() -ne $WindowHandle) {
-            throw "The review window must be visible, restored, and in the foreground for capture."
+            throw "The review window must be visible, not minimized, and in the foreground for capture."
         }
         $bitmap = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
         $graphics = [System.Drawing.Graphics]::FromImage($bitmap)

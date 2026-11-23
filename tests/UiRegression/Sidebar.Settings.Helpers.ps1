@@ -382,36 +382,15 @@ function Test-SettingsLayout {
     Write-Host "Settings mode/theme mapping, six palettes, responsive bounds, mandatory IP, and column reset passed."
 }
 
-function Get-AppearanceShortcut { Find-SidebarElement AutomationId AppearanceShortcutNavItem }
+function Get-AppearanceShortcut { Find-SidebarElement AutomationId TitleBarAppearanceButton }
 
-function Open-AppearanceShortcut {
-    Focus-SidebarWindow
-    (Get-AppearanceShortcut).SetFocus()
-    $null = Wait-UiRegressionState -Description 'appearance shortcut keyboard focus' -Condition {
-        (Get-AppearanceShortcut).Current.HasKeyboardFocus
+function Set-AppearanceShortcutMode([string] $Mode) {
+    if ((Get-AppearanceShortcut).Current.Name -ne "Appearance mode: $Mode") {
+        (Get-AppearanceShortcut).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     }
-    [SidebarReviewKeyboard]::Tap(0x0D)
-    $null = Wait-UiRegressionState -Description 'open appearance shortcut' -Condition {
-        Test-UiRegressionElementVisible (Find-SidebarElement AutomationId AppearanceShortcutLight -Optional)
-    }
-}
-
-function Close-AppearanceShortcut {
-    [SidebarReviewKeyboard]::Tap(0x1B)
-    $null = Wait-UiRegressionState -Description 'closed appearance shortcut returns focus' -Condition {
-        -not (Test-UiRegressionElementVisible (Find-SidebarElement AutomationId AppearanceShortcutLight -Optional)) -and
-            (Get-AppearanceShortcut).Current.HasKeyboardFocus
-    }
-}
-
-function Set-AppearanceShortcutMode([string] $Mode, [switch] $KeepOpen) {
-    Open-AppearanceShortcut
-    (Find-SidebarElement AutomationId "AppearanceShortcut$Mode").GetCurrentPattern(
-        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $null = Wait-UiRegressionState -Description "appearance shortcut $Mode mode" -Condition {
         (Get-AppearanceShortcut).Current.Name -eq "Appearance mode: $Mode"
     }
-    if (-not $KeepOpen) { Close-AppearanceShortcut }
 }
 
 function Get-SidebarAppearanceChoices {
@@ -429,40 +408,38 @@ function Get-SidebarAppearanceChoices {
 function Test-AppearanceShortcutPresentation {
     Select-SidebarPage "People & rooms" "Search people and rooms"
     $shortcut = Get-AppearanceShortcut
-    if ($shortcut.Current.Name -ne 'Appearance mode: Dark' -or $shortcut.Current.HelpText -notlike 'Choose Light or Dark mode.*') {
+    if ($shortcut.Current.Name -ne 'Appearance mode: Dark' -or $shortcut.Current.HelpText -notlike 'Switch to Light mode.*') {
         throw "The appearance shortcut must name the current mode and its choices: '$($shortcut.Current.Name)'."
     }
-    $settingsCondition = [System.Windows.Automation.AndCondition]::new(
-        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, 'Settings'),
-        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem))
-    $settings = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $settingsCondition).Current.BoundingRectangle
-    $tools = (Find-SidebarElement AutomationId ToolsNavItem).Current.BoundingRectangle
     $bounds = $shortcut.Current.BoundingRectangle
-    if ($bounds.Top -lt $tools.Bottom - 1 -or $bounds.Bottom -gt $settings.Top + 1 -or
-        $settings.Top - $bounds.Bottom -gt 12 * $scale -or [Math]::Abs($bounds.Left - $settings.Left) -gt 2 * $scale) {
-        throw 'The appearance shortcut must sit in the sidebar footer directly beside Settings.'
+    if ($bounds.Bottom -gt (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle.Top -or
+        (Find-SidebarElement AutomationId AppearanceShortcutNavItem -Optional)) {
+        throw 'The title-bar appearance shortcut must sit above navigation with no duplicate sidebar shortcut.'
     }
-    Open-AppearanceShortcut
-    $null = Wait-UiRegressionState -Description 'current mode focused in the shortcut' -Condition {
-        $dark = Find-SidebarElement AutomationId AppearanceShortcutDark
-        $dark.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
-            ($dark.Current.HasKeyboardFocus -or (Find-SidebarElement AutomationId AppearanceShortcutLight).Current.HasKeyboardFocus)
+    Focus-SidebarWindow
+    $shortcut.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x0D)
+    $null = Wait-UiRegressionState -Description 'Enter switches appearance without moving focus' -Condition {
+        (Get-AppearanceShortcut).Current.Name -eq 'Appearance mode: Light' -and
+            (Get-AppearanceShortcut).Current.HasKeyboardFocus
     }
-    if (Find-SidebarElement AutomationId AppearanceShortcutHighContrastNote -Optional) {
-        throw 'The high-contrast note must stay hidden outside high contrast.'
+    if (Find-SidebarElement AutomationId AppearanceShortcutLight -Optional) {
+        throw 'Switching appearance must not open a picker popup.'
     }
     Save-SidebarAppearance 'appearance-shortcut-open'
-    Close-AppearanceShortcut
+    [SidebarReviewKeyboard]::Tap(0x20)
+    $null = Wait-UiRegressionState -Description 'Space restores appearance without moving focus' -Condition {
+        (Get-AppearanceShortcut).Current.Name -eq 'Appearance mode: Dark' -and
+            (Get-AppearanceShortcut).Current.HasKeyboardFocus
+    }
 
     Switch-SidebarPane
     try {
-        if ((Get-AppearanceShortcut).Current.BoundingRectangle.Width / $scale -ge 80) {
-            throw 'The appearance shortcut must remain available on the compact icon rail.'
+        if ([Math]::Abs((Get-AppearanceShortcut).Current.BoundingRectangle.Width - $bounds.Width) -gt $scale) {
+            throw 'The title-bar appearance shortcut must be independent of the collapsed sidebar.'
         }
-        Set-AppearanceShortcutMode Light -KeepOpen
+        Set-AppearanceShortcutMode Light
         Save-SidebarAppearance 'appearance-shortcut-compact-light'
-        Close-AppearanceShortcut
         Set-AppearanceShortcutMode Dark
     }
     finally { Switch-SidebarPane }
@@ -472,13 +449,11 @@ function Test-AppearanceShortcutPresentation {
         [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
         if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
         Start-Sleep -Seconds 2
-        Set-AppearanceShortcutMode Light -KeepOpen
-        $null = Find-SidebarElement AutomationId AppearanceShortcutHighContrastNote
+        Set-AppearanceShortcutMode Light
         if ((Get-AppearanceShortcut).Current.HelpText -notlike '*Windows high contrast colors currently apply*') {
             throw 'The shortcut must announce that Windows high contrast colors currently apply.'
         }
         Save-SidebarAppearance 'appearance-shortcut-high-contrast'
-        Close-AppearanceShortcut
         if ((Get-SidebarAppearanceChoices).ModePicker -ne 'Light') {
             throw 'A mode chosen in high contrast must still update the saved appearance preference.'
         }
@@ -489,7 +464,7 @@ function Test-AppearanceShortcutPresentation {
         [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
         Start-Sleep -Seconds 2
     }
-    Write-Host 'Appearance shortcut placement, keyboard open/close, compact rail and high-contrast behavior passed.'
+    Write-Host 'Title-bar shortcut placement, immediate Enter/Space switching, collapsed sidebar and high-contrast behavior passed.'
 }
 
 function Test-AppearanceShortcutPersistence {
@@ -537,14 +512,12 @@ function Test-AppearanceShortcutPersistence {
         Remove-Item -LiteralPath $appearancePath -Force
         $null = New-Item -ItemType Directory -Path $appearancePath
         Select-SidebarPage "People & rooms" "Search people and rooms"
-        Set-AppearanceShortcutMode Light -KeepOpen
-        $status = Find-SidebarElement AutomationId AppearanceShortcutSaveStatus
-        if ($status.Current.Name -ne $failure -or (Get-AppearanceShortcut).Current.HelpText -notlike "*$failure*") {
+        Set-AppearanceShortcutMode Light
+        if ((Get-AppearanceShortcut).Current.HelpText -notlike "*$failure*") {
             throw 'A save failure must be reported at the shortcut while Settings is hidden.'
         }
         Save-SidebarAppearance 'appearance-shortcut-save-failure'
-        Close-AppearanceShortcut
-        if ((Find-SidebarElement AutomationId AppearanceShortcutNavItem).Current.Name -ne 'Appearance mode: Light' -or
+        if ((Get-AppearanceShortcut).Current.Name -ne 'Appearance mode: Light' -or
             -not (Test-Path -LiteralPath $appearancePath -PathType Container)) {
             throw 'An unsaved mode must still apply without being written.'
         }

@@ -989,7 +989,9 @@
         foreach ($child in $viewDocument.SelectNodes("//*[@*[local-name()='Name']]")) {
             if ($child.LocalName -in @("VisualState", "VisualStateGroup")) { continue }
             $childName = $child.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml")
-            if ($childName -ne $page -and $shellCode -match "\b$([regex]::Escape($childName))\b") {
+            # Native AppWindow properties are not references to page child controls.
+            $childReferencePattern = "(?<!\bAppWindow\.)\b$([regex]::Escape($childName))\b"
+            if ($childName -ne $page -and $shellCode -cmatch $childReferencePattern) {
                 throw "Shell code must use $view APIs, not the child control $childName."
             }
         }
