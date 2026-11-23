@@ -166,12 +166,24 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="local:DeviceColumn">
-                                <CheckBox AutomationProperties.Name="{x:Bind Header}"
-                                          HorizontalAlignment="Stretch"
-                                          IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
-                                          IsEnabled="{x:Bind CanHide}">
-                                    <TextBlock Text="{x:Bind local:DeviceColumnLayoutHelpers.VisibilityChoiceLabel(Header, CanHide)}" TextWrapping="Wrap" />
-                                </CheckBox>
+                                <Grid>
+                                    <CheckBox AutomationProperties.Name="{x:Bind Header}"
+                                              HorizontalAlignment="Stretch"
+                                              IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
+                                              Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(CanHide)}">
+                                        <TextBlock Text="{x:Bind Header}" TextWrapping="Wrap" />
+                                    </CheckBox>
+                                    <!-- Required columns read as a fixed part of the table, not as a disabled, failed-looking choice. -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8" MinHeight="32" VerticalAlignment="Center"
+                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.RequiredVisibility(CanHide)}">
+                                        <FontIcon Glyph="&#xE72E;" FontSize="14" VerticalAlignment="Center"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                  AutomationProperties.AccessibilityView="Raw" />
+                                        <TextBlock Text="{x:Bind Header}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <TextBlock Text="Always shown" VerticalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
