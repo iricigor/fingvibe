@@ -1216,8 +1216,8 @@ no member responds, all eligible members must have a recorded nonresponse
 before the equipment is counted as not responding. Missing member evidence stays
 unknown rather than proving absence.</p>
 <h2 id="view-the-room-map">View the Room map<a class="headerlink" href="#view-the-room-map" title="Permanent link">&para;</a></h2>
-<p>Open <strong>People &amp; rooms</strong>, then choose <strong>View room map</strong> in the <strong>Rooms</strong>
-section. You can also open the same page from the <strong>Room map</strong> card in
+<p>Open <strong>People &amp; rooms</strong>, then choose <strong>View room map</strong> beside <strong>Add room</strong> in
+the <strong>Rooms</strong> heading. You can also open the same page from the <strong>Room map</strong> card in
 <strong>Tools</strong>, or from the <strong>Network path and status</strong> section in
 <strong>Network health</strong>. <strong>Back</strong> returns to the page where you opened the map
 and names it, even after you visit a room or device from the map.</p>
@@ -1245,7 +1245,10 @@ focus position. If the saved membership changed while details were open,
 FingVibe selects a valid nearby device or room instead. Completed scans and
 assignment changes refresh the retained map without moving unchanged items.</p>
 <p><strong>Only online</strong> starts on and hides offline devices and devices without local
-scan evidence while preserving the room layout. Turn it off to show every
+scan evidence while preserving the room layout. Because every shown device is
+then online, tiles omit the repeated <strong>Online</strong> line and give long device names
+a second line instead; the tooltip and screen-reader name still state the status.
+Turn it off to show every
 relevant device again. Use the Back action to return to <strong>Rooms</strong>, <strong>Tools</strong>, or
 <strong>Network health</strong>, depending on where you opened the map. Narrow windows keep
 normal-size device icons and allow horizontal and vertical
@@ -1253,7 +1256,10 @@ scrolling. With larger Windows text sizes, room headers and device tiles grow
 taller so labels stay inside them.</p>
 <h2 id="find-edit-or-delete">Find, edit, or delete<a class="headerlink" href="#find-edit-or-delete" title="Permanent link">&para;</a></h2>
 <p>Use <strong>Search people and rooms</strong> to filter both sections at once. Open an entry to review its assigned
-equipment. Use its edit action to change the name, icon, or notes.</p>
+equipment. Use its edit action to change the name, icon, or notes. Each row also
+has an always-visible <strong>...</strong> button (named <strong>Actions for</strong> the entry) that opens
+labeled <strong>Edit</strong> and <strong>Delete</strong> actions without opening the details page.
+Delete always asks for confirmation first.</p>
 <p>Each section keeps its count and Add action visible when empty or when nothing
 matches the search. If saved inventory cannot be loaded, the error remains
 visible and both Add actions are disabled until the data is available.</p>
@@ -1263,9 +1269,9 @@ Neither action deletes devices or scan history.</p>
 <p>The Devices table can show short Person and Room labels.
 Their tooltips give the full names. Filters and search also match full names.</p>
 <h2 id="interpret-counts">Interpret counts<a class="headerlink" href="#interpret-counts" title="Permanent link">&para;</a></h2>
-<p><strong>Last scan</strong> counts devices that responded in the displayed local scan.
-It does not show whether a person is home, a room is occupied, or a device
-is continuously connected.</p>
+<p><strong>Responding devices</strong> counts assigned devices that responded in the displayed
+local scan. It does not show whether a person is home, a room is occupied, or a
+device is continuously connected.</p>
 <p>Your entries and assignments are saved locally.
 If a load or save fails, read the error before making further changes.
 See <a href="../data/">Saved data</a>.</p>

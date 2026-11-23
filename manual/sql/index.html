@@ -1155,20 +1155,26 @@ SQL is a query language for asking questions about data.
 You can start with a built-in example without writing a query yourself.</p>
 <h2 id="run-an-example">Run an example<a class="headerlink" href="#run-an-example" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Open <strong>Tools &gt; SQL editor</strong>.</li>
+<li>Open <strong>Tools &gt; SQL editor</strong>. It starts with the simple <strong>Rooms by name</strong>
+   example loaded.</li>
 <li>Expand <strong>Schema and examples</strong>.</li>
-<li>Read an example and choose <strong>Use example</strong>.</li>
+<li>Under <strong>Examples</strong>, choose an example. Read its level (<strong>Simple</strong>, <strong>Medium</strong>
+   or <strong>Advanced</strong>), purpose and SQL preview, then choose <strong>Load into editor</strong>.
+   Loading never runs the query.</li>
 <li>Choose <strong>Run</strong>.</li>
-<li>Read the result columns and the status message.</li>
+<li>Read the <strong>Results</strong> table and the status message.</li>
 <li>Choose <strong>Cancel</strong> if you need to stop the query.</li>
 </ol>
+<p>If loading an example replaced a query you had typed, choose <strong>Restore
+previous query</strong> under the editor to get it back. The link disappears once you
+edit the loaded example.</p>
 <p><a href="../../screenshots/manual/sql.png"><img alt="SQL editor with a completed SELECT and one synthetic device-name result" src="../../screenshots/manual/sql.png" /></a></p>
 <p><em>The SELECT completed against an isolated fixture database, not a user's inventory.
 <a href="../screenshots/">Screenshot sources</a>.</em></p>
 <p>A <strong>schema</strong> describes available tables/views and columns.
-Use the listed reporting views, whose names start with <code>r_</code>.
-They are more suitable than internal storage tables.
-<strong>List of tables</strong> separately lists the supported underlying tables and their
+Use the <strong>Query-ready views</strong>, listed by friendly name with their exact <code>r_</code>
+view names in parentheses. They are more suitable than internal storage tables.
+<strong>Advanced: storage tables</strong> separately lists the supported underlying tables and their
 descriptions. Select a table to see its columns. This does not grant access to
 other database tables or change the editor's read-only limits.</p>
 <p>Run and Cancel stay beside the right-aligned status. The result table fills the

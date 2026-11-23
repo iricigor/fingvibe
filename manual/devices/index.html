@@ -1315,26 +1315,38 @@ and quieter filters remain interactive. Type, OS and Usage are short button
 titles only: accessible names, full-value tooltips and table headings retain the
 full category names.</p>
 <p>Status dropdown choices supplement their labels and checkboxes with colored
-dots: green Online, red Offline, gray Unknown and blue Fing Only. Its <strong>Any</strong>
-choice has a four-segment circle using those same colors; the circle does not
-represent an arbitrary multi-selection. High contrast uses system colors while
-retaining labels and checkbox selection cues. These indicators do not change
-the colors of inventory totals or device-row badges.</p>
+dots: green Online, red Offline, amber Unknown and blue Fing Only. The status
+totals above the table use the same dot colors, and a restricted <strong>Status</strong>
+button shows one dot per selected status beside its label. High contrast uses
+system colors while retaining labels and checkbox selection cues. Device-row
+badges keep their existing colors and text.</p>
+<p>Lists with more than eight choices, such as <strong>Type</strong>, and <strong>Vendor</strong>, <strong>Person</strong>
+or <strong>Room</strong> once they grow, start with a search box. Searching only hides
+choices that do not match; checked values stay selected even while hidden, and
+<strong>No ... matches this search</strong> appears when nothing matches. Each opening starts
+with the full list. Short lists such as <strong>Status</strong>, <strong>OS</strong> and <strong>Usage</strong> have no
+search box.</p>
 <p>For example, select <strong>Online</strong>, a room, and <strong>With open ports</strong> to see responding
 devices in that room with observed services. <strong>Unassigned</strong> finds devices with
 no person or room. <strong>Unknown</strong> type or OS finds devices without that classification.</p>
 <p>Hiding the second filter row does <strong>not</strong> clear it. The funnel count shows active
 secondary categories. Status is remembered after restart; search and the other
 categories are not.</p>
-<p><strong>Any</strong> means any known value, not every value. It appears immediately after
+<p>The <strong>Any known ...</strong> choice (for example <strong>Any known type</strong>, <strong>Any identified
+vendor</strong>, <strong>Any assigned person</strong> or <strong>Any classified usage</strong>) means any known
+value, not every value; a restricted button summarizes it as <strong>Any known</strong>,
+<strong>Any identified</strong>, <strong>Any assigned</strong> or <strong>Any classified</strong>.
+It appears immediately after
 Unknown, Unassigned or Unclassified when that dropdown offers at least two
-known choices. Selecting Any replaces individual choices; selecting an
-individual choice replaces Any. Clearing the category still includes everything.
-For Person/Room, Any means assigned; for Usage category, it excludes
+known choices. Selecting it replaces individual choices; selecting an
+individual choice replaces it. Clearing the category still includes everything.
+For Person/Room, it means assigned; for Usage category, it excludes
 Unclassified. For Vendor, it includes identified manufacturers and excludes
 both Unknown and Randomized MAC. The threshold counts dropdown choices, not
-devices. An active Any filter keeps its meaning when new values appear.
-Status remembers Any after restart just as it remembers individual statuses.</p>
+devices. An active Any known filter keeps its meaning when new values appear.
+<strong>Status</strong> has no Any known choice because it has only four values; check the
+statuses you want instead. A Status filter saved with the earlier Any known
+status choice reopens as <strong>Online</strong>, <strong>Offline</strong> and <strong>Fing Only</strong>.</p>
 <p><a href="../../screenshots/manual/devices.png"><img alt="Nine synthetic devices with varied types, service-discovery indicators and a collapsed two-NIC Workstation" src="../../screenshots/manual/devices.png" /></a></p>
 <p><em>Eight device types, with no active filters. Workstation explicitly links Ethernet
 and Wi-Fi MACs; its chevron is collapsed. The speaker and bridge show service
