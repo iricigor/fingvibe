@@ -125,26 +125,20 @@ function Find-ById([string] $Id) {
     throw "Missing element with automation ID: $Id."
 }
 
-function Show-IncidentEvidenceLayout([switch] $Stacked) {
+function Show-IncidentEvidenceLayout {
     # Containers such as the evidence StackPanel report no UI Automation bounds, so compare rendered leaves: the first
     # incident item and the evidence outcome line, scrolled into the Network health viewport together.
-    $find = {
-        param([string] $Id)
-        $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id))
-    }
-    $targets = { foreach ($id in @("NetworkIncidentStatus0", "NetworkIncidentEvidenceOutcome")) { & $find $id } }
-    $viewport = { & $find "NetworkHealthScroll" }
-    if ($Stacked) {
-        # Stacked below the list, the pair can span most of a short narrow viewport (longer timestamps add wrapped
-        # lines), and a resize can leave both outside it. Unrendered targets are searched in viewport-sized steps that
-        # can skip every offset showing both, so first bottom-align the outcome alone; the item above it is then in
-        # view whenever the pair fits, and a pair taller than the viewport fails as such.
-        $null = Show-UiRegressionScrollTargets -Description "Saved evidence outcome" -GetWindow { $script:root } `
-            -GetViewport $viewport -GetTargets { & $find "NetworkIncidentEvidenceOutcome" } -AlignBottom
+    $targets = {
+        foreach ($id in @("NetworkIncidentStatus0", "NetworkIncidentEvidenceOutcome")) {
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+        }
     }
     $null = Show-UiRegressionScrollTargets -Description "Incident list and saved evidence" -GetWindow { $script:root } `
-        -GetViewport $viewport -GetTargets $targets
+        -GetViewport {
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthScroll"))
+        } -GetTargets $targets
     $item, $outcome = @(& $targets)
     $itemBounds = $item.Current.BoundingRectangle
     $outcomeBounds = $outcome.Current.BoundingRectangle
@@ -795,7 +789,7 @@ try {
         $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 700, 0x0044)
         $null = Wait-UiRegressionState -Description "narrow saved evidence stacks below the incident list" -Condition {
-            $list, $panel = Show-IncidentEvidenceLayout -Stacked
+            $list, $panel = Show-IncidentEvidenceLayout
             $panel.Top -ge $list.Bottom
         }
         if ((Find-ById "NetworkIncidentStatus0").GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -ne $true) {
