@@ -62,8 +62,56 @@ public static class SidebarReviewKeyboard
 {
     public static int Taps;
     public static void Tap(int key) { Taps++; }
+    public static void MoveTo(int x, int y) {}
 }
 '@
+foreach ($case in @('rounded', 'square', 'gap', 'unreadable')) {
+    & {
+        . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Navigation.Helpers.ps1')
+        $ScreenshotDirectory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-caption-pixels-$([Guid]::NewGuid().ToString('N'))"
+        $null = New-Item -ItemType Directory -Path $ScreenshotDirectory
+        $scale = 1
+        $windowHandle = [IntPtr]::Zero
+        function Find-SidebarElement($Property, $Value) {
+            $bounds = if ($Value -eq 'TitleBarAppName') { [System.Windows.Rect]::new(0, 0, 80, 18) }
+                else { [System.Windows.Rect]::new(10, 20, 46, 40) }
+            return [pscustomobject]@{ Current = [pscustomobject]@{
+                BoundingRectangle = $bounds
+            } }
+        }
+        function Get-UiReviewWindowBounds($Handle) { return [System.Windows.Rect]::new(0, 0, 100, 80) }
+        function Save-SidebarAppearance([string] $Name) {
+            $bitmap = [Drawing.Bitmap]::new(100, 80)
+            $graphics = [Drawing.Graphics]::FromImage($bitmap)
+            $background = if ($case -eq 'unreadable') { [Drawing.Color]::FromArgb(32, 36, 42) }
+                else { [Drawing.Color]::FromArgb(236, 239, 243) }
+            try {
+                $graphics.Clear($background)
+                $graphics.DrawString('FingVibe', [Drawing.SystemFonts]::DefaultFont, [Drawing.Brushes]::Black, 0, 0)
+                if ($Name.EndsWith('-hover')) {
+                    $graphics.FillRectangle([Drawing.Brushes]::Red, 10, 20, 46, 40)
+                    if ($case -ne 'square') {
+                        $bitmap.SetPixel(10, 20, $background)
+                        $bitmap.SetPixel(11, 21, [Drawing.Color]::FromArgb(236, 237, 240))
+                    }
+                    if ($case -eq 'gap') { $bitmap.SetPixel(33, 58, $background) }
+                }
+                $bitmap.Save((Join-Path $ScreenshotDirectory "$Name.png"))
+            }
+            finally { $graphics.Dispose(); $bitmap.Dispose() }
+        }
+        try {
+            if ($case -eq 'rounded') { Test-TitleBarCaptionHover 'caption' }
+            elseif ($case -eq 'unreadable') {
+                Assert-RegressionFailure { Test-TitleBarCaptionHover 'caption' } '*4.5:1 contrast*'
+            }
+            else {
+                Assert-RegressionFailure { Test-TitleBarCaptionHover 'caption' } '*rounded transparent corner*'
+            }
+        }
+        finally { Remove-Item -LiteralPath $ScreenshotDirectory -Recurse -Force }
+    }
+}
 foreach ($case in @('completed', 'cancelled', 'hidden', 'missing', 'name')) {
     & {
         . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')

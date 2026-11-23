@@ -70,6 +70,14 @@ public static class SidebarReviewKeyboard
     }
 
     [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr parameter, IntPtr value);
+
+    public static int HitTest(IntPtr window, int x, int y)
+    {
+        return SendMessage(window, 0x0084, IntPtr.Zero, new IntPtr((y << 16) | (x & 0xffff))).ToInt32();
+    }
+
+    [DllImport("user32.dll")]
     private static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")]
     private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
