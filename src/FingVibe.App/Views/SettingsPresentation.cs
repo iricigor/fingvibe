@@ -27,18 +27,16 @@ public static class SettingsPresentation
     public static string DevicesSummary(bool compactRows, bool hoverPreviews, int visibleColumns) =>
         $"Compact rows {(compactRows ? "on" : "off")} \u00b7 Cell hover previews {(hoverPreviews ? "on" : "off")} \u00b7 {visibleColumns} visible columns";
 
-    public static string ScheduledSummary(PeriodicScanSettings settings, string? status) =>
-        $"{(settings.IsEnabled ? "Enabled" : "Disabled")} \u00b7 Every {PeriodicScanPresentation.IntervalLabel(settings.IntervalMinutes)} \u00b7 While FingVibe is open" +
-        (string.IsNullOrWhiteSpace(status) ? "" : $". {status}");
-
+    // One line for the collapsed header; scheduledState is the shell's paused/retrying wording, and the
+    // detailed status sentences stay in the expanded section and the header's help text.
     public static string BackgroundSummary(
         PeriodicScanSettings scheduled,
-        NetworkMonitorSettings monitor,
-        string? scheduledStatus,
-        string? monitorStatus) =>
-        ScheduledSummary(scheduled, scheduledStatus) +
-        $" Network monitoring {(monitor.IsEnabled ? "enabled" : "disabled")}." +
-        (string.IsNullOrWhiteSpace(monitorStatus) ? "" : $" {monitorStatus}");
+        string? scheduledState,
+        NetworkMonitorSettings monitor) =>
+        (scheduled.IsEnabled
+            ? scheduledState ?? $"Scheduled every {PeriodicScanPresentation.IntervalLabel(scheduled.IntervalMinutes)} while app is open"
+            : "Scheduled scans off") +
+        $" \u00b7 Network monitoring {(monitor.IsEnabled ? "on" : "off")}";
 
     public static string AppearanceStatus(string? saveError, string? materialStatus)
     {

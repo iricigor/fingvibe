@@ -1,5 +1,4 @@
 foreach ($case in @(
-    @{ Id = 'InventoryStatusFilter'; Category = 'Status'; Missing = 'Unknown'; Any = 'Any known status'; AnySummary = 'Any known'; KnownCount = 80; MissingCount = 0 },
     @{ Id = 'TypeFilter'; Category = 'Device type'; Missing = 'Unknown'; Any = 'Any known type'; AnySummary = 'Any known'; KnownCount = 1; MissingCount = 79 },
     @{ Id = 'OperatingSystemFilter'; Category = 'Operating system'; Missing = 'Unknown'; Any = 'Any known OS'; AnySummary = 'Any known'; KnownCount = 1; MissingCount = 79 },
     @{ Id = 'VendorFilter'; Category = 'Vendor'; Missing = 'Unknown'; Any = 'Any identified vendor'; AnySummary = 'Any identified'; KnownCount = 77; MissingCount = 3 },

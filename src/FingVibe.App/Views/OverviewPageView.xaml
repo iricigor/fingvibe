@@ -70,7 +70,6 @@
                                        HorizontalAlignment="Center"
                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                             <TextBlock x:Name="NetworkSizeBadgeLabel"
-                                       Text="subnet"
                                        HorizontalAlignment="Center"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>

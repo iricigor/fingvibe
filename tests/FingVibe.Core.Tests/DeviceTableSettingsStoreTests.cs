@@ -80,24 +80,20 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void AnyStatusSurvivesRestartAsAModeAndCanBeReplacedByUnrestrictedOrSpecificValues()
+    public void LegacyAnyKnownStatusLoadsAsTheStatusesItCoveredAndIsNoLongerSaved()
     {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, """{"columns":{},"statusFilters":[],"statusAnyKnown":true}""");
         var store = new DeviceTableSettingsStore(FilePath);
-        var settings = new DeviceTableSettings(new()) { StatusAnyKnown = true, StatusFilters = [] };
-        store.Save(settings);
-        var restored = new DeviceTableSettingsStore(FilePath).Load()!;
-        Assert.True(restored.StatusAnyKnown);
-        Assert.Empty(restored.StatusFilters!);
+        var legacy = store.Load()!;
+        Assert.False(legacy.StatusAnyKnown);
+        Assert.Equal([InventoryDeviceStatus.Online, InventoryDeviceStatus.Offline, InventoryDeviceStatus.FingOnly],
+            legacy.StatusFilters);
 
-        var selection = new DeviceFilterSelection<InventoryDeviceStatus>(InventoryDeviceStatus.Unknown);
-        selection.SetChoices(Enum.GetValues<InventoryDeviceStatus>().Select(value => (value, value.ToString())));
-        selection.SetAnyKnown(restored.StatusAnyKnown);
-        Assert.True(selection.AnyKnown);
-        Assert.Empty(selection.Selected);
-        store.Save(settings with { StatusAnyKnown = false });
-        Assert.False(store.Load()!.StatusAnyKnown);
-        store.Save(settings with { StatusAnyKnown = false, StatusFilters = [InventoryDeviceStatus.Online] });
-        Assert.Equal([InventoryDeviceStatus.Online], store.Load()!.StatusFilters);
+        Assert.Throws<ArgumentException>(() => store.Save(legacy with { StatusAnyKnown = true }));
+        store.Save(legacy);
+        Assert.DoesNotContain("statusAnyKnown", File.ReadAllText(FilePath));
+        Assert.Equal(legacy.StatusFilters, store.Load()!.StatusFilters);
     }
 
     [Theory]

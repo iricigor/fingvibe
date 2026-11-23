@@ -170,8 +170,10 @@
     $headingBandStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardHeadingBandStyle']")
     if (-not $headingBandStyle -or
         $headingBandStyle.GetAttribute("BasedOn") -cne "{StaticResource CardHeadingBandStyle}" -or
-        $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Margin']").GetAttribute("Value") -cne "0") {
-        throw "Settings card headings must inherit the shared H4 band without the scanner-card offset."
+        $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Margin']").GetAttribute("Value") -cne "0" -or
+        $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='Background']").GetAttribute("Value") -cne "Transparent" -or
+        $headingBandStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='BorderThickness']").GetAttribute("Value") -cne "0") {
+        throw "Settings card headings must inherit the shared H4 heading without the scanner-card offset or a shaded band that leaves the native chevron outside it."
     }
     $navigationCardPadding = $settings.SelectSingleNode(
         "//*[@*[local-name()='Key']='SettingsNavigationCardStyle']/*[local-name()='Setter' and @Property='Padding']")

@@ -162,7 +162,7 @@ capture bounds and complete-window containment checks remain unchanged.
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
-Settings initially shows three collapsed preference sections: **Appearance**, **Devices page**, and **Background activity**. The latter holds separate Scheduled scans and Monitor network health choices. Each header summarizes the current choices; schedule summaries distinguish the configured interval from actual paused, unavailable or failed execution. Expand a header with the pointer or keyboard to edit its existing controls. Expansion is remembered only during the current app session, including navigation through About, and resets to collapsed on restart without changing saved preferences.
+Settings initially shows three collapsed preference sections: **Appearance**, **Devices page**, and **Background activity**. The latter holds separate Scheduled scans and Monitor network health choices. Each header summarizes the current choices in one short line; the Background activity summary uses the status bar's schedule wording (for example **Scheduled every 1 hour while app is open**, **Scheduled scans paused** or **Scheduled scans retrying**, or **Scheduled scans off**) followed by **Network monitoring on** or **off**, so a paused, unavailable or failing schedule never reads as running. The detailed scheduling and monitoring status sentences stay inside the expanded section and in the header's accessible help text. Expand a header with the pointer or keyboard to edit its existing controls. Expansion is remembered only during the current app session, including navigation through About, and resets to collapsed on restart without changing saved preferences.
 
 Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** section starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, individual/combined widths and the Status filter are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches and the Status selection. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode uses table preferences only through an explicit isolated fixture path, never the user's saved file. The page remains scrollable for small windows and larger text.
 
@@ -184,7 +184,7 @@ no animation and use system-aware colors, including Windows high contrast.
 
 Configured builds also show an ISP logo on the Network page, loaded asynchronously from Logo.dev using the original ISP name. Logo.dev receives that name and the caller's public IP, but no LAN addresses, device inventory, or scan results. Missing configuration, unavailable images, and failed or slow requests leave a generic network icon; the ISP text and scanning remain available. Name matching selects the provider's top result and can identify the wrong brand. UI-review mode never requests logos. See [ISP logo configuration](isp-logos.md) for build setup and provider limitations.
 
-The Overview network card shows the subnet's CIDR prefix, such as **/24**, labeled **subnet**, with the usable address count as its tooltip and accessible name; it no longer shows a lone A, B, or C letter that could read like a grade. Network details explain all prefixes from /0 through /32, including class-size multiples/divisions and point-to-point or single-host networks. Counts below one million are exact; larger counts use M with two significant digits. Ordinary subnet counts exclude network/broadcast addresses, with a reserved suffix for /17 through /30; /31 assumes point-to-point use and /32 identifies one host. These capacity figures do not change the scanner's 65,534-address safety limit. Scope checks cover the whole subnet, distinguish private and special-purpose ranges (including APIPA/link-local), and flag mixed scopes. "Standard-size private" means a private /8, /16, or /24 subnet, not that other private prefix lengths are invalid.
+The Overview network card shows A, B, or C for /8, /16, or /24 sizes; other sizes show their CIDR prefix. Network details explain all prefixes from /0 through /32, including class-size multiples/divisions and point-to-point or single-host networks. Counts below one million are exact; larger counts use M with two significant digits. Ordinary subnet counts exclude network/broadcast addresses, with a reserved suffix for /17 through /30; /31 assumes point-to-point use and /32 identifies one host. These capacity figures do not change the scanner's 65,534-address safety limit. Scope checks cover the whole subnet, distinguish private and special-purpose ranges (including APIPA/link-local), and flag mixed scopes. "Standard-size private" means a private /8, /16, or /24 subnet, not that other private prefix lengths are invalid.
 
 Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars share one scale across the displayed scan's responding devices and keep that scale when filtering or sorting. Outside a scan, select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
 
@@ -272,7 +272,10 @@ Device activity), **Settings** (Appearance, Devices page, Background activity
 and About FingVibe & updates), **People & rooms** (People and Rooms, with their
 counts and Add actions in the band), **Person details** (Equipment activity) and
 **Room details** (Assigned devices). Settings keeps its native Expander and
-navigation-button controls inside the shared header treatment, while the Room
+navigation-button controls and uses the shared heading icon and text without the
+shaded band or divider, because the native header already draws the card surface
+and its chevron sits outside custom header content; each Settings header,
+chevron included, stays one uniform surface. The Room
 assigned-device action stays in its band. Whole-card navigation tiles and
 summary tiles without a heading keep their own treatments.
 The tool pages use the same heading on their content cards: **Network health**
@@ -450,7 +453,7 @@ waiting gate, hysteresis or extension into older dates to fill missing evidence.
 
 **Any known ...** is an exclusive any-known-value filter mode, not a snapshot of checked
 items or a synonym for clearing the category. Its choice names the meaning
-(**Any known status**, **Any known type**, **Any known OS**, **Any identified
+(**Any known type**, **Any known OS**, **Any identified
 vendor**, **Any assigned person/room**, **Any classified usage**) and restricted
 buttons summarize it as **Any known**, **Any identified**, **Any assigned** or
 **Any classified**. It appears immediately after
@@ -462,12 +465,12 @@ the raw Private registry result) and Randomized MAC; neither placeholder counts
 toward its two-choice threshold. Newly available known values match automatically.
 If choices shrink, an active Any restriction remains visible in the dropdown
 summary and can still be cleared rather than silently broadened.
-The existing Status preference stores this mode separately from explicit
-status selections; older settings default to the previous selection behavior.
+Status offers no Any known choice: with only four values, users check the
+statuses they want. A Status preference saved with the removed Any known status
+mode loads as Online, Offline and Fing Only, and later saves omit the mode.
 Other filter selections remain session-only. Status colors are shared by the
 dropdown, the inventory totals and the restricted Status button's per-status
-dots (green Online, red Offline, amber Unknown, blue Fing Only); Any known
-status uses a three-segment symbol without Unknown's amber. Dropdowns with more
+dots (green Online, red Offline, amber Unknown, blue Fing Only). Dropdowns with more
 than eight choices add a search box that hides non-matching choices without
 changing selections and reports when nothing matches.
 

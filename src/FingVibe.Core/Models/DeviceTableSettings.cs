@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FingVibe.Core.Models;
 
 public sealed record DeviceColumnSettings(double Width, bool IsVisible);
@@ -13,4 +15,5 @@ public sealed record DeviceTableSettings(
     bool CompactRows = true,
     int DensityVersion = 0,
     InventoryDeviceStatus[]? StatusFilters = null,
-    bool StatusAnyKnown = false);
+    // Read-only legacy input: the Status filter no longer has an Any known mode, so loading converts it.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool StatusAnyKnown = false);

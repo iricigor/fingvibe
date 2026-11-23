@@ -36,10 +36,9 @@ public sealed partial class OverviewPageView : UserControl
         }
 
         var subnet = SubnetDescriptionFormatter.Format(network.LocalAddress, network.PrefixLength);
-        var description = $"{subnet.Badge} subnet: {subnet.AddressCount}";
         NetworkSizeBadgeText.Text = subnet.Badge;
-        AutomationProperties.SetName(NetworkSizeBadgeText, description);
-        ToolTipService.SetToolTip(NetworkSizeBadge, description);
+        NetworkSizeBadgeLabel.Text = subnet.BadgeLabel;
+        AutomationProperties.SetName(NetworkSizeBadgeText, $"{subnet.Size}. {subnet.Mask}");
     }
 
     internal void ShowScan(string online, string openPorts, bool hasScan, string freshness,

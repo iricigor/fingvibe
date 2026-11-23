@@ -17,6 +17,7 @@ public sealed partial class SettingsPageView : UserControl
     private bool _updatingNetworkMonitor;
     private string? _appearanceSaveError;
     private string? _materialStatus;
+    private string? _periodicScanState;
     private ReleaseUpdateSession? _updates;
     private ReleaseUpdateActions? _updateActions;
     private ReleaseUpdateCloseScheduler? _updateCloseScheduler;
@@ -71,6 +72,14 @@ public sealed partial class SettingsPageView : UserControl
         set
         {
             ScheduledScanStatus.Text = value;
+            UpdateScheduledScansSummary();
+        }
+    }
+    internal string? PeriodicScanState
+    {
+        set
+        {
+            _periodicScanState = value;
             UpdateScheduledScansSummary();
         }
     }
@@ -158,10 +167,10 @@ public sealed partial class SettingsPageView : UserControl
         {
             ScheduledScansSummary.Text = SettingsPresentation.BackgroundSummary(
                 settings,
-                SelectedNetworkMonitor,
-                ScheduledScanStatus.Text,
-                NetworkMonitorStatusText.Text);
-            AutomationProperties.SetHelpText(ScheduledScansSection, ScheduledScansSummary.Text);
+                _periodicScanState,
+                SelectedNetworkMonitor);
+            AutomationProperties.SetHelpText(ScheduledScansSection,
+                $"{ScheduledScansSummary.Text}. {ScheduledScanStatus.Text} {NetworkMonitorStatusText.Text}".TrimEnd());
         }
     }
 

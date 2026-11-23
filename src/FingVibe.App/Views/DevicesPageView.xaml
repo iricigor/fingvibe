@@ -73,15 +73,6 @@
                      Fill="{ThemeResource StatusChoiceFingOnlyBrush}" IsHitTestVisible="False"
                      AutomationProperties.AccessibilityView="Raw" />
         </DataTemplate>
-        <!-- Any known status covers Online, Offline and Fing Only, so its symbol omits Unknown's color. -->
-        <DataTemplate x:Key="StatusAnyFilterIndicator">
-            <Grid Width="12" Height="12" VerticalAlignment="Center" IsHitTestVisible="False"
-                  AutomationProperties.AccessibilityView="Raw">
-                <Path Data="M6,6 L6,0 A6,6 0 0 1 11.196,9 Z" Fill="{ThemeResource StatusChoiceOnlineBrush}" />
-                <Path Data="M6,6 L11.196,9 A6,6 0 0 1 0.804,9 Z" Fill="{ThemeResource StatusChoiceOfflineBrush}" />
-                <Path Data="M6,6 L0.804,9 A6,6 0 0 1 6,0 Z" Fill="{ThemeResource StatusChoiceFingOnlyBrush}" />
-            </Grid>
-        </DataTemplate>
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
             <TextBlock FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
                        views:DevicesPageView.PreviewText="{x:Bind MacAddressText}" AutomationProperties.Name="{x:Bind MacAddressText}">

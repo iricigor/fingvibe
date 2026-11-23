@@ -630,30 +630,21 @@ try {
     if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: All") {
         throw "Cleared Status selection was not restored."
     }
-    (Find-DiscoveryControl InventoryStatusFilter).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-DiscoveryState {
-        $any = Find-DiscoveryControl InventoryStatusFilterAny -Optional
-        $any -and -not $any.Current.IsOffscreen
-    } "visible Any Status choice"
-    (Find-DiscoveryControl InventoryStatusFilterAny).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
-    Wait-DiscoveryState {
-        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any known"
-    } "Any known Status mode"
     Stop-DiscoveryApp
+    # A Status filter saved with the removed Any known status mode restores the three statuses it covered.
+    Set-Content -LiteralPath $tableSettings -Value '{"columns":{},"statusFilters":[],"statusAnyKnown":true}' -Encoding ASCII
     Start-DiscoveryApp
     Wait-DiscoveryState {
-        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any known"
-    } "restored Any known Status mode"
-    $savedStatus = Get-Content -LiteralPath $tableSettings -Raw | ConvertFrom-Json
-    if (-not $savedStatus.statusAnyKnown -or @($savedStatus.statusFilters).Count -ne 0) {
-        throw "Any Status must persist as a mode, not a snapshot of individual choices."
-    }
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online, Offline, Fing Only"
+    } "legacy Any known Status restored as Online, Offline and Fing Only"
     (Find-DiscoveryControl ClearFiltersLink).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
         (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: All"
-    } "cleared Any Status mode"
+    } "cleared legacy Status selection"
     $savedStatus = Get-Content -LiteralPath $tableSettings -Raw | ConvertFrom-Json
-    if ($savedStatus.statusAnyKnown) { throw "Clear filters must persist removal of Any Status mode." }
+    if ($savedStatus.statusAnyKnown -or @($savedStatus.statusFilters).Count -ne 0) {
+        throw "Clearing a legacy Any known Status selection must save an unrestricted Status without the removed mode."
+    }
     Stop-DiscoveryApp
     $invalidTableSettings = '{"columns":{},"statusFilters":[99]}'
     Set-Content -LiteralPath $tableSettings -Value $invalidTableSettings -Encoding ASCII

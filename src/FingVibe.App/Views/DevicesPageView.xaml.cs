@@ -34,8 +34,8 @@ public sealed partial class DevicesPageView : UserControl
         Loaded += (_, _) => UpdateLastSeenAgeRefresh();
         Unloaded += (_, _) => _lastSeenAges.SetActive(false);
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => UpdateLastSeenAgeRefresh());
-        _statuses = new(this, InventoryStatusFilter, "Status", OnFiltersChanged,
-            InventoryDeviceStatus.Unknown, "Any known status", "Any known", "Any status except Unknown.");
+        // Status has only four values, so it offers no Any known choice; the other categories keep theirs.
+        _statuses = new(this, InventoryStatusFilter, "Status", OnFiltersChanged, InventoryDeviceStatus.Unknown);
         _types = new(this, TypeFilter, "Device type", OnFiltersChanged,
             DeviceType.Unknown, "Any known type", "Any known", "Any known device type, excluding Unknown.", displayCategory: "Type");
         _operatingSystems = new(this, OperatingSystemFilter, "Operating system", OnFiltersChanged,
@@ -55,8 +55,7 @@ public sealed partial class DevicesPageView : UserControl
         _statuses.SetChoices([
             (InventoryDeviceStatus.Online, "Online"), (InventoryDeviceStatus.Offline, "Offline"),
             (InventoryDeviceStatus.Unknown, "Unknown"), (InventoryDeviceStatus.FingOnly, "Fing Only")],
-            value => (DataTemplate)Resources[$"Status{value}FilterIndicator"],
-            (DataTemplate)Resources["StatusAnyFilterIndicator"]);
+            value => (DataTemplate)Resources[$"Status{value}FilterIndicator"]);
         _types.SetChoices(Enum.GetValues<DeviceType>().Select(value => (value, value.Label())));
         _operatingSystems.SetChoices(Enum.GetValues<DeviceOperatingSystem>().Select(value => (value, value.Label())));
         SetVendorFilters([]);
@@ -84,15 +83,13 @@ public sealed partial class DevicesPageView : UserControl
         }
     }
     internal IReadOnlySet<InventoryDeviceStatus> StatusFilters => _statuses.Selected;
-    internal bool StatusAnyKnown => _statuses.AnyKnown;
 
-    internal void RestoreStatusFilters(IEnumerable<InventoryDeviceStatus> statuses, bool anyKnown = false)
+    internal void RestoreStatusFilters(IEnumerable<InventoryDeviceStatus> statuses)
     {
         _updatingFilters = true;
         try
         {
             _statuses.SelectOnly(statuses);
-            if (anyKnown) _statuses.SelectAny();
         }
         finally { _updatingFilters = false; }
         OnFiltersChanged();
@@ -112,7 +109,6 @@ public sealed partial class DevicesPageView : UserControl
         People = _people.Selected,
         Rooms = _rooms.Selected,
         UsageCategories = _usageCategories.Selected,
-        AnyKnownStatus = _statuses.AnyKnown,
         AnyKnownType = _types.AnyKnown,
         AnyKnownOperatingSystem = _operatingSystems.AnyKnown,
         AnyKnownVendor = _vendors.AnyKnown,
@@ -492,17 +488,18 @@ public sealed partial class DevicesPageView : UserControl
         private readonly string _displayCategory;
         private readonly Action _changed;
         private readonly DeviceFilterSelection<T> _selection;
-        private readonly string _anyLabel;
-        private readonly string _anySummary;
-        private readonly string _anyDescription;
+        private readonly string? _anyLabel;
+        private readonly string? _anySummary;
+        private readonly string? _anyDescription;
         private readonly List<(T Value, CheckBox CheckBox)> _checks = [];
         private CheckBox? _anyCheck;
         private Func<T, DataTemplate>? _indicatorTemplate;
         private DataTemplate? _anyIndicatorTemplate;
         private bool _syncing;
 
+        // Without anyLabel the filter offers only its individual choices.
         internal MultiSelectFilter(DevicesPageView view, DropDownButton button, string category, Action changed,
-            T missingValue, string anyLabel, string anySummary, string anyDescription,
+            T missingValue, string? anyLabel = null, string? anySummary = null, string? anyDescription = null,
             IEqualityComparer<T>? comparer = null, Func<T, bool>? isKnown = null, string? displayCategory = null)
         {
             _view = view;
@@ -547,7 +544,7 @@ public sealed partial class DevicesPageView : UserControl
                 panel.Children.Add(check);
                 _checks.Add((value, check));
                 searchable.Add((label, check));
-                if (_selection.IsMissing(value) && _selection.ShowAnyChoice)
+                if (_anyLabel is not null && _selection.IsMissing(value) && _selection.ShowAnyChoice)
                 {
                     var any = new CheckBox
                     {
@@ -665,12 +662,6 @@ public sealed partial class DevicesPageView : UserControl
             SyncChecks();
         }
 
-        internal void SelectAny()
-        {
-            _selection.SetAnyKnown(true);
-            SyncChecks();
-        }
-
         internal void Clear()
         {
             _selection.Clear();
@@ -696,7 +687,7 @@ public sealed partial class DevicesPageView : UserControl
             var text = _selection.HasRestriction ? $"{_displayCategory} | {summary}" : _displayCategory;
             _button.Content = _view.CreateFilterLabel(_button, text, _selection.HasRestriction, SelectedIndicators());
             AutomationProperties.SetName(_button, $"{_category}: {summary}");
-            AutomationProperties.SetHelpText(_button, AnyKnown ? _anyDescription : string.Empty);
+            AutomationProperties.SetHelpText(_button, AnyKnown ? _anyDescription ?? string.Empty : string.Empty);
             ToolTipService.SetToolTip(_button, AnyKnown ? $"{_category}: {_anyDescription}" : $"{_category}: {summary}");
         }
 

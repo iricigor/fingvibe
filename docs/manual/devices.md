@@ -46,12 +46,9 @@ full category names.
 Status dropdown choices supplement their labels and checkboxes with colored
 dots: green Online, red Offline, amber Unknown and blue Fing Only. The status
 totals above the table use the same dot colors, and a restricted **Status**
-button shows one dot per selected status beside its label. **Any known status**
-has a three-segment circle in the Online, Offline and Fing Only colors; Unknown's
-amber is deliberately missing because Any known excludes Unknown, and the circle
-does not represent an arbitrary multi-selection. High contrast uses system colors
-while retaining labels and checkbox selection cues. Device-row badges keep their
-existing colors and text.
+button shows one dot per selected status beside its label. High contrast uses
+system colors while retaining labels and checkbox selection cues. Device-row
+badges keep their existing colors and text.
 
 Lists with more than eight choices, such as **Type**, and **Vendor**, **Person**
 or **Room** once they grow, start with a search box. Searching only hides
@@ -68,10 +65,10 @@ Hiding the second filter row does **not** clear it. The funnel count shows activ
 secondary categories. Status is remembered after restart; search and the other
 categories are not.
 
-The **Any known ...** choice (for example **Any known status**, **Any known
-type**, **Any identified vendor**, **Any assigned person** or **Any classified
-usage**) means any known value, not every value; a restricted button summarizes
-it as **Any known**, **Any identified**, **Any assigned** or **Any classified**.
+The **Any known ...** choice (for example **Any known type**, **Any identified
+vendor**, **Any assigned person** or **Any classified usage**) means any known
+value, not every value; a restricted button summarizes it as **Any known**,
+**Any identified**, **Any assigned** or **Any classified**.
 It appears immediately after
 Unknown, Unassigned or Unclassified when that dropdown offers at least two
 known choices. Selecting it replaces individual choices; selecting an
@@ -80,7 +77,9 @@ For Person/Room, it means assigned; for Usage category, it excludes
 Unclassified. For Vendor, it includes identified manufacturers and excludes
 both Unknown and Randomized MAC. The threshold counts dropdown choices, not
 devices. An active Any known filter keeps its meaning when new values appear.
-Status remembers Any known status after restart just as it remembers individual statuses.
+**Status** has no Any known choice because it has only four values; check the
+statuses you want instead. A Status filter saved with the earlier Any known
+status choice reopens as **Online**, **Offline** and **Fing Only**.
 
 [![Nine synthetic devices with varied types, service-discovery indicators and a collapsed two-NIC Workstation](../screenshots/manual/devices.png)](../screenshots/manual/devices.png)
 
