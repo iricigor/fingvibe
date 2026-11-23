@@ -26,7 +26,7 @@ public sealed class NetworkDiagnosticTests
             (DiagnosticCheckpoint.RouterWan, DiagnosticState.Unanswered),
             (DiagnosticCheckpoint.Hop2, DiagnosticState.Unanswered)));
         Assert.Equal(DiagnosticSummaryKind.Good, summary.Kind);
-        Assert.Equal("All good", summary.Status);
+        Assert.Equal("Checks passed", summary.Status);
     }
 
     [Theory]

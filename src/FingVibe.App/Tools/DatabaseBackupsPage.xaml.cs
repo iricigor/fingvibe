@@ -18,7 +18,7 @@ public sealed partial class DatabaseBackupsPage : UserControl
     private readonly DispatcherTimer _ageTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private readonly Style _normalButtonStyle;
     private sealed record BackupRow(string Created, string Name, string Size, bool IsAlternateRow,
-        string Daily, string DailyDescription);
+        Visibility DailyVisibility, string DailyDescription);
 
     public DatabaseBackupsPage()
     {
@@ -80,12 +80,11 @@ public sealed partial class DatabaseBackupsPage : UserControl
             _copies = copies;
             BackupRows.ItemsSource = copies.Select((item, index) => new BackupRow(
                 item.CreatedUtc.ToLocalTime().ToString("g"), Path.GetFileName(item.Path),
-                $"{item.Size / 1024d:N1} KiB", index % 2 == 1, item.IsDaily ? "Yes" : "No",
+                $"{item.Size / 1024d:N1} KiB", index % 2 == 1,
+                item.IsDaily ? Visibility.Visible : Visibility.Collapsed,
                 item.IsDaily ? "Daily recovery point: newest copy for this local backup day."
                     : "Recent backup only: not a daily recovery point.")).ToArray();
             UpdateBackupSummary();
-            BackupLastSuccess.Text = copies.FirstOrDefault() is { } last
-                ? $"Last successful backup: {last.CreatedUtc.ToLocalTime():G}" : "No successful backup yet.";
             ShowStatus();
             BackupsScroll.UpdateLayout();
             _surface.Complete(request, status.Error is not null ? AsyncSurfaceState.Error
@@ -113,6 +112,12 @@ public sealed partial class DatabaseBackupsPage : UserControl
         BackupCount.Text = _copies.Count == 0 ? "No completed backups."
             : $"{_copies.Count} {(_copies.Count == 1 ? "backup" : "backups")} - "
                 + $"newest {Age(_copies[0].CreatedUtc)} - oldest {Age(_copies[^1].CreatedUtc)}";
+        // A relative age reassures at a glance; the exact local time stays available as tooltip and help text.
+        var exact = _copies.Count == 0 ? null : $"{_copies[0].CreatedUtc.ToLocalTime():G}";
+        BackupLastSuccess.Text = exact is null ? "No successful backup yet."
+            : $"Last successful backup: {Age(_copies[0].CreatedUtc)}";
+        ToolTipService.SetToolTip(BackupLastSuccess, exact);
+        AutomationProperties.SetHelpText(BackupLastSuccess, exact is null ? string.Empty : $"Created {exact} local time.");
 
         string Age(DateTimeOffset created) => created > now
             ? $"at {created.ToLocalTime():G}" : $"{ScanAgeFormatter.FormatAge(now - created)} ago";

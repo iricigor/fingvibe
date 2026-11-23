@@ -28,8 +28,14 @@ public sealed class DeviceTableSettingsStore(string filePath)
         }
         if (!ValidStatuses(settings.StatusFilters, settings.StatusAnyKnown))
             throw new JsonException("Device table Status filter selections are invalid.");
-        return settings;
+        // Older files may hold the removed Any known status mode; keep its meaning as the statuses it covered.
+        return settings.StatusAnyKnown
+            ? settings with { StatusFilters = LegacyAnyKnownStatuses, StatusAnyKnown = false }
+            : settings;
     }
+
+    private static InventoryDeviceStatus[] LegacyAnyKnownStatuses =>
+        [InventoryDeviceStatus.Online, InventoryDeviceStatus.Offline, InventoryDeviceStatus.FingOnly];
 
     public void Save(DeviceTableSettings settings)
     {
@@ -38,7 +44,7 @@ public sealed class DeviceTableSettingsStore(string filePath)
                 entry.Value is null || !double.IsFinite(entry.Value.Width) || entry.Value.Width < 56
                 || entry.Value.Width > 4096))
             throw new ArgumentException("Device table column widths are invalid.", nameof(settings));
-        if (!ValidStatuses(settings.StatusFilters, settings.StatusAnyKnown))
+        if (settings.StatusAnyKnown || !ValidStatuses(settings.StatusFilters, false))
             throw new ArgumentException("Device table Status filter selections are invalid.", nameof(settings));
         var directory = Path.GetDirectoryName(filePath)
             ?? throw new ArgumentException("The settings path must include a directory.", nameof(filePath));

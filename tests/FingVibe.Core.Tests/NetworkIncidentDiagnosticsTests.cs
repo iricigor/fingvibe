@@ -36,7 +36,7 @@ public sealed class NetworkIncidentDiagnosticsTests
         Assert.Equal(Enum.GetValues<DiagnosticCheckpoint>().Length, evidence.Observations.Count);
         Assert.Equal(DiagnosticState.Unavailable,
             evidence.Observations.Single(item => item.Checkpoint == DiagnosticCheckpoint.LanPeer).State);
-        Assert.Equal((DiagnosticSummaryKind.Good, "All good"), (evidence.SummaryKind, evidence.SummaryStatus));
+        Assert.Equal((DiagnosticSummaryKind.Good, "Checks passed"), (evidence.SummaryKind, evidence.SummaryStatus));
         Assert.Equal((Incident.ContextKey, Incident.NetworkLabel), (evidence.ContextKey, evidence.NetworkLabel));
     }
 

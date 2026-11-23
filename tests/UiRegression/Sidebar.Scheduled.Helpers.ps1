@@ -141,8 +141,9 @@ function Assert-ScheduledScansSelection([string] $State, [string] $Interval) {
     if ($toggle.Current.ToggleState -ne $State -or $picker.Current.GetSelection()[0].Current.Name -ne $Interval) {
         throw "Expected scheduled scans $State every $Interval."
     }
-    $enabledText = if ($State -eq "On") { "Enabled" } else { "Disabled" }
-    if ((Find-SidebarElement AutomationId ScheduledScansSummary).Current.Name -notlike "$enabledText*Every $Interval*While FingVibe is open*") {
+    $dot = [char] 0x00B7
+    $scheduledText = if ($State -eq "On") { "Scheduled every $Interval while app is open" } else { "Scheduled scans off" }
+    if ((Find-SidebarElement AutomationId ScheduledScansSummary).Current.Name -notlike "$scheduledText $dot Network monitoring *") {
         throw "Scheduled scan summary must reflect the actual configured state and interval."
     }
 }
@@ -241,7 +242,7 @@ function Test-ScheduledScans {
         Set-UiReviewAppearanceChoice -Root $root -Picker ScanIntervalPicker -Choice "15 minutes"
         Assert-ScheduledScanSettings $true 15
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning ICMP:*"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Finding devices:*"
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
@@ -257,7 +258,7 @@ function Test-ScheduledScans {
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
 
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning ICMP:*"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Finding devices:*"
         Switch-ScheduledScansWithKeyboard $false
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."

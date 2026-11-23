@@ -19,7 +19,6 @@ public sealed record DeviceResultFilter(
     public IReadOnlySet<Guid?> People { get; init; } = new HashSet<Guid?>();
     public IReadOnlySet<Guid?> Rooms { get; init; } = new HashSet<Guid?>();
     public IReadOnlySet<DeviceUsageCategory> UsageCategories { get; init; } = new HashSet<DeviceUsageCategory>();
-    public bool AnyKnownStatus { get; init; }
     public bool AnyKnownType { get; init; }
     public bool AnyKnownOperatingSystem { get; init; }
     public bool AnyKnownVendor { get; init; }
@@ -35,7 +34,7 @@ public sealed record DeviceResultFilter(
 
     public bool HasRestrictions => AliveOnly || OpenPortsOnly || !string.IsNullOrEmpty(SearchText)
         || Status is not null || PersonId is not null || RoomId is not null
-        || UnassignedPersonOnly || UnassignedRoomOnly || AnyKnownStatus || Statuses.Count > 0
+        || UnassignedPersonOnly || UnassignedRoomOnly || Statuses.Count > 0
         || ActiveSecondaryCategoryCount > 0;
 
     public bool Matches(ScanResultRow row) =>
@@ -46,7 +45,7 @@ public sealed record DeviceResultFilter(
         && (RoomId is null || row.RoomId == RoomId)
         && (!UnassignedPersonOnly || row.PersonId is null)
         && (!UnassignedRoomOnly || row.RoomId is null)
-        && (AnyKnownStatus ? row.Status != InventoryDeviceStatus.Unknown : Statuses.Count == 0 || Statuses.Contains(row.Status))
+        && (Statuses.Count == 0 || Statuses.Contains(row.Status))
         && (AnyKnownType ? row.Type != DeviceType.Unknown : Types.Count == 0 || Types.Contains(row.Type))
         && (AnyKnownOperatingSystem ? row.OperatingSystem != DeviceOperatingSystem.Unknown
             : OperatingSystems.Count == 0 || OperatingSystems.Contains(row.OperatingSystem))

@@ -220,6 +220,6 @@ public static class NetworkDiagnosticInterpreter
         if (!Responded(DiagnosticCheckpoint.CloudflarePing) || !Responded(DiagnosticCheckpoint.GooglePing)
             || !dns.All(Responded) || !Responded(DiagnosticCheckpoint.Gateway))
             return new(DiagnosticSummaryKind.Warning, "Connectivity available / some checks unanswered", "Internet probes responded. Missing gateway or other responses may reflect filtering, not a broken link; review details and report persistent service errors.");
-        return new(DiagnosticSummaryKind.Good, "All good", "The local, gateway, internet IP, and DNS checks passed. Optional WAN and intermediate probes may be filtered; report any app-specific error separately, since not every service was tested.");
+        return new(DiagnosticSummaryKind.Good, "Checks passed", "The local, gateway, internet IP, and DNS checks passed. Optional WAN and intermediate probes may be filtered; report any app-specific error separately, since not every service was tested.");
     }
 }

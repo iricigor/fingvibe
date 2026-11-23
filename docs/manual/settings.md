@@ -54,7 +54,8 @@ The app also respects Windows animation preferences for supported effects.
 Expand **Devices page** in Settings.
 
 **Visible columns** controls which optional columns appear.
-Name and IP address are always shown.
+Name and IP address are always shown: they appear with a lock icon and an
+**Always shown** label instead of a checkbox.
 **Combined columns** places related values in one table column.
 
 For example, **IP/MAC** places the IP above the MAC.

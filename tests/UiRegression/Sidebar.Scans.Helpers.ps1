@@ -129,7 +129,7 @@ function Test-DeviceRefresh {
             throw "Refresh must retain the displayed devices and explain their status."
         }
         Select-SidebarPage Overview "Online devices"
-        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Scanning ICMP:*") {
+        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Finding devices:*elapsed*") {
             throw "Live scan progress must remain visible after navigation."
         }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()

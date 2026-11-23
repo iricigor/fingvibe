@@ -26,10 +26,9 @@ public static class DeviceColumnLayoutHelpers
     public static string AssignmentText(Guid? id, string? value) =>
         id is null || string.IsNullOrWhiteSpace(value) ? "\u2014" : value;
 
-    public static string VisibilityChoiceLabel(string header, bool canHide) =>
-        canHide ? header : $"{header} (always shown)";
-
     public static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+    public static Visibility RequiredVisibility(bool canHide) => ToVisibility(!canHide);
+    public static string RequiredColumnName(string header) => $"{header}, always shown";
     public static Visibility TextVisibility(string? value) =>
         ToVisibility(!string.IsNullOrWhiteSpace(value));
     public static double UsageCategoryBadgeMaximumWidth(double columnWidth, bool hasIndicator) =>

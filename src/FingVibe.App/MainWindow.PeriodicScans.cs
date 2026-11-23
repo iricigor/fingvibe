@@ -180,6 +180,7 @@ public sealed partial class MainWindow
             return;
         }
 
+        SettingsPage.PeriodicScanState = PeriodicScanHeaderSummary();
         SettingsPage.PeriodicScanStatus = PeriodicScanPresentation.Status(
             _periodicScanController.Settings,
             _periodicScans.Status,

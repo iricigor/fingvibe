@@ -359,7 +359,7 @@ try {
     $previousOnline = Get-DiscoveryOnlineCount
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*Confirming remaining devices: address lookup*"
     } "checkpointed initial results"
     $pendingOnline = Get-DiscoveryOnlineCount
     if ($pendingOnline -ne $previousOnline + 1) {
@@ -399,7 +399,7 @@ try {
     # A later final checkpoint updates the same scan without stealing focus from browsing.
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*Confirming remaining devices: address lookup*"
     } "second initial checkpoint"
     Wait-DiscoveryState {
         (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
@@ -448,7 +448,7 @@ try {
     }
     Wait-DiscoveryState {
         $status = Find-DiscoveryControl ScanStatusText -Optional
-        $status -and $status.Current.Name -like "Scheduled scan*Scanning ICMP:*"
+        $status -and $status.Current.Name -like "Scheduled scan*Finding devices:*"
     } "scheduled scan retaining previous evidence"
     if ((Get-DiscoveryOnlineCount) -ne $scheduledOnline) { throw "Scheduled scan start reset retained Online membership." }
     $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
@@ -630,30 +630,21 @@ try {
     if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: All") {
         throw "Cleared Status selection was not restored."
     }
-    (Find-DiscoveryControl InventoryStatusFilter).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-DiscoveryState {
-        $any = Find-DiscoveryControl InventoryStatusFilterAny -Optional
-        $any -and -not $any.Current.IsOffscreen
-    } "visible Any Status choice"
-    (Find-DiscoveryControl InventoryStatusFilterAny).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
-    Wait-DiscoveryState {
-        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any"
-    } "Any known Status mode"
     Stop-DiscoveryApp
+    # A Status filter saved with the removed Any known status mode restores the three statuses it covered.
+    Set-Content -LiteralPath $tableSettings -Value '{"columns":{},"statusFilters":[],"statusAnyKnown":true}' -Encoding ASCII
     Start-DiscoveryApp
     Wait-DiscoveryState {
-        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any"
-    } "restored Any known Status mode"
-    $savedStatus = Get-Content -LiteralPath $tableSettings -Raw | ConvertFrom-Json
-    if (-not $savedStatus.statusAnyKnown -or @($savedStatus.statusFilters).Count -ne 0) {
-        throw "Any Status must persist as a mode, not a snapshot of individual choices."
-    }
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online, Offline, Fing Only"
+    } "legacy Any known Status restored as Online, Offline and Fing Only"
     (Find-DiscoveryControl ClearFiltersLink).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
         (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: All"
-    } "cleared Any Status mode"
+    } "cleared legacy Status selection"
     $savedStatus = Get-Content -LiteralPath $tableSettings -Raw | ConvertFrom-Json
-    if ($savedStatus.statusAnyKnown) { throw "Clear filters must persist removal of Any Status mode." }
+    if ($savedStatus.statusAnyKnown -or @($savedStatus.statusFilters).Count -ne 0) {
+        throw "Clearing a legacy Any known Status selection must save an unrestricted Status without the removed mode."
+    }
     Stop-DiscoveryApp
     $invalidTableSettings = '{"columns":{},"statusFilters":[99]}'
     Set-Content -LiteralPath $tableSettings -Value $invalidTableSettings -Encoding ASCII

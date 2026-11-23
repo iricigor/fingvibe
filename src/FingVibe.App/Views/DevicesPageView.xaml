@@ -11,7 +11,8 @@
             <ResourceDictionary x:Key="Light">
                 <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="#16803D" />
                 <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#C42B1C" />
-                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#6B7280" />
+                <!-- Amber marks Unknown as unresolved rather than a quiet, offline-like gray. -->
+                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#B76E00" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#2563EB" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#20000000" />
@@ -23,7 +24,7 @@
             <ResourceDictionary x:Key="Dark">
                 <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="#4ADE80" />
                 <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#FF8080" />
-                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#A6ABB3" />
+                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#FBBF24" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#70ADFF" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#24FFFFFF" />
@@ -71,15 +72,6 @@
             <Ellipse Width="12" Height="12" VerticalAlignment="Center"
                      Fill="{ThemeResource StatusChoiceFingOnlyBrush}" IsHitTestVisible="False"
                      AutomationProperties.AccessibilityView="Raw" />
-        </DataTemplate>
-        <DataTemplate x:Key="StatusAnyFilterIndicator">
-            <Grid Width="12" Height="12" VerticalAlignment="Center" IsHitTestVisible="False"
-                  AutomationProperties.AccessibilityView="Raw">
-                <Path Data="M6,6 L6,0 A6,6 0 0 1 12,6 Z" Fill="{ThemeResource StatusChoiceOnlineBrush}" />
-                <Path Data="M6,6 L12,6 A6,6 0 0 1 6,12 Z" Fill="{ThemeResource StatusChoiceOfflineBrush}" />
-                <Path Data="M6,6 L6,12 A6,6 0 0 1 0,6 Z" Fill="{ThemeResource StatusChoiceUnknownBrush}" />
-                <Path Data="M6,6 L0,6 A6,6 0 0 1 6,0 Z" Fill="{ThemeResource StatusChoiceFingOnlyBrush}" />
-            </Grid>
         </DataTemplate>
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
             <TextBlock FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
@@ -239,25 +231,25 @@
                             </Grid.RowDefinitions>
                             <ToggleButton x:Name="OnlineChip" Tag="1" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerOnlineForegroundBrush}" />
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource StatusChoiceOnlineBrush}" />
                                     <TextBlock x:Name="OnlineCountText" Text="0 Online" />
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton x:Name="OfflineChip" Grid.Column="1" Tag="2" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource StatusChoiceOfflineBrush}" />
                                     <TextBlock x:Name="OfflineCountText" Text="0 Offline" />
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton x:Name="UnknownChip" Grid.Column="2" Tag="4" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource StatusChoiceUnknownBrush}" />
                                     <TextBlock x:Name="UnknownCountText" Text="0 Unknown" />
                                 </StackPanel>
                             </ToggleButton>
                             <ToggleButton x:Name="FingOnlyChip" Grid.Column="3" Tag="3" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerImportedForegroundBrush}" />
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource StatusChoiceFingOnlyBrush}" />
                                     <TextBlock x:Name="FingOnlyCountText" Text="0 Fing Only" />
                                 </StackPanel>
                             </ToggleButton>

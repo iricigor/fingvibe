@@ -61,8 +61,8 @@ unknown rather than proving absence.
 
 ## View the Room map
 
-Open **People & rooms**, then choose **View room map** in the **Rooms**
-section. You can also open the same page from the **Room map** card in
+Open **People & rooms**, then choose **View room map** beside **Add room** in
+the **Rooms** heading. You can also open the same page from the **Room map** card in
 **Tools**, or from the **Network path and status** section in
 **Network health**. **Back** returns to the page where you opened the map
 and names it, even after you visit a room or device from the map.
@@ -96,7 +96,10 @@ FingVibe selects a valid nearby device or room instead. Completed scans and
 assignment changes refresh the retained map without moving unchanged items.
 
 **Only online** starts on and hides offline devices and devices without local
-scan evidence while preserving the room layout. Turn it off to show every
+scan evidence while preserving the room layout. Because every shown device is
+then online, tiles omit the repeated **Online** line and give long device names
+a second line instead; the tooltip and screen-reader name still state the status.
+Turn it off to show every
 relevant device again. Use the Back action to return to **Rooms**, **Tools**, or
 **Network health**, depending on where you opened the map. Narrow windows keep
 normal-size device icons and allow horizontal and vertical
@@ -106,7 +109,10 @@ taller so labels stay inside them.
 ## Find, edit, or delete
 
 Use **Search people and rooms** to filter both sections at once. Open an entry to review its assigned
-equipment. Use its edit action to change the name, icon, or notes.
+equipment. Use its edit action to change the name, icon, or notes. Each row also
+has an always-visible **...** button (named **Actions for** the entry) that opens
+labeled **Edit** and **Delete** actions without opening the details page.
+Delete always asks for confirmation first.
 
 Each section keeps its count and Add action visible when empty or when nothing
 matches the search. If saved inventory cannot be loaded, the error remains
@@ -121,9 +127,9 @@ Their tooltips give the full names. Filters and search also match full names.
 
 ## Interpret counts
 
-**Last scan** counts devices that responded in the displayed local scan.
-It does not show whether a person is home, a room is occupied, or a device
-is continuously connected.
+**Responding devices** counts assigned devices that responded in the displayed
+local scan. It does not show whether a person is home, a room is occupied, or a
+device is continuously connected.
 
 Your entries and assignments are saved locally.
 If a load or save fails, read the error before making further changes.

@@ -31,33 +31,16 @@ public sealed class SettingsPresentationTests
     }
 
     [Theory]
-    [InlineData(true, "Paused: The selected LAN is unavailable.")]
-    [InlineData(true, "Paused while Windows sleeps.")]
-    [InlineData(true, "Scheduled-scan changes apply now but could not be saved for the next launch.")]
-    [InlineData(false, "Off. Scans run only when you select Scan LAN.")]
-    public void ScheduledSummary_SeparatesConfigurationFromActualExecution(bool enabled, string status)
-    {
-        var summary = SettingsPresentation.ScheduledSummary(new(enabled, 60), status);
-        Assert.StartsWith(enabled ? "Enabled" : "Disabled", summary);
-        Assert.Contains("Every 1 hour", summary);
-        Assert.Contains("While FingVibe is open", summary);
-        Assert.EndsWith(status, summary);
-        Assert.DoesNotContain("in progress", summary);
-    }
-
-    [Fact]
-    public void BackgroundSummaryKeepsScheduledAndMonitoringTogglesIndependent()
-    {
-        var summary = SettingsPresentation.BackgroundSummary(
-            new PeriodicScanSettings(false, 60),
-            new NetworkMonitorSettings(true),
-            "Off. Scans run only when you select Scan LAN.",
-            "Collecting raw ping and DNS observations.");
-
-        Assert.StartsWith("Disabled", summary);
-        Assert.Contains("Network monitoring enabled", summary);
-        Assert.EndsWith("Collecting raw ping and DNS observations.", summary);
-    }
+    [InlineData(true, 60, "Scheduled every 1 hour while app is open", false,
+        "Scheduled every 1 hour while app is open \u00b7 Network monitoring off")]
+    [InlineData(true, 120, null, true, "Scheduled every 2 hours while app is open \u00b7 Network monitoring on")]
+    [InlineData(true, 60, "Scheduled scans paused", true, "Scheduled scans paused \u00b7 Network monitoring on")]
+    [InlineData(true, 60, "Scheduled scans retrying", false, "Scheduled scans retrying \u00b7 Network monitoring off")]
+    [InlineData(false, 60, "Scheduled every 1 hour while app is open", true, "Scheduled scans off \u00b7 Network monitoring on")]
+    public void BackgroundSummary_IsOneLineThatNeverShowsPausedOrDisabledScansAsScheduled(
+        bool enabled, int interval, string? scheduledState, bool monitoring, string expected) =>
+        Assert.Equal(expected, SettingsPresentation.BackgroundSummary(
+            new PeriodicScanSettings(enabled, interval), scheduledState, new NetworkMonitorSettings(monitoring)));
 
     [Theory]
     [InlineData(0, 1)]

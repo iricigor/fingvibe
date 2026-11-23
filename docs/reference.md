@@ -162,7 +162,7 @@ capture bounds and complete-window containment checks remain unchanged.
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
-Settings initially shows three collapsed preference sections: **Appearance**, **Devices page**, and **Background activity**. The latter holds separate Scheduled scans and Monitor network health choices. Each header summarizes the current choices; schedule summaries distinguish the configured interval from actual paused, unavailable or failed execution. Expand a header with the pointer or keyboard to edit its existing controls. Expansion is remembered only during the current app session, including navigation through About, and resets to collapsed on restart without changing saved preferences.
+Settings initially shows three collapsed preference sections: **Appearance**, **Devices page**, and **Background activity**. The latter holds separate Scheduled scans and Monitor network health choices. Each header summarizes the current choices in one short line; the Background activity summary uses the status bar's schedule wording (for example **Scheduled every 1 hour while app is open**, **Scheduled scans paused** or **Scheduled scans retrying**, or **Scheduled scans off**) followed by **Network monitoring on** or **off**, so a paused, unavailable or failing schedule never reads as running. The detailed scheduling and monitoring status sentences stay inside the expanded section and in the header's accessible help text. Expand a header with the pointer or keyboard to edit its existing controls. Expansion is remembered only during the current app session, including navigation through About, and resets to collapsed on restart without changing saved preferences.
 
 Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** section starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, individual/combined widths and the Status filter are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches and the Status selection. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode uses table preferences only through an explicit isolated fixture path, never the user's saved file. The page remains scrollable for small windows and larger text.
 
@@ -272,7 +272,10 @@ Device activity), **Settings** (Appearance, Devices page, Background activity
 and About FingVibe & updates), **People & rooms** (People and Rooms, with their
 counts and Add actions in the band), **Person details** (Equipment activity) and
 **Room details** (Assigned devices). Settings keeps its native Expander and
-navigation-button controls inside the shared header treatment, while the Room
+navigation-button controls and uses the shared heading icon and text without the
+shaded band or divider, because the native header already draws the card surface
+and its chevron sits outside custom header content; each Settings header,
+chevron included, stays one uniform surface. The Room
 assigned-device action stays in its band. Whole-card navigation tiles and
 summary tiles without a heading keep their own treatments.
 The tool pages use the same heading on their content cards: **Network health**
@@ -448,8 +451,12 @@ network/view changes, local date/timezone changes and explicit refresh invalidat
 the result; cancelled/stale queries cannot replace newer state. There is no
 waiting gate, hysteresis or extension into older dates to fill missing evidence.
 
-**Any** is an exclusive any-known-value filter mode, not a snapshot of checked
-items or a synonym for clearing the category. It appears immediately after
+**Any known ...** is an exclusive any-known-value filter mode, not a snapshot of checked
+items or a synonym for clearing the category. Its choice names the meaning
+(**Any known type**, **Any known OS**, **Any identified
+vendor**, **Any assigned person/room**, **Any classified usage**) and restricted
+buttons summarize it as **Any known**, **Any identified**, **Any assigned** or
+**Any classified**. It appears immediately after
 Unknown, Unassigned or Unclassified when at least two distinct known choices
 are offered. Selecting a specific/missing value exits Any; clearing includes
 all values again. Any Person/Room means assigned; Any Usage category excludes
@@ -458,9 +465,14 @@ the raw Private registry result) and Randomized MAC; neither placeholder counts
 toward its two-choice threshold. Newly available known values match automatically.
 If choices shrink, an active Any restriction remains visible in the dropdown
 summary and can still be cleared rather than silently broadened.
-The existing Status preference stores this mode separately from explicit
-status selections; older settings default to the previous selection behavior.
-Other filter selections remain session-only.
+Status offers no Any known choice: with only four values, users check the
+statuses they want. A Status preference saved with the removed Any known status
+mode loads as Online, Offline and Fing Only, and later saves omit the mode.
+Other filter selections remain session-only. Status colors are shared by the
+dropdown, the inventory totals and the restricted Status button's per-status
+dots (green Online, red Offline, amber Unknown, blue Fing Only). Dropdowns with more
+than eight choices add a search box that hides non-matching choices without
+changing selections and reports when nothing matches.
 
 Status retains its one-DIP stronger neutral stroke and 210-DIP width. The six
 secondary dropdowns share available width equally and shrink rather than wrapping
@@ -472,7 +484,7 @@ checkboxes expose keyboard focus and checked states, and the funnel announces
 expanded/collapsed state and active-category count. Filtered counts show visible
 versus total devices.
 
-Settings groups the Devices table options inside one card: **Visible columns** contains the twelve independent visibility choices; a subtle theme-aware divider separates **Combined columns**, its explanatory text and five independent combination switches. Name and IP are marked **always shown**. Both groups wrap at narrow widths without changing saved preferences. **Name/Type**, **IP/MAC** and **Status/Response** are combined by default; **Person/Room** and **Vendor/OS** are separate by default. Turning off a combination restores standalone columns. When only one member is visible, it occupies a normal column; when neither is visible, the group is omitted. **Name** and **IP address** remain mandatory. Combined columns have one resize boundary, retain each applicable sort action, and remember their widths separately from standalone columns. Type appears beneath Name only when known; IP appears above the two-color monospaced MAC. Combined Person/Room shows muted person/home icons beside assigned values, omits unassigned lines, and shows one muted `-` when both are unassigned. Two assigned values stack without increasing row height; each line is horizontally centered and the complete group vertically centered. Its header also stacks Person above Room. Category/full-name tooltips and accessible labels distinguish the assignments. Separate columns retain their existing presentation. Combined Status/Response overlaps the two metrics' horizontal footprints: status at the upper left, right-aligned time at the upper right, and one shared full-width response bar beneath both, retaining the scan-wide latency scale.
+Settings groups the Devices table options inside one card: **Visible columns** contains the twelve independent visibility choices; a subtle theme-aware divider separates **Combined columns**, its explanatory text and five independent combination switches. Name and IP appear in the same layout as non-interactive entries with a lock icon and an **Always shown** label, not as disabled checkboxes. Both groups wrap at narrow widths without changing saved preferences. **Name/Type**, **IP/MAC** and **Status/Response** are combined by default; **Person/Room** and **Vendor/OS** are separate by default. Turning off a combination restores standalone columns. When only one member is visible, it occupies a normal column; when neither is visible, the group is omitted. **Name** and **IP address** remain mandatory. Combined columns have one resize boundary, retain each applicable sort action, and remember their widths separately from standalone columns. Type appears beneath Name only when known; IP appears above the two-color monospaced MAC. Combined Person/Room shows muted person/home icons beside assigned values, omits unassigned lines, and shows one muted `-` when both are unassigned. Two assigned values stack without increasing row height; each line is horizontally centered and the complete group vertically centered. Its header also stacks Person above Room. Category/full-name tooltips and accessible labels distinguish the assignments. Separate columns retain their existing presentation. Combined Status/Response overlaps the two metrics' horizontal footprints: status at the upper left, right-aligned time at the upper right, and one shared full-width response bar beneath both, retaining the scan-wide latency scale.
 
 The four inventory status totals are compact, borderless colored-dot/text toggles,
 not rectangular button surfaces; hover and selected underlines plus native focus
@@ -548,7 +560,7 @@ Both modes retain 13px primary names/latencies and a 20px far-left type icon wit
 
 IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 
-Starting a scan retains the displayed list while initial ICMP results are collected. After that durable checkpoint, browsing, filtering, sorting and device details become available before background ARP. Later checkpoints update the table quietly while preserving selection, without moving focus or showing a retry popup. Scan LAN remains unavailable and Cancel scan remains accessible until the logical scan finishes or stops. Initial ICMP progress is unnumbered. Background status keeps **Initial results shown** visible and names five ordered stages: **(1/5) Background ARP**, **(2/5) Waiting 10 seconds before ICMP attempt 2**, **(3/5) Background ICMP attempt 2**, **(4/5) Waiting 10 seconds before ICMP attempt 3**, and **(5/5) Background ICMP attempt 3**. Each probing stage counts its own remaining addresses, including ARP nonresponses; waits are explicitly distinguished from active probes. Silent addresses can make bounded ARP substantially longer than ICMP, but the initial results remain usable throughout. Confirming every address skips the remaining stages and finalizes immediately. Cancellation or failure retains the last committed checkpoint, without making silent devices Offline.
+Starting a scan retains the displayed list while initial ICMP results are collected. After that durable checkpoint, browsing, filtering, sorting and device details become available before background ARP. Later checkpoints update the table quietly while preserving selection, without moving focus or showing a retry popup. Scan LAN remains unavailable and Cancel scan remains accessible until the logical scan finishes or stops. Progress uses two user-facing stages instead of protocol names or a numbered phase counter: **Finding devices** counts the initial ping of every address, and **Confirming remaining devices** covers the background address lookup (ARP), an explicit ten-second wait, a **second try**, another ten-second wait and a **last try** of the still-unanswered addresses. Background status keeps **Initial results shown** visible. Each probing step counts its own remaining addresses, including address-lookup nonresponses; waits are explicitly distinguished from active probes. The status appends the time elapsed since the scan started (for example `0:42 elapsed`), never an estimated finish time, and its tooltip and accessible help text keep the protocol counters (for example **Background ARP: 3/230 ping misses** or **ICMP attempt 2: 17/230 remaining misses**). Silent addresses can make bounded ARP substantially longer than ICMP, but the initial results remain usable throughout. Confirming every address skips the remaining steps and finalizes immediately. Cancellation or failure retains the last committed checkpoint, without making silent devices Offline.
 
 Manual and scheduled scans share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, network diagnostics or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
 
@@ -1321,13 +1333,18 @@ waiting for a final backup. Manual outcomes show a muted green **Backed up** or
 muted red **Backup failed**, disabling the button for one minute after the
 attempt finishes; errors remain inline and automatic triggers are unaffected.
 Pending/running/outcome status belongs to the button, not a separate idle line.
-Inside **Automatic backups**, collapsed **Completed backups** precedes
-collapsed **How backups work**; its heading and summary share a row on wide
-windows and stack on narrow windows.
+Inside **Automatic backups**, a relative **Last successful backup** age (exact
+local time as tooltip and help text, refreshed each minute) and the **Back up
+now** / **Open backup folder** actions precede collapsed **Completed backups**,
+which precedes collapsed **How backups work** (four labeled policy lines); the
+completed-backups heading and summary share a row on wide windows and stack on
+narrow windows. A **How to restore a backup** browser link opens the manual's
+documented restore steps; there is still no restore action in the app.
 This cooldown is application-session
 state, not a saved preference. Completed backups starts collapsed with count
 and refreshed newest/oldest relative ages; expansion shows striped rows with
-local times, sizes and storage-derived daily markers. See [saved data and backups](manual/data.md).
+local times, a calendar **Daily recovery point** marker only on storage-derived
+daily representatives, right-aligned sizes and the file name last. See [saved data and backups](manual/data.md).
 
 ## Read-only SQL editor
 

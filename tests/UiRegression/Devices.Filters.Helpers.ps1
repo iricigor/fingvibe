@@ -177,10 +177,10 @@ function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) 
     $bitmap = [System.Drawing.Bitmap]::new($capture)
     try {
         $colors = if ($Theme -eq "Standard Light") {
-            @("#16803D", "#C42B1C", "#6B7280", "#2563EB")
-        } else { @("#4ADE80", "#FF8080", "#A6ABB3", "#70ADFF") }
+            @("#16803D", "#C42B1C", "#B76E00", "#2563EB")
+        } else { @("#4ADE80", "#FF8080", "#FBBF24", "#70ADFF") }
         $names = @("Online", "Offline", "Unknown", "Fing Only")
-        foreach ($name in @($names + "Any")) {
+        foreach ($name in $names) {
             $check = $panel.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.AndCondition]::new(
                     [System.Windows.Automation.PropertyCondition]::new(
@@ -204,15 +204,10 @@ function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) 
             if ($HighContrast) { continue }
             $centerX = $bounds.Left - $window.Left - 14 * $scale
             $centerY = $bounds.Top - $window.Top + $bounds.Height / 2
-            $samples = @(@(2, -2, 0), @(2, 2, 1), @(-2, 2, 2), @(-2, -2, 3))
-            if ($name -ne "Any") { $samples = ,@(0, 0, [Array]::IndexOf($names, $name)) }
-            foreach ($sample in $samples) {
-                $actual = $bitmap.GetPixel([int]($centerX + $sample[0] * $scale),
-                    [int]($centerY + $sample[1] * $scale))
-                $expected = [System.Drawing.ColorTranslator]::FromHtml($colors[$sample[2]])
-                if ($actual.ToArgb() -ne $expected.ToArgb()) {
-                    throw "Status '$name' indicator has incorrect rendered color in $Theme; expected $expected, got $actual."
-                }
+            $actual = $bitmap.GetPixel([int]$centerX, [int]$centerY)
+            $expected = [System.Drawing.ColorTranslator]::FromHtml($colors[[Array]::IndexOf($names, $name)])
+            if ($actual.ToArgb() -ne $expected.ToArgb()) {
+                throw "Status '$name' indicator has incorrect rendered color in $Theme; expected $expected, got $actual."
             }
         }
     }
@@ -291,11 +286,6 @@ function Test-DeviceFilterVisualStates {
         $active = Get-FilterLabelEmphasis InventoryStatusFilter
         if ($active - $inactive -lt 0.1) { throw "Active filter text must be visibly stronger than inactive text in $theme." }
         Assert-FilterPresentation InventoryStatusFilter Status Online
-        Set-DeviceFilterChoice InventoryStatusFilter Any
-        if ([Math]::Abs((Get-FilterLabelEmphasis InventoryStatusFilter) - $active) -gt 0.05) {
-            throw "Restrictive Status Any must use active text, even when it matches the whole fixture."
-        }
-        Assert-FilterPresentation InventoryStatusFilter Status Any
         Clear-DeviceFilters
         if ([Math]::Abs((Get-FilterLabelEmphasis InventoryStatusFilter) - $inactive) -gt 0.05) {
             throw "Clear filters must restore quiet Status text in $theme."
@@ -324,8 +314,8 @@ function Test-DeviceFilterVisualStates {
                     (Test-FilterRenderedForeground InventoryStatusFilter ([DeviceFilterReviewContrast]::GetSysColor(8)))
             }
             Assert-StatusChoiceIndicators HighContrast -HighContrast
-            Set-DeviceFilterChoice InventoryStatusFilter Any
-            Assert-FilterPresentation InventoryStatusFilter Status Any
+            Set-DeviceFilterChoice InventoryStatusFilter Online
+            Assert-FilterPresentation InventoryStatusFilter Status Online
             $null = Wait-UiRegressionState -Description "active filter high-contrast foreground rendered" -Condition {
                 ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0 -and
                     (Test-FilterRenderedForeground InventoryStatusFilter ([DeviceFilterReviewContrast]::GetSysColor(8)))

@@ -11,9 +11,15 @@
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
+        <!-- The native header already draws the card surface and its chevron sits outside custom header content,
+             so the shared heading drops the shaded band here to keep each header one uniform surface. -->
         <Style x:Key="SettingsCardHeadingBandStyle" TargetType="Border"
                BasedOn="{StaticResource CardHeadingBandStyle}">
             <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="0,12" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
         </Style>
         <Style x:Key="SettingsCardSummaryStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
@@ -166,12 +172,22 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="local:DeviceColumn">
-                                <CheckBox AutomationProperties.Name="{x:Bind Header}"
-                                          HorizontalAlignment="Stretch"
-                                          IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
-                                          IsEnabled="{x:Bind CanHide}">
-                                    <TextBlock Text="{x:Bind local:DeviceColumnLayoutHelpers.VisibilityChoiceLabel(Header, CanHide)}" TextWrapping="Wrap" />
-                                </CheckBox>
+                                <Grid>
+                                    <CheckBox AutomationProperties.Name="{x:Bind Header}"
+                                              HorizontalAlignment="Stretch"
+                                              IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
+                                              Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(CanHide)}">
+                                        <TextBlock Text="{x:Bind Header}" TextWrapping="Wrap" />
+                                    </CheckBox>
+                                    <!-- Required columns read as a fixed part of the table, not as a disabled, failed-looking choice. -->
+                                    <Grid MinHeight="32"
+                                          Visibility="{x:Bind local:DeviceColumnLayoutHelpers.RequiredVisibility(CanHide)}">
+                                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="{x:Bind local:DeviceColumnLayoutHelpers.RequiredColumnName(Header)}">
+                                            <Run Text="&#xE72E;" FontFamily="Segoe Fluent Icons" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="  " /><Run Text="{x:Bind Header}" /><Run Text=" · Always shown" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </TextBlock>
+                                    </Grid>
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -307,7 +323,7 @@
                 <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
                         Style="{StaticResource SettingsNavigationCardStyle}"
                         AutomationProperties.Name="About FingVibe &amp; updates">
-                    <Border Style="{StaticResource SettingsCardHeadingBandStyle}" Padding="16,10,0,10">
+                    <Border Style="{StaticResource SettingsCardHeadingBandStyle}">
                     <Grid Style="{StaticResource CardHeadingRowStyle}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
