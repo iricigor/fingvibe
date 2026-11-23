@@ -11,6 +11,7 @@ Keep confirmed abandoned ideas here to avoid repeating investigations. Each entr
 - [DI-005: Decorative Connected home application backgrounds](#di-005-decorative-connected-home-application-backgrounds)
 - [DI-006: Residual codebase optimization and restructuring](#di-006-residual-codebase-optimization-and-restructuring)
 - [DI-007: Full-suite FlaUI/UIA3 comparison](#di-007-full-suite-flauiuia3-comparison)
+- [DI-008: Active default-password testing](#di-008-active-default-password-testing)
 
 ## Entry template
 
@@ -115,3 +116,15 @@ The current mDNS listener uses UDP 5353 with an ephemeral-port fallback; SSDP us
 **Revisit only if:** A specific recurring harness problem justifies a focused, assertion-preserving comparison with a suitable disposable execution environment, or the user explicitly requests reconsideration. A framework migration requires separate evidence and approval.
 
 **Context:** #311 is resolved as not planned for its unfinished scope, not completed parity or a successful audit. Preserve the completed initial measurements, diagnostic limitations and checkpoint [a85f13a4](https://github.com/iricigor/fingvibe/commit/a85f13a48e820ffe81b37a200b49c6fbc04a95ce) on `iricigor-improved-disco`; [PR #312](https://github.com/iricigor/fingvibe/pull/312) remains closed unmerged. The saved README and CSV retain the detailed protocol and results. No branch/artifact deletion, experiment resumption, production harness migration, native-coverage weakening or change to #256 is authorized. Recording task: [#646](https://github.com/iricigor/fingvibe/issues/646).
+
+### DI-008: Active default-password testing
+
+**Status:** Deferred | **Date:** 2026-11-23
+
+**Idea:** Actively try default or common credentials against discovered devices such as routers, cameras and NAS units, to flag unchanged defaults as a signal for a future network security score.
+
+**Stopped because:** Even one attempt per device can lock accounts or trigger device logs and alerts. It resembles credential guessing, and FingVibe cannot verify that a scanned device is owned or authorized, particularly on shared networks. Security tools may flag the behavior, which could harm distribution trust. A "no default found" result covers only the credentials tried and would imply a false sense of safety. These are assessments, not observed failures; nothing was implemented or tested.
+
+**Revisit only if:** The user explicitly chooses to reconsider with per-device informed consent, a single attempt per device, a small vendor-specific list and a separate risk review.
+
+**Context:** [#736](https://github.com/iricigor/fingvibe/issues/736). Recorded from the network security score discussion related to [#642](https://github.com/iricigor/fingvibe/issues/642). This does not reject the non-intrusive alternative: advisory tips by device type and an unscored, self-reported checklist with no login attempts. Recording this decision does not authorize any security-score feature.

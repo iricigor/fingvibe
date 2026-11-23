@@ -1,0 +1,14 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 736,
+  "category": "documentation",
+  "changedBehavior": "The deferred-ideas backlog records the deferral of active default-password testing with its reasons and reconsideration conditions.",
+  "selectors": [
+    "documentation-tests",
+    "documentation-publish"
+  ],
+  "expectedAssertions": [
+    "The manual and backlog documentation validate, including links and anchors such as the DI-008 table-of-contents entry.",
+    "The entry records a deferral only and does not authorize any security-score or credential-testing implementation."
+  ]
+}
