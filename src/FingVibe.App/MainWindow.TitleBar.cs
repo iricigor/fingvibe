@@ -41,10 +41,11 @@ public sealed partial class MainWindow
         UpdateTitleBarPresenter();
         AppWindow.Changed += TitleBar_WindowChanged;
         Activated += TitleBar_Activated;
-        RootGrid.ActualThemeChanged += TitleBar_ActualThemeChanged;
+        AppTitleBar.ActualThemeChanged += TitleBar_ActualThemeChanged;
         AppTitleBar.Loaded += (_, _) =>
         {
             AppTitleBar.XamlRoot.Changed += TitleBar_XamlRootChanged;
+            UpdateTitleBarColors();
             UpdateTitleBarLayout();
         };
         Closed += (_, _) =>
@@ -60,7 +61,7 @@ public sealed partial class MainWindow
             }
             AppWindow.Changed -= TitleBar_WindowChanged;
             Activated -= TitleBar_Activated;
-            RootGrid.ActualThemeChanged -= TitleBar_ActualThemeChanged;
+            AppTitleBar.ActualThemeChanged -= TitleBar_ActualThemeChanged;
             if (AppTitleBar.XamlRoot is { } root)
             {
                 root.Changed -= TitleBar_XamlRootChanged;

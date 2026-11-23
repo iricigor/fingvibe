@@ -10,6 +10,30 @@ function Test-TitleBarCaptionHover([string] $Name) {
         $normal = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-$id-normal.png"))
         $hover = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-$id-hover.png"))
         try {
+            if ($id -eq 'TitleBarMinimizeButton') {
+                $darkest = 1.0; $lightest = 0.0
+                $left = [int][Math]::Floor($nameBounds.Left - $window.Left)
+                $top = [int][Math]::Floor($nameBounds.Top - $window.Top)
+                $right = [int][Math]::Ceiling($nameBounds.Right - $window.Left)
+                $bottom = [int][Math]::Ceiling($nameBounds.Bottom - $window.Top)
+                for ($y = $top; $y -lt $bottom; $y++) {
+                    for ($x = $left; $x -lt $right; $x++) {
+                        $pixel = $normal.GetPixel($x, $y)
+                        $channels = foreach ($channel in @($pixel.R, $pixel.G, $pixel.B)) {
+                            $value = $channel / 255.0
+                            if ($value -le 0.04045) { $value / 12.92 }
+                            else { [Math]::Pow(($value + 0.055) / 1.055, 2.4) }
+                        }
+                        $luminance = 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2]
+                        $darkest = [Math]::Min($darkest, $luminance)
+                        $lightest = [Math]::Max($lightest, $luminance)
+                    }
+                }
+                $ratio = ($lightest + 0.05) / ($darkest + 0.05)
+                if ($ratio -lt 4.5) {
+                    throw "Title-bar identity text must render at least 4.5:1 contrast; got $([Math]::Round($ratio, 2)):1."
+                }
+            }
             # The arc one DIP inward is antialiased; the outer corner remains transparent.
             $cornerX = [int][Math]::Floor($bounds.Left - $window.Left)
             $cornerY = [int][Math]::Floor($bounds.Top - $window.Top)

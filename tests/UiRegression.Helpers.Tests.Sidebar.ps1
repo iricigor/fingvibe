@@ -65,7 +65,7 @@ public static class SidebarReviewKeyboard
     public static void MoveTo(int x, int y) {}
 }
 '@
-foreach ($case in @('rounded', 'square', 'gap')) {
+foreach ($case in @('rounded', 'square', 'gap', 'unreadable')) {
     & {
         . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Navigation.Helpers.ps1')
         $ScreenshotDirectory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-caption-pixels-$([Guid]::NewGuid().ToString('N'))"
@@ -73,24 +73,28 @@ foreach ($case in @('rounded', 'square', 'gap')) {
         $scale = 1
         $windowHandle = [IntPtr]::Zero
         function Find-SidebarElement($Property, $Value) {
+            $bounds = if ($Value -eq 'TitleBarAppName') { [System.Windows.Rect]::new(0, 0, 80, 18) }
+                else { [System.Windows.Rect]::new(10, 20, 46, 40) }
             return [pscustomobject]@{ Current = [pscustomobject]@{
-                BoundingRectangle = [System.Windows.Rect]::new(10, 10, 46, 40)
+                BoundingRectangle = $bounds
             } }
         }
-        function Get-UiReviewWindowBounds($Handle) { return [System.Windows.Rect]::new(0, 0, 100, 60) }
+        function Get-UiReviewWindowBounds($Handle) { return [System.Windows.Rect]::new(0, 0, 100, 80) }
         function Save-SidebarAppearance([string] $Name) {
-            $bitmap = [Drawing.Bitmap]::new(100, 60)
+            $bitmap = [Drawing.Bitmap]::new(100, 80)
             $graphics = [Drawing.Graphics]::FromImage($bitmap)
-            $background = [Drawing.Color]::FromArgb(236, 239, 243)
+            $background = if ($case -eq 'unreadable') { [Drawing.Color]::FromArgb(32, 36, 42) }
+                else { [Drawing.Color]::FromArgb(236, 239, 243) }
             try {
                 $graphics.Clear($background)
+                $graphics.DrawString('FingVibe', [Drawing.SystemFonts]::DefaultFont, [Drawing.Brushes]::Black, 0, 0)
                 if ($Name.EndsWith('-hover')) {
-                    $graphics.FillRectangle([Drawing.Brushes]::Red, 10, 10, 46, 40)
+                    $graphics.FillRectangle([Drawing.Brushes]::Red, 10, 20, 46, 40)
                     if ($case -ne 'square') {
-                        $bitmap.SetPixel(10, 10, $background)
-                        $bitmap.SetPixel(11, 11, [Drawing.Color]::FromArgb(236, 237, 240))
+                        $bitmap.SetPixel(10, 20, $background)
+                        $bitmap.SetPixel(11, 21, [Drawing.Color]::FromArgb(236, 237, 240))
                     }
-                    if ($case -eq 'gap') { $bitmap.SetPixel(33, 48, $background) }
+                    if ($case -eq 'gap') { $bitmap.SetPixel(33, 58, $background) }
                 }
                 $bitmap.Save((Join-Path $ScreenshotDirectory "$Name.png"))
             }
@@ -98,6 +102,9 @@ foreach ($case in @('rounded', 'square', 'gap')) {
         }
         try {
             if ($case -eq 'rounded') { Test-TitleBarCaptionHover 'caption' }
+            elseif ($case -eq 'unreadable') {
+                Assert-RegressionFailure { Test-TitleBarCaptionHover 'caption' } '*4.5:1 contrast*'
+            }
             else {
                 Assert-RegressionFailure { Test-TitleBarCaptionHover 'caption' } '*rounded transparent corner*'
             }

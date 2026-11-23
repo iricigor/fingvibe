@@ -883,7 +883,7 @@
             {
               "name": "Test-TitleBarCaptionHover",
               "refactored": true,
-              "introducedBy": "#719: compare rendered normal/hover captures for all three custom caption buttons, requiring transparent rounded corners and shading down to the header bottom."
+              "introducedBy": "#719: compare rendered normal/hover captures for all three custom caption buttons, requiring transparent rounded corners and shading down to the header bottom; verify at least 4.5:1 rendered contrast for the app identity in light, dark and high contrast."
             },
             {
               "name": "Test-TitleBarLayout",
