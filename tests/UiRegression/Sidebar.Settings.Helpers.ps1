@@ -292,19 +292,25 @@ function Test-SettingsLayout {
         $choices = Find-SidebarElement AutomationId SettingsPage
         $headers = @("Name", "IP address", "Vendor", "Device type", "MAC address", "Open ports",
             "Status", "Response", "OS", "Usage category", "Person", "Room", "Last seen")
-        $checkboxes = @($choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::CheckBox)) |
-            Where-Object { $_.Current.Name -in $headers })
-        if ($checkboxes.Count -ne $headers.Count) { throw "Expected all thirteen column choices at $width." }
+        $required = @("Name", "IP address")
+        # Required columns are non-interactive "Always shown" text entries; every other column is a checkbox.
+        $checkboxes = @(foreach ($header in $headers) {
+            $isRequired = $header -in $required
+            $choices.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.AndCondition]::new(
+                    [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,
+                        $(if ($isRequired) { "$header, always shown" } else { $header })),
+                    [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                        $(if ($isRequired) { [System.Windows.Automation.ControlType]::Text } else { [System.Windows.Automation.ControlType]::CheckBox }))))
+        })
+        if (@($checkboxes | Where-Object { $_ }).Count -ne $headers.Count) { throw "Expected all thirteen column choices at $width." }
         $columns = if ($inline) { 3 } elseif ($width -eq 640) { 2 } else { 1 }
         for ($index = 0; $index -lt $checkboxes.Count; $index++) {
             $box = $checkboxes[$index]
-            if ($box.Current.Name -ne $headers[$index]) { throw "Column order changed at $width." }
             $bounds = $box.Current.BoundingRectangle
             $rowStart = $checkboxes[$index - $index % $columns].Current.BoundingRectangle
-            if ([Math]::Abs($bounds.Top - $rowStart.Top) -gt 2 * $scale) {
+            # Text entries are centered in their 32-DIP cells, so rows compare vertical centers rather than tops.
+            if ([Math]::Abs(($bounds.Top + $bounds.Bottom - $rowStart.Top - $rowStart.Bottom) / 2) -gt 2 * $scale) {
                 throw "Expected $columns columns at $width."
             }
             if ($index -ge $columns -and $bounds.Top -lt $checkboxes[$index - $columns].Current.BoundingRectangle.Bottom) {
@@ -314,31 +320,33 @@ function Test-SettingsLayout {
                 throw "Column choices overlap horizontally at $width."
             }
         }
-        foreach ($mandatory in @($checkboxes[0], $checkboxes[1])) {
-            if ($mandatory.Current.IsEnabled -or $mandatory.GetCurrentPattern(
-                    [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
-                    [System.Windows.Automation.ToggleState]::On) {
-                throw "Name and IP address must remain checked and mandatory."
+        foreach ($header in $required) {
+            if ($choices.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.AndCondition]::new(
+                        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $header),
+                        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                            [System.Windows.Automation.ControlType]::CheckBox)))) {
+                throw "$header must be shown as an Always shown entry, not as a checkbox."
             }
-            if ($inline) {
-                $visibleHeading = (Find-SidebarElement AutomationId VisibleColumnsHeading).Current.BoundingRectangle
-                $combinedHeading = (Find-SidebarElement AutomationId CombinedColumnsHeading).Current.BoundingRectangle
-                $description = (Find-SidebarElement AutomationId CombinedColumnsDescription).Current.BoundingRectangle
-                $combinations = @("CombineNameType", "CombineAddresses", "CombineStatusResponse", "CombinePersonRoom", "CombineVendorOs") |
-                    ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
-                if ($visibleHeading.Bottom -gt $checkboxes[0].Current.BoundingRectangle.Top -or
-                    $checkboxes[-1].Current.BoundingRectangle.Bottom -ge $combinedHeading.Top -or
-                    $combinedHeading.Bottom -gt $description.Top -or $description.Bottom -gt $combinations[0].Top) {
-                    throw "Visibility and combination controls must have distinct, correctly ordered sections."
-                }
-                for ($index = 0; $index -lt $combinations.Count; $index++) {
-                    $column = $index % 3
-                    if ([Math]::Abs($combinations[$index].Left - $checkboxes[$column].Current.BoundingRectangle.Left) -gt 2 * $scale -or
-                        [Math]::Abs($combinations[$index].Top - $combinations[$index - $column].Top) -gt 2 * $scale -or
-                        ($column -gt 0 -and $combinations[$index - 1].Right -gt $combinations[$index].Left) -or
-                        ($index -ge 3 -and $combinations[$index - 3].Bottom -gt $combinations[$index].Top)) {
-                        throw "Combination choices must align with the visible three-column grid."
-                    }
+        }
+        if ($inline) {
+            $visibleHeading = (Find-SidebarElement AutomationId VisibleColumnsHeading).Current.BoundingRectangle
+            $combinedHeading = (Find-SidebarElement AutomationId CombinedColumnsHeading).Current.BoundingRectangle
+            $description = (Find-SidebarElement AutomationId CombinedColumnsDescription).Current.BoundingRectangle
+            $combinations = @("CombineNameType", "CombineAddresses", "CombineStatusResponse", "CombinePersonRoom", "CombineVendorOs") |
+                ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
+            if ($visibleHeading.Bottom -gt $checkboxes[0].Current.BoundingRectangle.Top -or
+                $checkboxes[-1].Current.BoundingRectangle.Bottom -ge $combinedHeading.Top -or
+                $combinedHeading.Bottom -gt $description.Top -or $description.Bottom -gt $combinations[0].Top) {
+                throw "Visibility and combination controls must have distinct, correctly ordered sections."
+            }
+            for ($index = 0; $index -lt $combinations.Count; $index++) {
+                $column = $index % 3
+                if ([Math]::Abs($combinations[$index].Left - $checkboxes[$column].Current.BoundingRectangle.Left) -gt 2 * $scale -or
+                    [Math]::Abs($combinations[$index].Top - $combinations[$index - $column].Top) -gt 2 * $scale -or
+                    ($column -gt 0 -and $combinations[$index - 1].Right -gt $combinations[$index].Left) -or
+                    ($index -ge 3 -and $combinations[$index - 3].Bottom -gt $combinations[$index].Top)) {
+                    throw "Combination choices must align with the visible three-column grid."
                 }
             }
         }

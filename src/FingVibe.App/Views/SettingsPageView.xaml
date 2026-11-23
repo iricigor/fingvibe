@@ -174,15 +174,13 @@
                                         <TextBlock Text="{x:Bind Header}" TextWrapping="Wrap" />
                                     </CheckBox>
                                     <!-- Required columns read as a fixed part of the table, not as a disabled, failed-looking choice. -->
-                                    <StackPanel Orientation="Horizontal" Spacing="8" MinHeight="32" VerticalAlignment="Center"
-                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.RequiredVisibility(CanHide)}">
-                                        <FontIcon Glyph="&#xE72E;" FontSize="14" VerticalAlignment="Center"
-                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                  AutomationProperties.AccessibilityView="Raw" />
-                                        <TextBlock Text="{x:Bind Header}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                        <TextBlock Text="Always shown" VerticalAlignment="Center"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    </StackPanel>
+                                    <Grid MinHeight="32"
+                                          Visibility="{x:Bind local:DeviceColumnLayoutHelpers.RequiredVisibility(CanHide)}">
+                                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="{x:Bind local:DeviceColumnLayoutHelpers.RequiredColumnName(Header)}">
+                                            <Run Text="&#xE72E;" FontFamily="Segoe Fluent Icons" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="  " /><Run Text="{x:Bind Header}" /><Run Text=" · Always shown" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </TextBlock>
+                                    </Grid>
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
