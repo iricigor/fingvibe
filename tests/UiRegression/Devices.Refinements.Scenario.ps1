@@ -1,9 +1,9 @@
 foreach ($case in @(
-    @{ Id = 'InventoryStatusFilter'; Category = 'Status'; Missing = 'Unknown'; KnownCount = 80; MissingCount = 0 },
-    @{ Id = 'TypeFilter'; Category = 'Device type'; Missing = 'Unknown'; KnownCount = 1; MissingCount = 79 },
-    @{ Id = 'OperatingSystemFilter'; Category = 'Operating system'; Missing = 'Unknown'; KnownCount = 1; MissingCount = 79 },
-    @{ Id = 'VendorFilter'; Category = 'Vendor'; Missing = 'Unknown'; KnownCount = 77; MissingCount = 3 },
-    @{ Id = 'UsageCategoryFilter'; Category = 'Usage category'; Missing = 'Unclassified'; KnownCount = 0; MissingCount = 80 }
+    @{ Id = 'InventoryStatusFilter'; Category = 'Status'; Missing = 'Unknown'; Any = 'Any known status'; AnySummary = 'Any known'; KnownCount = 80; MissingCount = 0 },
+    @{ Id = 'TypeFilter'; Category = 'Device type'; Missing = 'Unknown'; Any = 'Any known type'; AnySummary = 'Any known'; KnownCount = 1; MissingCount = 79 },
+    @{ Id = 'OperatingSystemFilter'; Category = 'Operating system'; Missing = 'Unknown'; Any = 'Any known OS'; AnySummary = 'Any known'; KnownCount = 1; MissingCount = 79 },
+    @{ Id = 'VendorFilter'; Category = 'Vendor'; Missing = 'Unknown'; Any = 'Any identified vendor'; AnySummary = 'Any identified'; KnownCount = 77; MissingCount = 3 },
+    @{ Id = 'UsageCategoryFilter'; Category = 'Usage category'; Missing = 'Unclassified'; Any = 'Any classified usage'; AnySummary = 'Any classified'; KnownCount = 0; MissingCount = 80 }
 )) {
     $inactiveEmphasis = Get-FilterLabelEmphasis $case.Id
     $panel = Open-DeviceFilter $case.Id
@@ -13,8 +13,8 @@ foreach ($case in @(
             [System.Windows.Automation.ControlType]::CheckBox)))
     $labels = @($checks | ForEach-Object { $_.Current.Name })
     $missingIndex = [Array]::IndexOf($labels, $case.Missing)
-    if ($missingIndex -lt 0 -or $labels[$missingIndex + 1] -ne 'Any') {
-        throw "$($case.Id) must put Any immediately after $($case.Missing)."
+    if ($missingIndex -lt 0 -or $labels[$missingIndex + 1] -ne $case.Any) {
+        throw "$($case.Id) must put '$($case.Any)' immediately after $($case.Missing)."
     }
     if ($case.Id -eq 'VendorFilter' -and ('Private' -in $labels -or 'Randomized MAC' -notin $labels)) {
         throw 'Vendor choices must expose Unknown and Randomized MAC, not the raw Private registry value.'
@@ -26,14 +26,14 @@ foreach ($case in @(
     $null = Wait-UiRegressionState -Description "$($case.Id) Any known membership" -Condition {
         (Find-DeviceElement ResultCountText).Current.Name -eq $expectedCount
     }
-    if ((Find-DeviceElement $case.Id).Current.Name -ne "$($case.Category): Any" -or
+    if ((Find-DeviceElement $case.Id).Current.Name -ne "$($case.Category): $($case.AnySummary)" -or
         $missingToggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
         throw "$($case.Id) Any must replace individual and missing-value selections."
     }
     if ((Get-FilterLabelEmphasis $case.Id) - $inactiveEmphasis -lt 0.1) {
         throw "$($case.Id) restrictive Any must emphasize its label."
     }
-    Assert-FilterPresentation $case.Id $case.Category Any
+    Assert-FilterPresentation $case.Id $case.Category $case.AnySummary
     if ($case.Id -eq 'VendorFilter') { $null = Save-DeviceCapture 'devices-any-known-vendor' }
     $missingToggle.Toggle()
     $expectedCount = if ($case.MissingCount -eq 80) { 'Showing 80 devices' } else { "Showing $($case.MissingCount) of 80 devices" }
@@ -67,11 +67,38 @@ foreach ($id in @('PersonFilter', 'RoomFilter')) {
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::CheckBox)))
-    if (@($checks | Where-Object { $_.Current.Name -eq 'Any' }).Count -ne 0) {
+    if (@($checks | Where-Object { $_.Current.Name -like 'Any assigned*' }).Count -ne 0) {
         throw "$id must not offer Any with only one known assignment choice."
     }
     [DevicesReviewInput]::Tap(0x1B)
 }
+# Long lists such as Type offer search; it hides other choices without changing selections.
+Set-DeviceFilterChecks TypeFilter @('Phone')
+$null = Open-DeviceFilter TypeFilter
+$typeSearch = (Find-DeviceElement TypeFilterSearch).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+if ($typeSearch.Current.Value -ne '') { throw 'Type search must start empty each time the list opens.' }
+$typeSearch.SetValue('comp')
+$null = Wait-UiRegressionState -Description 'Type choices narrowed by search' -Condition {
+    $shown = @((Find-DeviceElement TypeFilterChoices).FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::CheckBox)) | ForEach-Object { $_.Current.Name })
+    ($shown -join '|') -eq 'Computer'
+}
+$typeSearch.SetValue('no such type')
+$null = Wait-UiRegressionState -Description 'Type search no-match state' -Condition {
+    Test-UiRegressionElementVisible (Get-VisibleDeviceChild $root AutomationId TypeFilterNoMatches)
+}
+[DevicesReviewInput]::Tap(0x1B)
+if ((Find-DeviceElement TypeFilter).Current.Name -ne 'Device type: Phone') {
+    throw 'Searching must keep the hidden Phone selection.'
+}
+Set-DeviceFilterChecks TypeFilter @()
+$null = Open-DeviceFilter InventoryStatusFilter
+if (Get-VisibleDeviceChild $root AutomationId InventoryStatusFilterSearch) {
+    throw 'Short lists such as Status must not add a search box.'
+}
+[DevicesReviewInput]::Tap(0x1B)
 Assert-ClearFiltersVisible $false
 
 Set-DeviceWidth 1880

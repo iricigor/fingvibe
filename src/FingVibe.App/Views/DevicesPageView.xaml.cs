@@ -35,18 +35,22 @@ public sealed partial class DevicesPageView : UserControl
         Unloaded += (_, _) => _lastSeenAges.SetActive(false);
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => UpdateLastSeenAgeRefresh());
         _statuses = new(this, InventoryStatusFilter, "Status", OnFiltersChanged,
-            InventoryDeviceStatus.Unknown, "Any status except Unknown.");
+            InventoryDeviceStatus.Unknown, "Any known status", "Any known", "Any status except Unknown.");
         _types = new(this, TypeFilter, "Device type", OnFiltersChanged,
-            DeviceType.Unknown, "Any known device type, excluding Unknown.", displayCategory: "Type");
+            DeviceType.Unknown, "Any known type", "Any known", "Any known device type, excluding Unknown.", displayCategory: "Type");
         _operatingSystems = new(this, OperatingSystemFilter, "Operating system", OnFiltersChanged,
-            DeviceOperatingSystem.Unknown, "Any known operating system, excluding Unknown.", displayCategory: "OS");
+            DeviceOperatingSystem.Unknown, "Any known OS", "Any known", "Any known operating system, excluding Unknown.", displayCategory: "OS");
         _vendors = new(this, VendorFilter, "Vendor", OnFiltersChanged,
-            DeviceVendorPresentation.Unknown, "Any identified vendor, excluding Unknown and Randomized MAC.",
+            DeviceVendorPresentation.Unknown, "Any identified vendor", "Any identified",
+            "Any identified vendor, excluding Unknown and Randomized MAC.",
             StringComparer.OrdinalIgnoreCase, DeviceVendorPresentation.IsKnown);
-        _people = new(this, PersonFilter, "Person", OnFiltersChanged, null, "Any assigned person, excluding Unassigned.");
-        _rooms = new(this, RoomFilter, "Room", OnFiltersChanged, null, "Any assigned room, excluding Unassigned.");
+        _people = new(this, PersonFilter, "Person", OnFiltersChanged, null,
+            "Any assigned person", "Any assigned", "Any assigned person, excluding Unassigned.");
+        _rooms = new(this, RoomFilter, "Room", OnFiltersChanged, null,
+            "Any assigned room", "Any assigned", "Any assigned room, excluding Unassigned.");
         _usageCategories = new(this, UsageCategoryFilter, "Usage category", OnFiltersChanged,
-            DeviceUsageCategory.Unclassified, "Any classified usage category, excluding Unclassified.", displayCategory: "Usage");
+            DeviceUsageCategory.Unclassified, "Any classified usage", "Any classified",
+            "Any classified usage category, excluding Unclassified.", displayCategory: "Usage");
         _usageCategories.SetChoices(Enum.GetValues<DeviceUsageCategory>().Select(value => (value, value.ToString())));
         _statuses.SetChoices([
             (InventoryDeviceStatus.Online, "Online"), (InventoryDeviceStatus.Offline, "Offline"),
@@ -452,7 +456,8 @@ public sealed partial class DevicesPageView : UserControl
         ResultSearchBox.Focus(FocusState.Programmatic);
     }
 
-    private TextBlock CreateFilterLabel(DropDownButton button, string text, bool active)
+    private FrameworkElement CreateFilterLabel(DropDownButton button, string text, bool active,
+        IReadOnlyList<DataTemplate>? indicators = null)
     {
         var label = new TextBlock
         {
@@ -460,25 +465,45 @@ public sealed partial class DevicesPageView : UserControl
             Style = (Style)Resources[active ? "ActiveFilterLabelStyle" : "InactiveFilterLabelStyle"]
         };
         AutomationProperties.SetAutomationId(label, button.Name + "Label");
-        return label;
+        if (indicators is not { Count: > 0 }) return label;
+
+        // The closed filter repeats the popup's status dots: one per selected status, never a single
+        // dot standing in for several.
+        var dots = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        AutomationProperties.SetAccessibilityView(dots, AccessibilityView.Raw);
+        foreach (var indicator in indicators) dots.Children.Add((FrameworkElement)indicator.LoadContent());
+        var content = new Grid { ColumnSpacing = 8 };
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        content.Children.Add(dots);
+        Grid.SetColumn(label, 1);
+        content.Children.Add(label);
+        return content;
     }
 
     private sealed class MultiSelectFilter<T>
     {
+        // Longer choice lists (Type, and Vendor/Person/Room as they grow) get a search box; short lists stay
+        // scannable without one.
+        private const int SearchThreshold = 8;
         private readonly DevicesPageView _view;
         private readonly DropDownButton _button;
         private readonly string _category;
         private readonly string _displayCategory;
         private readonly Action _changed;
         private readonly DeviceFilterSelection<T> _selection;
+        private readonly string _anyLabel;
+        private readonly string _anySummary;
         private readonly string _anyDescription;
         private readonly List<(T Value, CheckBox CheckBox)> _checks = [];
         private CheckBox? _anyCheck;
+        private Func<T, DataTemplate>? _indicatorTemplate;
+        private DataTemplate? _anyIndicatorTemplate;
         private bool _syncing;
 
         internal MultiSelectFilter(DevicesPageView view, DropDownButton button, string category, Action changed,
-            T missingValue, string anyDescription, IEqualityComparer<T>? comparer = null,
-            Func<T, bool>? isKnown = null, string? displayCategory = null)
+            T missingValue, string anyLabel, string anySummary, string anyDescription,
+            IEqualityComparer<T>? comparer = null, Func<T, bool>? isKnown = null, string? displayCategory = null)
         {
             _view = view;
             _button = button;
@@ -486,6 +511,8 @@ public sealed partial class DevicesPageView : UserControl
             _displayCategory = displayCategory ?? category;
             _changed = changed;
             _selection = new(missingValue, comparer, isKnown);
+            _anyLabel = anyLabel;
+            _anySummary = anySummary;
             _anyDescription = anyDescription;
             UpdateLabel();
         }
@@ -497,8 +524,11 @@ public sealed partial class DevicesPageView : UserControl
             Func<T, DataTemplate>? indicatorTemplate = null, DataTemplate? anyIndicatorTemplate = null)
         {
             if (!_selection.SetChoices(values)) return;
+            _indicatorTemplate = indicatorTemplate;
+            _anyIndicatorTemplate = anyIndicatorTemplate;
             _checks.Clear();
             _anyCheck = null;
+            var searchable = new List<(string Label, FrameworkElement Element)>();
             var panel = new StackPanel();
             AutomationProperties.SetAutomationId(panel, _button.Name + "Choices");
             AutomationProperties.SetName(panel, _category + " choices");
@@ -516,35 +546,78 @@ public sealed partial class DevicesPageView : UserControl
                 check.Unchecked += (_, _) => SetSelected(value, false);
                 panel.Children.Add(check);
                 _checks.Add((value, check));
+                searchable.Add((label, check));
                 if (_selection.IsMissing(value) && _selection.ShowAnyChoice)
                 {
                     var any = new CheckBox
                     {
-                        Content = anyIndicatorTemplate is null ? "Any" : CreateChoiceContent("Any", anyIndicatorTemplate),
+                        Content = anyIndicatorTemplate is null ? _anyLabel : CreateChoiceContent(_anyLabel, anyIndicatorTemplate),
                         IsChecked = AnyKnown,
                         HorizontalAlignment = HorizontalAlignment.Stretch
                     };
                     AutomationProperties.SetAutomationId(any, _button.Name + "Any");
-                    AutomationProperties.SetName(any, "Any");
+                    AutomationProperties.SetName(any, _anyLabel);
                     AutomationProperties.SetHelpText(any, _anyDescription);
                     ToolTipService.SetToolTip(any, _anyDescription);
                     any.Checked += (_, _) => SetAnyKnown(true);
                     any.Unchecked += (_, _) => SetAnyKnown(false);
                     panel.Children.Add(any);
                     _anyCheck = any;
+                    searchable.Add((_anyLabel, any));
                 }
             }
-            _button.Flyout = new Flyout
+            var choices = new ScrollViewer
             {
-                Content = new ScrollViewer
-                {
-                    MaxHeight = 320,
-                    MaxWidth = 280,
-                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                    Content = panel
-                }
+                MaxHeight = 320,
+                MaxWidth = 280,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = panel
             };
+            var flyout = new Flyout { Content = choices };
+            if (_selection.Choices.Count > SearchThreshold)
+            {
+                flyout.Content = CreateSearchableContent(choices, searchable, out var search);
+                // Each opening starts from the full list; hidden choices keep their checked state.
+                flyout.Opening += (_, _) => search.Text = string.Empty;
+            }
+            _button.Flyout = flyout;
             UpdateLabel();
+        }
+
+        private FrameworkElement CreateSearchableContent(ScrollViewer choices,
+            IReadOnlyList<(string Label, FrameworkElement Element)> searchable, out TextBox search)
+        {
+            var noun = _category.ToLowerInvariant();
+            var searchBox = new TextBox { PlaceholderText = $"Search {noun}", Margin = new Thickness(0, 0, 0, 8) };
+            AutomationProperties.SetAutomationId(searchBox, _button.Name + "Search");
+            AutomationProperties.SetName(searchBox, $"Search {noun} choices");
+            var noMatches = new TextBlock
+            {
+                Text = $"No {noun} matches this search.",
+                TextWrapping = TextWrapping.Wrap,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            AutomationProperties.SetAutomationId(noMatches, _button.Name + "NoMatches");
+            AutomationProperties.SetLiveSetting(noMatches, AutomationLiveSetting.Polite);
+            searchBox.TextChanged += (_, _) =>
+            {
+                var term = searchBox.Text.Trim();
+                var shown = 0;
+                foreach (var (label, element) in searchable)
+                {
+                    var match = term.Length == 0 || label.Contains(term, StringComparison.CurrentCultureIgnoreCase);
+                    element.Visibility = match ? Visibility.Visible : Visibility.Collapsed;
+                    if (match) shown++;
+                }
+                noMatches.Visibility = shown == 0 ? Visibility.Visible : Visibility.Collapsed;
+            };
+            var content = new StackPanel { MaxWidth = 280 };
+            content.Children.Add(searchBox);
+            content.Children.Add(noMatches);
+            content.Children.Add(choices);
+            search = searchBox;
+            return content;
         }
 
         private static FrameworkElement CreateChoiceContent(string label, DataTemplate? indicatorTemplate)
@@ -613,12 +686,20 @@ public sealed partial class DevicesPageView : UserControl
         private void UpdateLabel()
         {
             var labels = _selection.Choices.Where(choice => Selected.Contains(choice.Value)).Select(choice => choice.Label);
-            var summary = AnyKnown ? "Any" : Selected.Count == 0 ? "All" : string.Join(", ", labels);
+            var summary = AnyKnown ? _anySummary : Selected.Count == 0 ? "All" : string.Join(", ", labels);
             var text = _selection.HasRestriction ? $"{_displayCategory} | {summary}" : _displayCategory;
-            _button.Content = _view.CreateFilterLabel(_button, text, _selection.HasRestriction);
+            _button.Content = _view.CreateFilterLabel(_button, text, _selection.HasRestriction, SelectedIndicators());
             AutomationProperties.SetName(_button, $"{_category}: {summary}");
             AutomationProperties.SetHelpText(_button, AnyKnown ? _anyDescription : string.Empty);
             ToolTipService.SetToolTip(_button, AnyKnown ? $"{_category}: {_anyDescription}" : $"{_category}: {summary}");
+        }
+
+        private IReadOnlyList<DataTemplate> SelectedIndicators()
+        {
+            if (AnyKnown) return _anyIndicatorTemplate is null ? [] : [_anyIndicatorTemplate];
+            if (_indicatorTemplate is null) return [];
+            return _selection.Choices.Where(choice => Selected.Contains(choice.Value))
+                .Select(choice => _indicatorTemplate(choice.Value)).ToArray();
         }
     }
 

@@ -637,12 +637,12 @@ try {
     } "visible Any Status choice"
     (Find-DiscoveryControl InventoryStatusFilterAny).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any"
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any known"
     } "Any known Status mode"
     Stop-DiscoveryApp
     Start-DiscoveryApp
     Wait-DiscoveryState {
-        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any"
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any known"
     } "restored Any known Status mode"
     $savedStatus = Get-Content -LiteralPath $tableSettings -Raw | ConvertFrom-Json
     if (-not $savedStatus.statusAnyKnown -or @($savedStatus.statusFilters).Count -ne 0) {

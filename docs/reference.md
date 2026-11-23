@@ -431,8 +431,12 @@ network/view changes, local date/timezone changes and explicit refresh invalidat
 the result; cancelled/stale queries cannot replace newer state. There is no
 waiting gate, hysteresis or extension into older dates to fill missing evidence.
 
-**Any** is an exclusive any-known-value filter mode, not a snapshot of checked
-items or a synonym for clearing the category. It appears immediately after
+**Any known ...** is an exclusive any-known-value filter mode, not a snapshot of checked
+items or a synonym for clearing the category. Its choice names the meaning
+(**Any known status**, **Any known type**, **Any known OS**, **Any identified
+vendor**, **Any assigned person/room**, **Any classified usage**) and restricted
+buttons summarize it as **Any known**, **Any identified**, **Any assigned** or
+**Any classified**. It appears immediately after
 Unknown, Unassigned or Unclassified when at least two distinct known choices
 are offered. Selecting a specific/missing value exits Any; clearing includes
 all values again. Any Person/Room means assigned; Any Usage category excludes
@@ -443,7 +447,12 @@ If choices shrink, an active Any restriction remains visible in the dropdown
 summary and can still be cleared rather than silently broadened.
 The existing Status preference stores this mode separately from explicit
 status selections; older settings default to the previous selection behavior.
-Other filter selections remain session-only.
+Other filter selections remain session-only. Status colors are shared by the
+dropdown, the inventory totals and the restricted Status button's per-status
+dots (green Online, red Offline, amber Unknown, blue Fing Only); Any known
+status uses a three-segment symbol without Unknown's amber. Dropdowns with more
+than eight choices add a search box that hides non-matching choices without
+changing selections and reports when nothing matches.
 
 Status retains its one-DIP stronger neutral stroke and 210-DIP width. The six
 secondary dropdowns share available width equally and shrink rather than wrapping

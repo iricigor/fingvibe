@@ -155,7 +155,14 @@ try {
                     [System.Windows.Automation.AutomationElement]::NameProperty, $_))
         })
     }
-    $null = Wait-UiRegressionState { @(& $findPolicyLines | Where-Object { $_ }).Count -eq $policyLines.Count } 'disclosed backup policy lines'
+    $null = Wait-UiRegressionState {
+        $lines = @(& $findPolicyLines | Where-Object { $_ })
+        # Expanded content can join the tree before its expansion layout gives the lines real bounds.
+        $lines.Count -eq $policyLines.Count -and @($lines | Where-Object {
+            $bounds = $_.Current.BoundingRectangle
+            -not $bounds.IsEmpty -and $bounds.Width -gt 0 -and $bounds.Height -gt 0
+        }).Count -eq $policyLines.Count
+    } 'laid-out backup policy lines'
     $null = Show-UiRegressionScrollTargets -GetViewport { Find-BackupControl BackupsScroll } `
         -GetTargets $findPolicyLines -GetWindow { $script:root } -Description 'backup policy lines'
     $null = Wait-UiRegressionState {
