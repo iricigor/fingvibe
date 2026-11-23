@@ -10,8 +10,9 @@ function Test-TitleBarCaptionHover([string] $Name) {
         $normal = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-$id-normal.png"))
         $hover = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-$id-hover.png"))
         try {
-            $cornerX = [int]($bounds.Left - $window.Left + $scale)
-            $cornerY = [int]($bounds.Top - $window.Top + $scale)
+            # The arc one DIP inward is antialiased; the outer corner remains transparent.
+            $cornerX = [int][Math]::Floor($bounds.Left - $window.Left)
+            $cornerY = [int][Math]::Floor($bounds.Top - $window.Top)
             $fillX = [int]($bounds.Left - $window.Left + $bounds.Width / 2)
             $fillY = [int]($bounds.Bottom - $window.Top - 2 * $scale)
             if ($hover.GetPixel($cornerX, $cornerY).ToArgb() -ne $normal.GetPixel($cornerX, $cornerY).ToArgb() -or
