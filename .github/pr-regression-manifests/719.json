@@ -1,9 +1,12 @@
 {
   "schema": "fingvibe-pr-regression-v1",
   "issue": 719,
-  "category": "ui",
-  "changedBehavior": "App-themed custom title bar with rounded custom caption hover backgrounds, native window actions and maximize hit testing for Snap, existing build identity, and an immediate Light/Dark toggle with no popup or duplicate sidebar shortcut.",
+  "category": "validation",
+  "changedBehavior": "App-themed custom title bar with rounded custom caption hover backgrounds, native window actions and maximize hit testing for Snap, existing build identity, and an immediate Light/Dark toggle with no popup or duplicate sidebar shortcut. Maximized captures use the complete visible DWM frame without changing restored captures.",
   "selectors": [
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
     "core-tests",
     "ui-regression-helpers",
     "native-pr-matrix",
@@ -15,7 +18,7 @@
   "expectedAssertions": [
     "A single pointer click or keyboard activation switches appearance immediately without a popup and updates the existing saved mode without changing palette pairing or backdrop; save failures remain explicit.",
     "Header identity and appearance control are contained in the window and do not overlap the shared scan header or custom caption controls in restored, maximized and narrow windows.",
-    "Light, dark and high-contrast captures retain readable header content and rounded caption hover backgrounds that fill the header height.",
+    "Light, dark and high-contrast captures retain readable header content and rounded caption hover backgrounds that fill the header height; maximized captures use the complete visible DWM frame, while restored capture bounds remain unchanged.",
     "Noninteractive header hit testing retains dragging; custom captions remain keyboard-accessible, maximize hit testing supports Snap and pointer/keyboard activation retains native window actions; existing scan headers and navigation remain reachable with enlarged text."
   ]
 }

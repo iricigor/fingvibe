@@ -156,6 +156,9 @@ secondary build text trims before the appearance button. The test-build ribbon s
 below the title bar and retains its existing acknowledgement and release semantics.
 Caption controls fill the header height rather than leaving a strip below their
 hover backgrounds. Keyboard activation and focus use standard WinUI buttons.
+Disposable maximized-window captures use the visible DWM frame, excluding only
+the invisible resize border outside the monitor working area. Restored-window
+capture bounds and complete-window containment checks remain unchanged.
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 

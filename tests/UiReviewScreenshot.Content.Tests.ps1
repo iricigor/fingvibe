@@ -12,6 +12,50 @@ function Assert-BlankCaptureRejected([System.Drawing.Bitmap] $Bitmap) {
     throw "A blank or insufficiently detailed capture was accepted."
 }
 
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class UiReviewCaptureBoundsFixture
+{
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left, Top, Right, Bottom; }
+    public static bool Maximized;
+    public static int FrameError;
+    public static bool IsZoomed(IntPtr window) { return Maximized; }
+    public static bool GetWindowRect(IntPtr window, out RECT rectangle)
+    {
+        rectangle = Maximized
+            ? new RECT { Left = -8, Top = -8, Right = 1928, Bottom = 1040 }
+            : new RECT { Left = 20, Top = 30, Right = 1300, Bottom = 750 };
+        return true;
+    }
+    public static int DwmGetWindowAttribute(IntPtr window, uint attribute, out RECT rectangle, int size)
+    {
+        rectangle = new RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1032 };
+        return FrameError;
+    }
+}
+'@
+& {
+    $getBounds = [scriptblock]::Create((Get-Command Get-UiReviewWindowBounds).Definition.Replace(
+        '[UiReviewNativeWindow', '[UiReviewCaptureBoundsFixture'))
+    foreach ($maximized in @($false, $true)) {
+        [UiReviewCaptureBoundsFixture]::Maximized = $maximized
+        $expected = if ($maximized) { [Drawing.Rectangle]::new(0, 0, 1920, 1032) }
+            else { [Drawing.Rectangle]::new(20, 30, 1280, 720) }
+        $actual = & $getBounds -WindowHandle ([IntPtr]::Zero)
+        if ($actual -ne $expected) { throw "Capture must preserve restored bounds and exclude only the invisible maximized border." }
+    }
+    [UiReviewCaptureBoundsFixture]::FrameError = -2147467259
+    $rejected = $false
+    try { $null = & $getBounds -WindowHandle ([IntPtr]::Zero) }
+    catch {
+        if ($_.Exception.InnerException.HResult -ne -2147467259) { throw }
+        $rejected = $true
+    }
+    if (-not $rejected) { throw "Failed DWM bounds must not become a successful or clipped capture." }
+}
+
 $area = [System.Drawing.Rectangle]::new(0, 0, 1920, 1080)
 $narrow = [System.Drawing.Rectangle]::new(0, 0, 480, 720)
 try {

@@ -83,6 +83,21 @@ try {
         finally { $image.Dispose() }
     }
 
+    $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::Sizable
+    $form.WindowState = [System.Windows.Forms.FormWindowState]::Maximized
+    $form.Activate()
+    $form.Refresh()
+    [System.Windows.Forms.Application]::DoEvents()
+    $bounds = Get-UiReviewWindowBounds -WindowHandle $form.Handle
+    Assert-True ($bounds -eq $area) "Maximized capture must use the complete visible frame, not the invisible resize border."
+    Save-UiReviewWindowScreenshot -WindowHandle $form.Handle -Path $path
+    $image = [System.Drawing.Bitmap]::new($path)
+    try { Assert-True ($image.Size -eq $area.Size) "Maximized PNG must cover the whole monitor working area." }
+    finally { $image.Dispose() }
+    $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+    $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+    Initialize-UiReviewWindow -WindowHandle $form.Handle
+
     $form.BackgroundImage = $null
     $form.BackColor = [System.Drawing.Color]::Black
     $form.Refresh()
