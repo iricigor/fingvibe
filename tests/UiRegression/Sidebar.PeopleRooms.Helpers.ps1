@@ -795,9 +795,10 @@ function Test-RoomMapAccessibility {
     }
 }
 
-function Select-PersonEmojiForReview {
+function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $CaptureName = 'default') {
     Invoke-PeopleRoomsElement AutomationId PersonIconPicker
     $search = Find-SidebarElement AutomationId PersonIconSearch
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-picker-off-$CaptureName.png")
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('manager')
     $variants = Find-SidebarElement AutomationId PersonIconVariants
     $toggle = $variants.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
@@ -811,7 +812,7 @@ function Select-PersonEmojiForReview {
         if ($option.Current.BoundingRectangle.Width -le 0) { throw "Icon '$name' has no rendered bounds." }
     }
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
-    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'person-picker-variants.png')
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-picker-variants-$CaptureName.png")
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('no-such-person-icon')
     $status = Find-SidebarElement AutomationId PersonIconStatus
     $null = Wait-UiRegressionState -Description 'explicit empty portrait search' -Condition {
@@ -834,8 +835,72 @@ function Select-PersonEmojiForReview {
     [SidebarReviewKeyboard]::Tap(0x1B)
     $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
     $preview = Find-SidebarElement AutomationId PersonDevicesPreview
-    if ($preview.Current.Name -notlike '*Manager, Woman 2*') {
-        throw 'The Devices-table preview must follow the selected portrait even when variants are hidden.'
+    if ($preview.Current.Name -notlike '*Manager, Woman 2*' -or
+        -not $preview.Current.Name.EndsWith(", $ExpectedShortName")) {
+        throw 'The Devices-table preview must retain the selected portrait and complete Short name when variants are hidden.'
+    }
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-editor-preview-$CaptureName.png")
+}
+
+function Test-PersonPortraitAccessibility {
+    $mode = Get-SidebarAppearanceSelection ModePicker
+    $style = Get-SidebarAppearanceSelection ThemePicker
+    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+    $originalScale = $settings.TextScaleFactor
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    $originalValue = $key.GetValue('TextScaleFactor', $null)
+    $originalKind = if ($null -ne $originalValue) { $key.GetValueKind('TextScaleFactor') } else { $null }
+    $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+    $failed = $true
+    try {
+        foreach ($theme in @('Standard Light', 'Standard Dark')) {
+            Set-SidebarAppearance ThemePicker $theme
+            Select-SidebarPage 'People & rooms' 'Search people and rooms'
+            Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
+            Set-PeopleRoomsText 'Short name' 'III'
+            Select-PersonEmojiForReview 'III' ($theme.Replace(' ', '-').ToLowerInvariant())
+            Invoke-PeopleRoomsElement Name Cancel
+        }
+        Stop-SidebarApp
+        $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+        [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+        $null = Wait-UiRegressionState -Description 'person picker effective 200 percent text scale' -Condition {
+            [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
+        }
+        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+        $null = Wait-UiRegressionState -Description 'person picker high contrast enabled' -Condition {
+            ([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -ne 0
+        }
+        Start-SidebarApp
+        Set-SidebarWindowWidth 640
+        Select-SidebarPage 'People & rooms' 'Search people and rooms'
+        Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
+        Set-PeopleRoomsText 'Short name' 'III'
+        Select-PersonEmojiForReview 'III' 'narrow-text-200-high-contrast'
+        Invoke-PeopleRoomsElement Name Cancel
+        $failed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+            { Stop-SidebarApp },
+            { [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast) },
+            {
+                if ($null -eq $originalValue) { $key.DeleteValue('TextScaleFactor', $false) }
+                else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
+                [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+                $null = Wait-UiRegressionState -Description 'restored person picker text scale' -Condition {
+                    [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01
+                }
+            },
+            { $key.Dispose() },
+            {
+                Start-SidebarApp
+                Set-SidebarWindowWidth $expandedWidth
+                Select-SidebarPage Settings 'Window backdrop'
+                Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice $mode
+                Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
+                Select-SidebarPage 'People & rooms' 'Search people and rooms'
+            })
     }
 }
 
@@ -872,7 +937,7 @@ function Test-PeopleRoomsFlows {
         Set-PeopleRoomsText 'Full name' $name
         Set-PeopleRoomsText 'Short name' $short
         Set-PeopleRoomsText 'Notes (optional)' 'Original notes'
-        if ($category -eq 'Person') { Select-PersonEmojiForReview }
+        if ($category -eq 'Person') { Select-PersonEmojiForReview $short }
         Invoke-PeopleRoomsElement Name Save
         Invoke-PeopleRoomsElement Name "Actions for $name" $pageId
         Invoke-PeopleRoomsElement Name Edit
@@ -972,7 +1037,7 @@ function Test-PeopleRoomsPersistenceErrors {
         Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
         Set-PeopleRoomsText 'Full name' 'Retained draft'
         Set-PeopleRoomsText 'Short name' 'RD'
-        Select-PersonEmojiForReview
+        Select-PersonEmojiForReview 'RD' 'persistence'
         Invoke-PeopleRoomsElement Name Save
         $null = Find-PeopleRoomsElement Name 'The person could not be saved.'
         $draft = (Find-PeopleRoomsElement Name 'Full name').GetCurrentPattern(

@@ -19,6 +19,7 @@ public sealed partial class PersonIconPicker : UserControl
 {
     private string _category = "All";
     private bool _initialized;
+    private XamlRoot? _flyoutRoot;
     public string? SelectedId { get; private set; }
 
     public PersonIconPicker()
@@ -77,16 +78,30 @@ public sealed partial class PersonIconPicker : UserControl
 
     private void IconFlyout_Opening(object? sender, object e)
     {
-        if (XamlRoot is { } root)
+        _flyoutRoot = XamlRoot;
+        if (_flyoutRoot is { } root) root.Changed += FlyoutRoot_Changed;
+        UpdateFlyoutSize();
+        RefreshChoices();
+    }
+
+    private void FlyoutRoot_Changed(XamlRoot sender, XamlRootChangedEventArgs args) => UpdateFlyoutSize();
+
+    private void UpdateFlyoutSize()
+    {
+        if (_flyoutRoot is { } root)
         {
             PickerPanel.Width = Math.Max(240, Math.Min(720, root.Size.Width - 80));
             PickerViewport.MaxHeight = Math.Max(180, root.Size.Height - 96);
             IconChoices.MaxHeight = Math.Max(100, Math.Min(420, root.Size.Height - 340));
         }
-        RefreshChoices();
     }
 
-    private void IconFlyout_Closed(object? sender, object e) => PickerButton.Focus(FocusState.Programmatic);
+    private void IconFlyout_Closed(object? sender, object e)
+    {
+        if (_flyoutRoot is { } root) root.Changed -= FlyoutRoot_Changed;
+        _flyoutRoot = null;
+        PickerButton.Focus(FocusState.Programmatic);
+    }
     private void IconSearch_TextChanged(object sender, TextChangedEventArgs e) => RefreshChoices();
     private void IncludeVariants_Toggled(object sender, RoutedEventArgs e) => RefreshChoices();
 
