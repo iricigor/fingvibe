@@ -1,7 +1,7 @@
 {
   "schema": "fingvibe-pr-regression-v1",
   "issue": 743,
-  "category": "ui",
+  "category": "validation",
   "changedBehavior": "Global LAN scanning moves to the custom title bar with a network/freshness menu, determinate rounded-border progress, a reduced-motion-aware travelling highlight and conditional scan notices.",
   "selectors": [
     "core-tests",
@@ -9,6 +9,8 @@
     "ui-regression-helpers",
     "documentation-tests",
     "documentation-publish",
+    "pr-validation",
+    "native-validation",
     "native-pr-matrix"
   ],
   "expectedAssertions": [

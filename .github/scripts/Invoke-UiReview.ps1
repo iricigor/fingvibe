@@ -348,7 +348,7 @@ try {
     Initialize-UiReviewWindow -WindowHandle $windowHandle
 
     $elements = @{}
-    foreach ($expectedName in @("FingVibe", "Network:")) {
+    foreach ($expectedName in @("FingVibe", "Scan network and freshness")) {
         $elements[$expectedName] = Find-WebDriverElement -Using name -Value $expectedName
     }
     $devicesMenuItem = Find-WebDriverElement -Using xpath -Value "//ListItem[@Name='Devices']"

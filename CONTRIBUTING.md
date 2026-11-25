@@ -17,6 +17,7 @@ Current ownership boundaries:
 - `PeriodicScanController` owns the scheduled-scan lifecycle: loading readiness, enable/interval changes, sleep pause/resume, and shutdown on close.
 - `PeriodicScanPresentation` owns scheduled-scan status, header-summary, and deferred-discovery text; `MainWindow.PeriodicScans.cs` wires it to Settings, saved preferences, and Windows power events.
 - `MainWindow.ScanPresentation.cs` owns responsive title-bar scan-action layout and determinate/animated scan-border presentation.
+- `ScanBorderProgressBar` owns the rounded-border rendering and native determinate progress automation peer; the shell supplies scan counters and activity timing.
 - `MainWindow.Results.cs` owns result collection, filtering, sorting, comparer state, and result summaries.
 - `Views/DeviceLastSeenAgeRefresh.cs` owns the Devices page's presentation-only minute refresh of Last seen ages while that page is shown.
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.

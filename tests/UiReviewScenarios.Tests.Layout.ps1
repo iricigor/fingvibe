@@ -255,8 +255,10 @@
     }
     if ($scanHeader) { throw 'The old shared scan header must be removed.' }
     $messages = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanMessages']")
-    if ($messages.LocalName -cne 'InfoBar' -or $messages.GetAttribute("IsOpen") -cne "False") {
-        throw 'Scan notices must use a closed-by-default InfoBar rather than a permanent shared header.'
+    if ($messages.LocalName -cne 'InfoBar' -or $messages.GetAttribute("IsOpen") -cne "False" -or
+        $messages.GetAttribute("Grid.Row") -cne "1" -or
+        $messages.ParentNode.SelectSingleNode("./*[local-name()='Grid.RowDefinitions']/*[1]").GetAttribute("Height") -cne "*") {
+        throw 'Scan notices must use a closed-by-default footer InfoBar, leaving pages to start with their own icon/title.'
     }
     $titleBar = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='AppTitleBar']")
     foreach ($id in @("NetworkMonitorIndicator", "ScanButton", "ScanNetworkMenuButton")) {
@@ -271,9 +273,9 @@
         }
     }
     $progress = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanProgressBar']")
-    if ($progress.GetAttribute("Opacity") -cne "0" -or
+    if ($progress.LocalName -cne "ScanBorderProgressBar" -or $progress.HasAttribute("Opacity") -or
         $progress.GetAttribute("IsIndeterminate") -eq "True") {
-        throw "Border progress must retain a determinate native RangeValue peer without a second visible progress track."
+        throw "The rendered scan-border control must retain a visible determinate RangeValue peer without a second progress track."
     }
     $scan = $titleBar.SelectSingleNode(".//*[@*[local-name()='Name']='ScanButton']")
     $cancel = $titleBar.SelectSingleNode(".//*[@*[local-name()='Name']='CancelButton']")

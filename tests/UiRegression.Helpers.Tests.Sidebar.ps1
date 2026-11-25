@@ -249,6 +249,32 @@ foreach ($case in @('scaled', 'unscaled', 'wrapped', 'clipped', 'missing', 'disa
         }
     }
 }
+foreach ($case in @('compact', 'name', 'help', 'clipped', 'visible-label')) {
+    & {
+        . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
+        $root = [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = [Windows.Rect]::new(0, 0, 480, 720) } }
+        $scan = [pscustomobject]@{ Current = [pscustomobject]@{
+            Name = $(if ($case -eq 'name') { '' } else { 'Scan LAN' })
+            HelpText = $(if ($case -eq 'help') { '' } else { 'Ready for your first scan' })
+            IsEnabled = $true
+            BoundingRectangle = $(if ($case -eq 'clipped') { [Windows.Rect]::new(470, 4, 40, 32) } else { [Windows.Rect]::new(200, 4, 40, 32) })
+        } }
+        $text = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $case -ne 'visible-label'
+            BoundingRectangle = [Windows.Rect]::new(210, 8, 20, 20)
+        } }
+        $scan | Add-Member ScriptMethod FindFirst { param($Scope, $Condition) return $text }
+        function Find-SidebarElement($Property, $Value) { return $scan }
+        if ($case -eq 'compact') {
+            Assert-ScaledScanAction -NormalTextBounds ([Windows.Rect]::new(0, 0, 55, 19)) -Width 480
+        }
+        else {
+            Assert-RegressionFailure {
+                Assert-ScaledScanAction -NormalTextBounds ([Windows.Rect]::new(0, 0, 55, 19)) -Width 480
+            } '*compact scaled title-bar action*'
+        }
+    }
+}
 foreach ($focusable in @($true, $false)) {
     & {
         $state = @{ PageLookups = 0; FocusCalls = 0; PositionCalls = 0 }

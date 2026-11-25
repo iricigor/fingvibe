@@ -379,7 +379,6 @@ public sealed partial class MainWindow : IScanExecutionSteps
     {
         ScanProgressBar.Maximum = progress.Total;
         ScanProgressBar.Value = progress.Completed;
-        UpdateScanPulseWidth();
         ShowScanProgressMessage(_initialResultsPublished
             ? $"{ScanProgressPrefix}Initial results shown · {ScanProgressPresentation.Message(progress)} · Unresolved statuses retained from the previous scan"
             : $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}", progress);

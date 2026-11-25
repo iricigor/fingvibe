@@ -74,7 +74,7 @@
                                  AutomationProperties.AccessibilityView="Raw" />
                     </Grid>
                 </Button>
-                <Grid x:Name="ScanActions" ColumnSpacing="0" SizeChanged="ScanActions_SizeChanged">
+                <Grid x:Name="ScanActions" ColumnSpacing="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -98,22 +98,29 @@
                                 <TextBlock x:Name="CancelButtonLabel" Text="Stop scan" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <Grid x:Name="ScanProgressArea" Visibility="Collapsed" IsHitTestVisible="False"
-                              SizeChanged="ScanProgressArea_SizeChanged">
-                            <ProgressBar x:Name="ScanProgressBar" Minimum="0" Maximum="1" Value="0"
-                                         MinWidth="0" MinHeight="0" Opacity="0" AutomationProperties.Name="Scan progress" />
-                            <Rectangle x:Name="ScanBorderProgress" Margin="1" RadiusX="4" RadiusY="4"
-                                       StrokeThickness="2" Stroke="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                       AutomationProperties.AccessibilityView="Raw" />
-                            <Rectangle x:Name="ScanPulse" Margin="1" RadiusX="4" RadiusY="4" StrokeThickness="2"
-                                       AutomationProperties.AccessibilityView="Raw">
-                                <Rectangle.Stroke>
-                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                        <GradientStop Color="#60CDFF" Offset="0" />
-                                        <GradientStop Color="#B4A0FF" Offset="1" />
-                                    </LinearGradientBrush>
-                                </Rectangle.Stroke>
-                            </Rectangle>
+                        <Grid x:Name="ScanProgressArea" Visibility="Collapsed" IsHitTestVisible="False">
+                            <local:ScanBorderProgressBar x:Name="ScanProgressBar" Minimum="0" Maximum="1" Value="0"
+                                         MinWidth="0" MinHeight="0" AutomationProperties.Name="Scan progress">
+                                <local:ScanBorderProgressBar.Template>
+                                    <ControlTemplate TargetType="local:ScanBorderProgressBar">
+                                        <Grid Background="Transparent">
+                                            <Rectangle x:Name="ProgressOutline" Margin="1" RadiusX="4" RadiusY="4"
+                                                       StrokeThickness="2" Stroke="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                       AutomationProperties.AccessibilityView="Raw" />
+                                            <Rectangle x:Name="ActivityOutline" Margin="1" RadiusX="4" RadiusY="4"
+                                                       Visibility="Collapsed" StrokeThickness="2"
+                                                       AutomationProperties.AccessibilityView="Raw">
+                                                <Rectangle.Stroke>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                        <GradientStop Color="#60CDFF" Offset="0" />
+                                                        <GradientStop Color="#B4A0FF" Offset="1" />
+                                                    </LinearGradientBrush>
+                                                </Rectangle.Stroke>
+                                            </Rectangle>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </local:ScanBorderProgressBar.Template>
+                            </local:ScanBorderProgressBar>
                         </Grid>
                     </Grid>
                     <Button x:Name="ScanNetworkMenuButton" Grid.Column="1" Padding="6,4" MinWidth="28" MinHeight="32"
@@ -331,29 +338,29 @@
 
             <Grid Background="Transparent">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <InfoBar x:Name="ScanMessages" IsOpen="False" IsClosable="False"
-                         Margin="24,8,224,0" Severity="Informational">
+                <InfoBar x:Name="ScanMessages" Grid.Row="1" IsOpen="False" IsClosable="False"
+                         Margin="24,0,24,8" Severity="Informational">
                     <TextBlock x:Name="ScanStatusText" TextWrapping="Wrap"
                                AutomationProperties.LiveSetting="Polite" />
                 </InfoBar>
 
                 <!-- Overview -->
-                <views:OverviewPageView x:Name="OverviewPage" Grid.Row="1"
+                <views:OverviewPageView x:Name="OverviewPage"
                         NetworkRequested="ViewNetworkButton_Click"
                         OnlineDevicesRequested="OnlineDevicesCard_Click"
                         OpenPortDevicesRequested="OpenPortDevicesCard_Click"
                         AboutRequested="AboutFingVibe_Click" />
 
                 <!-- Network -->
-                <views:NetworkPageView x:Name="NetworkPage" Grid.Row="1" Visibility="Collapsed"
+                <views:NetworkPageView x:Name="NetworkPage" Visibility="Collapsed"
                         NetworkHealthRequested="NetworkHealthRequested" />
 
                 <!-- Devices -->
-                <views:DevicesPageView x:Name="DevicesPage" Grid.Row="1" Visibility="Collapsed"
+                <views:DevicesPageView x:Name="DevicesPage" Visibility="Collapsed"
                         FiltersChanged="DeviceFiltersChanged"
                         SortRequested="DeviceSortRequested"
                         DeviceRequested="DeviceRequested"
@@ -361,7 +368,7 @@
                         ServiceDiscoveryRequested="DeviceServiceDiscoveryRequested" />
 
                 <!-- Device details -->
-                <views:DeviceDetailsPageView x:Name="DevicePage" Grid.Row="1" Visibility="Collapsed"
+                <views:DeviceDetailsPageView x:Name="DevicePage" Visibility="Collapsed"
                         BackRequested="BackToDevicesButton_Click"
                         NameChanged="DeviceNameInput_TextChanged"
                         NameSaveRequested="DeviceNameSaveButton_Click"
@@ -379,7 +386,7 @@
                         UnlinkRequested="DeviceUnlinkRequested" />
 
                 <!-- People and rooms -->
-                <views:PeopleRoomsPageView x:Name="PeopleRoomsPage" Grid.Row="1" Visibility="Collapsed"
+                <views:PeopleRoomsPageView x:Name="PeopleRoomsPage" Visibility="Collapsed"
                         AddRequested="AddPersonButton_Click"
                         RoomMapRequested="ViewRoomMapButton_Click"
                         PersonRequested="PersonRequested"
@@ -390,7 +397,7 @@
                         EditRoomRequested="RoomEditRequested"
                         DeleteRoomRequested="RoomDeleteRequested" />
 
-                <views:PersonDetailsPageView x:Name="PersonDetailPage" Grid.Row="1" Visibility="Collapsed"
+                <views:PersonDetailsPageView x:Name="PersonDetailPage" Visibility="Collapsed"
                         BackRequested="BackToPeopleButton_Click"
                         EditRequested="EditPersonButton_Click"
                         DeleteRequested="DeletePersonButton_Click"
@@ -398,7 +405,7 @@
                         UnassignRequested="PersonUnassignRequested"
                         DeviceRequested="DeviceRequested" />
 
-                <views:RoomDetailsPageView x:Name="RoomDetailPage" Grid.Row="1" Visibility="Collapsed"
+                <views:RoomDetailsPageView x:Name="RoomDetailPage" Visibility="Collapsed"
                         BackRequested="BackToRoomsButton_Click"
                         EditRequested="EditRoomButton_Click"
                         DeleteRequested="DeleteRoomButton_Click"
@@ -407,17 +414,17 @@
                         DeviceRequested="DeviceRequested" />
 
                 <!-- Room map -->
-                <views:RoomMapPageView x:Name="RoomMapPage" Grid.Row="1" Visibility="Collapsed"
+                <views:RoomMapPageView x:Name="RoomMapPage" Visibility="Collapsed"
                         BackToRoomsRequested="BackToRoomsFromMapButton_Click"
                         DeviceRequested="RoomMapDeviceRequested"
                         RoomRequested="RoomMapRoomRequested" />
 
                 <!-- Tools -->
-                <local:ToolsPage x:Name="ToolsPage" Grid.Row="1" Visibility="Collapsed"
+                <local:ToolsPage x:Name="ToolsPage" Visibility="Collapsed"
                         RoomMapRequested="ViewRoomMapFromToolsButton_Click" />
 
                 <!-- Settings -->
-                <views:SettingsPageView x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed"
+                <views:SettingsPageView x:Name="SettingsPage" Visibility="Collapsed"
                         AppearanceChanged="AppearancePicker_SelectionChanged" />
             </Grid>
         </NavigationView>

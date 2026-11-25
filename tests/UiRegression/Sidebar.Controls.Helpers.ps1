@@ -138,6 +138,8 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
     $ownerId = if ($Property -eq 'AutomationId' -and $Value -eq 'ResultsList') {
         $pageMarkerId = 'DevicesHeading'
         'TableViewport'
+    } elseif ($Property -eq 'AutomationId' -and $Value -eq 'NetworkMonitorIndicator') {
+        $null
     } elseif ($Property -eq 'AutomationId' -and
         $Value -match '^(ResultSearchBox|ResultCountText|LastScanText|FilterExpander)$') {
         $pageMarkerId = 'DevicesHeading'

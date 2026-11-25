@@ -235,7 +235,7 @@ try {
             $toggleCondition = [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TogglePaneButton")
             $toggle = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
-            $networkLabel = Find-Element "Network:" ([System.Windows.Automation.ControlType]::Text)
+            $networkLabel = Find-Element "Scan network and freshness" ([System.Windows.Automation.ControlType]::Button)
             $overlap = [System.Windows.Rect]::Intersect(
                 $toggle.Current.BoundingRectangle, $networkLabel.Current.BoundingRectangle)
             if (-not $overlap.IsEmpty -and $overlap.Width -gt 0 -and $overlap.Height -gt 0) {
