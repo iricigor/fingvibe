@@ -117,6 +117,7 @@ function Get-UiReviewCapturePlan {
                     DevicesPageView = @("Devices", "DevicesEmpty", "Settings")
                     DeviceDetailsPageView = @("DeviceDetails", "DeviceHistory")
                     PeopleRoomsPageView = @("People", "Rooms", "PersonDetails", "RoomDetails", "DeviceDetails", "RoomMap")
+                    PeoplePageView = @("People", "PersonDetails", "DeviceDetails")
                     PersonDetailsPageView = @("PersonDetails", "People", "DeviceDetails")
                     PersonIconPicker = @("People", "PersonDetails", "Devices")
                     PersonDevicePreview = @("People", "Devices")

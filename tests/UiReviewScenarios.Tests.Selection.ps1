@@ -242,6 +242,7 @@
         DevicesPageView = @("Devices", "Settings", "DevicesEmpty")
         DeviceDetailsPageView = @("Devices", "DeviceDetails", "DeviceHistory")
         PeopleRoomsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails")
+        PeoplePageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
         PersonDetailsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
         PersonIconPicker = @("Devices", "People", "PersonDetails")
         PersonDevicePreview = @("Devices", "People")
