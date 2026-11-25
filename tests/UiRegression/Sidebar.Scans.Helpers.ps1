@@ -248,6 +248,9 @@ function Test-ScanPresentation {
     $animations = $null
     $captureTopmost = $false
     try {
+        if ($env:GITHUB_ACTIONS -eq "true") {
+            $animations = [SidebarReviewKeyboard]::GetAnimations()
+        }
         foreach ($theme in $UiReviewAppearanceThemes) {
             Set-SidebarWindowWidth $expandedWidth
             Select-SidebarPage Settings "Window backdrop"
@@ -258,13 +261,15 @@ function Test-ScanPresentation {
                 $cases += @(@(640, 90, "NoAnimation"), @(640, 90, "HighContrast"))
             }
             foreach ($case in $cases) {
-                if ($case[2] -eq "NoAnimation") {
-                    $animations = [SidebarReviewKeyboard]::GetAnimations()
-                    [SidebarReviewKeyboard]::SetAnimations($false)
-                    if ([SidebarReviewKeyboard]::GetAnimations()) { throw "Reduced animation did not activate." }
+                if ($null -ne $animations) {
+                    $animate = $case[2] -ne "NoAnimation"
+                    [SidebarReviewKeyboard]::SetAnimations($animate)
+                    if ([SidebarReviewKeyboard]::GetAnimations() -ne $animate) {
+                        throw "The requested Windows animation preference did not activate."
+                    }
                     Start-Sleep -Seconds 2
                 }
-                elseif ($case[2] -eq "HighContrast") {
+                if ($case[2] -eq "HighContrast") {
                     $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
                     [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
                     if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) {
@@ -399,10 +404,6 @@ function Test-ScanPresentation {
                     [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
                     $highContrast = $null
                     Start-Sleep -Seconds 2
-                }
-                if ($null -ne $animations) {
-                    [SidebarReviewKeyboard]::SetAnimations($animations)
-                    $animations = $null
                 }
             }
         }
