@@ -19,6 +19,10 @@
             <Grid.Resources>
                 <SolidColorBrush x:Key="TitleBarForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
                 <SolidColorBrush x:Key="TitleBarSecondaryBrush" Color="{ThemeResource TextFillColorSecondary}" />
+                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
+                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
                 <Style x:Key="TitleBarCaptionButtonStyle" TargetType="Button">
                     <Setter Property="Width" Value="46" />
                     <Setter Property="MinHeight" Value="40" />
@@ -153,12 +157,6 @@
                 </Grid>
             </StackPanel>
             <Grid Grid.Column="2" Margin="0,4,8,4" VerticalAlignment="Center">
-                <Grid.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
-                </Grid.Resources>
                 <Button x:Name="TitleBarAppearanceButton" Width="28" Height="28" Padding="0" CornerRadius="4"
                         Background="Transparent" Click="TitleBarAppearanceButton_Click"
                         AutomationProperties.AutomationId="TitleBarAppearanceButton"
@@ -172,12 +170,6 @@
                            AutomationProperties.AccessibilityView="Raw" />
             </Grid>
             <StackPanel Grid.Column="3" Orientation="Horizontal">
-                <StackPanel.Resources>
-                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
-                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
-                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
-                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
-                </StackPanel.Resources>
                 <Button x:Name="TitleBarMinimizeButton" Style="{StaticResource TitleBarCaptionButtonStyle}"
                         Click="TitleBarMinimizeButton_Click" AutomationProperties.Name="Minimize"
                         ToolTipService.ToolTip="Minimize">
