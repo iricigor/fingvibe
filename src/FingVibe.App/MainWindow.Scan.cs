@@ -61,15 +61,27 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanFreshnessText.Text = context;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
+        ScanNetworkMenuButton.IsEnabled = !_isScanning;
+        CancelButtonLabel.Text = $"Stop scan · {(int)_scanElapsed.Elapsed.TotalMinutes}:{_scanElapsed.Elapsed.Seconds:00}";
+        ToolTipService.SetToolTip(ScanButton, $"Scan LAN · {context}");
+        AutomationProperties.SetHelpText(ScanButton, context);
+        AutomationProperties.SetHelpText(ScanNetworkMenuButton, context);
+        ToolTipService.SetToolTip(ScanNetworkMenuButton, $"Choose scan network\n{context}");
+        var status = string.Join(" · ", new[] { IsScanProgressShown ? null : _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
         var detail = IsScanProgressShown ? _scanProgressDetail : null;
         ToolTipService.SetToolTip(ScanStatusText, detail);
         AutomationProperties.SetHelpText(ScanStatusText, detail ?? string.Empty);
-        ScanMessages.Visibility = _isScanning || !string.IsNullOrWhiteSpace(status)
-            ? Visibility.Visible : Visibility.Collapsed;
+        var progress = IsScanProgressShown ? _scanProgressMessage : null;
+        var actionDetail = progress is not null ? $"{progress}\n{detail}" : _scanMessage ?? "Stop scan";
+        ToolTipService.SetToolTip(CancelButton, $"Stop scan\n{actionDetail}");
+        AutomationProperties.SetHelpText(CancelButton, actionDetail);
+        OverviewPage.ShowScanProgress(progress, detail);
+        DevicesPage.ShowScanProgress(progress, detail);
+        ScanMessages.IsOpen = !string.IsNullOrWhiteSpace(status);
+        ScanMessages.Visibility = ScanMessages.IsOpen ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowScanProgressMessage(string message, LanScanProgress progress)
@@ -201,6 +213,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         UpdateEmptyState();
         ScanButton.IsEnabled = false;
         NetworkPicker.IsEnabled = false;
+        ScanNetworkMenuButton.Flyout.Hide();
         CancelButton.IsEnabled = true;
         CancelButton.Visibility = Visibility.Visible;
         ScanProgressArea.Visibility = Visibility.Visible;

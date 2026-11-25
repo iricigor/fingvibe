@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Windows.Foundation;
+using Microsoft.UI.Xaml.Media;
 
 namespace FingVibe.App;
 
@@ -11,31 +11,13 @@ public sealed partial class MainWindow
     private readonly Stopwatch _scanPulseClock = new();
     private bool _scanPulseInitialized;
 
-    private void ScanHeader_SizeChanged(object sender, SizeChangedEventArgs e)
+    private void ScanActions_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateScanPulseWidth();
+
+    private void UpdateScanActionLayout()
     {
-        ScanHeader.Margin = new Thickness(
-            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal
-                ? 72 : ((Thickness)Application.Current.Resources["ScannerPageContentMargin"]).Left, 16, 224, 8);
-        var textScale = _uiSettings.TextScaleFactor;
-        var narrow = ScanHeader.ActualWidth < 480 * textScale;
-        var stackedAction = ScanHeader.ActualWidth < 150 + 120 * textScale + 12;
-        ScanActions.MinWidth = Math.Min(120 * textScale, ScanHeader.ActualWidth);
-        ScanActions.MaxWidth = ScanHeader.ActualWidth;
-        Grid.SetRow(NetworkPicker, narrow ? 1 : 0);
-        Grid.SetColumn(NetworkPicker, narrow ? 0 : 1);
-        Grid.SetColumnSpan(NetworkPicker, narrow && !stackedAction ? 2 : narrow ? 3 : 1);
-        NetworkPicker.Margin = narrow ? new Thickness(0, 4, 0, 0) : new Thickness(0);
-        Grid.SetRow(ScanFreshnessText, narrow ? 2 : 1);
-        Grid.SetColumn(ScanFreshnessText, narrow ? 0 : 1);
-        Grid.SetColumnSpan(ScanFreshnessText, narrow ? 3 : 2);
-        Grid.SetRow(ScanActions, stackedAction ? 3 : narrow ? 1 : 0);
-        Grid.SetColumn(ScanActions, stackedAction ? 0 : 2);
-        Grid.SetColumnSpan(ScanActions, stackedAction ? 3 : 1);
-        ScanActions.HorizontalAlignment = stackedAction ? HorizontalAlignment.Left : HorizontalAlignment.Right;
-        ScanActions.Margin = stackedAction ? new Thickness(0, 4, 0, 0) : new Thickness(0);
-        Grid.SetRow(ScanMessages, narrow ? 4 : 2);
-        Grid.SetColumn(ScanMessages, narrow ? 0 : 1);
-        Grid.SetColumnSpan(ScanMessages, narrow ? 3 : 2);
+        var compact = RootGrid.ActualWidth < 480 + 280 * _uiSettings.TextScaleFactor;
+        ScanButtonLabel.Visibility = CancelButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
+        ScanButton.Width = CancelButton.Width = compact ? 40 : 200 * _uiSettings.TextScaleFactor;
     }
 
     private void StartScanPulse()
@@ -57,18 +39,26 @@ public sealed partial class MainWindow
     {
         ScanPulse.Visibility = _uiSettings.AnimationsEnabled && !_accessibilitySettings.HighContrast
             ? Visibility.Visible : Visibility.Collapsed;
-        var position = ScanProgressPresentation.PulsePosition(_scanPulseClock.Elapsed);
-        ScanPulseBrush.StartPoint = new Point(position - 0.25, 0);
-        ScanPulseBrush.EndPoint = new Point(position + 0.25, 0);
+        var perimeter = ScanBorderLength();
+        if (perimeter <= 0) return;
+        ScanPulse.StrokeDashArray = new DoubleCollection { perimeter * 0.15 / 2, perimeter * 0.85 / 2 };
+        ScanPulse.StrokeDashOffset = -perimeter / 2 * (_scanPulseClock.Elapsed.TotalSeconds % 1.8 / 1.8);
     }
 
     private void ScanProgressArea_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateScanPulseWidth();
 
     private void UpdateScanPulseWidth()
     {
-        ScanPulse.Width = ScanProgressPresentation.FilledWidth(
-            ScanProgressBar.Value, ScanProgressBar.Maximum, ScanProgressArea.ActualWidth);
+        var perimeter = ScanBorderLength();
+        if (perimeter <= 0) return;
+        var filled = ScanProgressPresentation.FilledWidth(ScanProgressBar.Value, ScanProgressBar.Maximum, perimeter);
+        ScanBorderProgress.Visibility = filled > 0 ? Visibility.Visible : Visibility.Collapsed;
+        ScanBorderProgress.StrokeDashArray = new DoubleCollection { filled / 2, (perimeter - filled) / 2 };
     }
+
+    // Rectangle centerline: one-DIP margin, half the two-DIP stroke, four-DIP corner radii.
+    private double ScanBorderLength() => ScanProgressPresentation.BorderLength(
+        ScanProgressArea.ActualWidth, ScanProgressArea.ActualHeight);
 
     private void StopScanPulse()
     {

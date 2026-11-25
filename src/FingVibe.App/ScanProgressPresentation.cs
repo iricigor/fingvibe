@@ -4,11 +4,16 @@ namespace FingVibe.App;
 
 internal static class ScanProgressPresentation
 {
+    internal static double BorderLength(double width, double height)
+    {
+        var w = Math.Max(0, width - 4);
+        var h = Math.Max(0, height - 4);
+        var radius = Math.Min(4, Math.Min(w, h) / 2);
+        return 2 * (w + h - 4 * radius) + 2 * Math.PI * radius;
+    }
+
     internal static double FilledWidth(double completed, double maximum, double trackWidth) =>
         Math.Max(0, trackWidth) * Math.Clamp(completed / Math.Max(1, maximum), 0, 1);
-
-    internal static double PulsePosition(TimeSpan elapsed) =>
-        elapsed.TotalSeconds % 1.8 / 1.8 * 1.5 - 0.25;
 
     // User-facing stages; neither a phase counter nor an ETA, because remaining work depends on who answers.
     internal static string Message(LanScanProgress progress) => progress.Phase switch

@@ -7,6 +7,22 @@ namespace FingVibe.Core.Tests;
 public sealed class ScanProgressPresentationTests
 {
     [Theory]
+    [InlineData(204, 36, 4)]
+    [InlineData(44, 36, 4)]
+    [InlineData(6, 6, 1)]
+    public void BorderProgressUsesTheRoundedStrokeCenterline(double width, double height, double radius)
+    {
+        var expected = 2 * (width - 4 + height - 4 - 4 * radius) + 2 * Math.PI * radius;
+        var perimeter = ScanProgressPresentation.BorderLength(width, height);
+        Assert.Equal(expected, perimeter, 8);
+        Assert.Equal(expected * 0.9, ScanProgressPresentation.FilledWidth(90, 100, perimeter), 8);
+    }
+
+    [Fact]
+    public void UnmeasuredBorderHasNoProgressLength() =>
+        Assert.Equal(0, ScanProgressPresentation.BorderLength(0, 0));
+
+    [Theory]
     [InlineData(0, 254, 1000, 0)]
     [InlineData(127, 254, 1000, 500)]
     [InlineData(5, 100, 1000, 50)]
@@ -17,18 +33,9 @@ public sealed class ScanProgressPresentationTests
     [InlineData(-1, 254, 1000, 0)]
     [InlineData(0, 0, 1000, 0)]
     [InlineData(127, 254, 0, 0)]
-    public void PulseIsConfinedToActualCompletedWidth(double completed, double maximum, double width, double expected)
+    public void BorderFillRetainsTheMeasuredFraction(double completed, double maximum, double width, double expected)
     {
         Assert.Equal(expected, ScanProgressPresentation.FilledWidth(completed, maximum, width), 8);
-    }
-
-    [Fact]
-    public void PulseTravelsFromBeginningToReachedPointAndRepeats()
-    {
-        Assert.Equal(-0.25, ScanProgressPresentation.PulsePosition(TimeSpan.Zero), 8);
-        Assert.Equal(0.5, ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(0.9)), 8);
-        Assert.InRange(ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(1.799)), 1.24, 1.25);
-        Assert.Equal(-0.25, ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(1.8)), 8);
     }
 
     [Theory]

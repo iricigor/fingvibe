@@ -66,7 +66,7 @@ $testFixedHeaders = {
             & $findFixedHeaderTargets $page $viewport
         }
         $window = $root.Current.BoundingRectangle
-        $bar = (@("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText", "ScanButton") |
+        $bar = (@("TitleBarMinimizeButton", "ScanButton") |
             ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle.Bottom } |
             Measure-Object -Maximum).Maximum
         $before = @{}

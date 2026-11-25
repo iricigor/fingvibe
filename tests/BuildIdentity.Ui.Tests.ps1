@@ -109,7 +109,7 @@ function Assert-RibbonText {
 
 function Get-HeaderBounds {
     $bounds = @{}
-    foreach ($id in @("NetworkPicker", "ScanFreshnessText")) {
+    foreach ($id in @("ScanButton", "ScanNetworkMenuButton")) {
         $condition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
         $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)

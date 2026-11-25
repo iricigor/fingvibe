@@ -27,7 +27,7 @@ public sealed partial class MainWindow
         _discoveryNotifications = new(ShowDiscoveryPopup, RequestWindowsDiscoveryNotification);
         _windowsNotificationMessage = WindowsNotifications.RegistrationError;
         _discoveryActivation.StateChanged += (_, _) =>
-            AutomationProperties.SetItemStatus(ScanFreshnessText, _discoveryActivation.Status);
+            AutomationProperties.SetItemStatus(ScanNetworkMenuButton, _discoveryActivation.Status);
         AppWindow.Changed += DiscoveryWindow_Changed;
         Activated += DiscoveryWindow_Activated;
         Closed += (_, _) =>
@@ -177,6 +177,6 @@ public sealed partial class MainWindow
             popup.Hide();
             ShowDeviceDetails(row);
         };
-        popup.ShowAt(ScanFreshnessText, new FlyoutShowOptions { Placement = FlyoutPlacementMode.Bottom });
+        popup.ShowAt(ScanNetworkMenuButton, new FlyoutShowOptions { Placement = FlyoutPlacementMode.Bottom });
     }
 }

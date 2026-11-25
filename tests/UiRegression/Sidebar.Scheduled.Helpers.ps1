@@ -1,6 +1,11 @@
 ﻿function Wait-SidebarText([string] $Id, [string] $Pattern, [int] $Seconds = 30) {
     try {
         Wait-UiRegressionState -TimeoutMilliseconds ($Seconds * 1000) -Description "'$Id' matching '$Pattern'" -Condition {
+            if ($Id -eq 'ScanFreshnessText') {
+                $context = Find-SidebarElement AutomationId ScanNetworkMenuButton
+                if ($context.Current.HelpText -like $Pattern) { return $context }
+                return $null
+            }
             $element = Find-SidebarElement AutomationId $Id -Optional
             if ($element -and $element.Current.Name -like $Pattern) { return $element }
             return $null
@@ -9,6 +14,13 @@
     catch {
         Save-ScheduledScanFailure "scheduled-scans-wait-failure"
         throw
+    }
+}
+
+function Wait-SidebarScanProgress([string] $Pattern) {
+    Wait-UiRegressionState -Description "scan action help matching '$Pattern'" -Condition {
+        $action = Find-SidebarElement AutomationId CancelButton -Optional
+        if ($action -and $action.Current.HelpText -like $Pattern) { return $action }
     }
 }
 
@@ -202,7 +214,7 @@ function Test-ScheduledScans {
         }
         Switch-NetworkMonitoringWithKeyboard $false
         Assert-NetworkMonitorSetting $false
-        if ((Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -like "*Scheduled*") {
+        if ((Get-SidebarScanNetwork).Freshness -like "*Scheduled*") {
             throw "The header must not mention scheduling while it is off."
         }
         if (Test-Path -LiteralPath $periodicScanPath) { throw "Loading default scheduled-scan settings must not save them." }
@@ -242,7 +254,7 @@ function Test-ScheduledScans {
         Set-UiReviewAppearanceChoice -Root $root -Picker ScanIntervalPicker -Choice "15 minutes"
         Assert-ScheduledScanSettings $true 15
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Finding devices:*"
+        $null = Wait-SidebarScanProgress "Scheduled scan $dot Finding devices:*"
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
@@ -258,12 +270,12 @@ function Test-ScheduledScans {
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
 
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Finding devices:*"
+        $null = Wait-SidebarScanProgress "Scheduled scan $dot Finding devices:*"
         Switch-ScheduledScansWithKeyboard $false
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."
         Assert-ScheduledScanSettings $false 15
-        if ((Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -like "*Scheduled*") {
+        if ((Get-SidebarScanNetwork).Freshness -like "*Scheduled*") {
             throw "Disabling scheduled scans must remove the header schedule."
         }
         if (Test-Path -LiteralPath $env:FINGVIBE_UI_REVIEW_SNAPSHOT) {

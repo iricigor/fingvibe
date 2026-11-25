@@ -7,14 +7,10 @@ Set-DeviceWidth 1280
 Focus-DeviceWindow
 Select-DevicePage DevicesNavItem
 $null = Find-DeviceElement ScanButton
-$networkLabelCondition = [System.Windows.Automation.AndCondition]::new(
-    [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::NameProperty, "Network:"),
-    [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::Text))
-if (-not $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $networkLabelCondition)) {
-    throw "The shared network selector must be labeled 'Network:'."
+$networkMenu = Find-DeviceElement ScanNetworkMenuButton
+if ($networkMenu.Current.Name -ne 'Scan network and freshness' -or
+    -not $networkMenu.Current.IsKeyboardFocusable -or [string]::IsNullOrWhiteSpace($networkMenu.Current.HelpText)) {
+    throw "The title-bar network menu must retain its accessible label and freshness."
 }
 $heading = (Find-DeviceElement DevicesHeading).Current.BoundingRectangle
 $inventory = (Find-DeviceElement InventoryCountsText).Current.BoundingRectangle

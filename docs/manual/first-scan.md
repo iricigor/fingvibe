@@ -8,7 +8,7 @@ router. FingVibe scans IPv4 addresses on the network you select.
 1. Connect your PC to the network you want to inspect.
 2. Open FingVibe.
 3. Open **Devices** from the left menu.
-4. Open the shared **Network:** picker near the top.
+4. Open the arrow beside **Scan LAN** in the title bar, then the **Network** picker.
 5. Select the Wi-Fi or Ethernet connection you want to scan.
 
 The picker shows the adapter and its network range, for example
@@ -20,14 +20,19 @@ Only scan a network you own or have permission to inspect.
 
 ## Run the scan
 
-1. Choose **Scan LAN** on Devices.
-2. Watch the progress and status beneath the network picker.
-3. Wait for the scan to finish, or choose **Cancel scan** to stop it.
+1. Choose **Scan LAN** in the title bar.
+2. Watch the button-border progress and the stage text on Devices or Overview.
+3. Wait for the scan to finish, or choose **Stop scan** to stop it.
 4. Select a device row to inspect the result.
 
 Initial results become available before the background checks finish.
 You can browse and filter them while those checks continue.
-**Cancel scan** remains available if you visit another page.
+**Stop scan** remains available if you visit another page. Its tooltip includes
+the stage, elapsed time and protocol counters; its accessible name is **Cancel scan**.
+Narrow windows use icons with the full action names in accessible labels/tooltips.
+The border fills for the current stage's measured address count, not a time estimate.
+A separate travelling highlight indicates activity; Windows reduced motion and
+high contrast keep the measured border progress without that moving highlight.
 
 [![Devices after a completed loopback scan, with one responding review device](../screenshots/manual/first-scan.png)](../screenshots/manual/first-scan.png)
 
@@ -50,7 +55,7 @@ ping of every address. **Confirming remaining devices** covers the ARP check
 (shown as an address lookup), each ten-second wait, the **second try** and the
 **last try**. The status also shows how long the scan has been running, such as
 `0:42 elapsed`; it does not predict when the scan will finish. Point at the
-status to see the exact ARP or ping attempt and its counts.
+status or Stop scan to see the exact ARP or ping attempt and its counts.
 
 The later stages can take longer than the first results. A mostly silent
 network can take more than twenty extra seconds, plus probe and save time.

@@ -20,6 +20,8 @@
         <ScrollViewer x:Name="OverviewPage" Grid.Row="1" SizeChanged="OverviewPage_SizeChanged"
                       HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16">
+            <TextBlock x:Name="ScanProgressText" Visibility="Collapsed" TextWrapping="Wrap"
+                       AutomationProperties.LiveSetting="Polite" />
             <TextBlock x:Name="OverviewVersionText" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">

@@ -183,6 +183,14 @@ public sealed partial class DevicesPageView : UserControl
 
     internal void FocusResults() => ResultsList.Focus(FocusState.Programmatic);
 
+    internal void ShowScanProgress(string? progress, string? detail)
+    {
+        ScanProgressText.Text = progress ?? string.Empty;
+        ScanProgressText.Visibility = progress is null ? Visibility.Collapsed : Visibility.Visible;
+        ToolTipService.SetToolTip(ScanProgressText, detail);
+        AutomationProperties.SetHelpText(ScanProgressText, detail ?? string.Empty);
+    }
+
     internal void SetInteractionsEnabled(bool enabled)
     {
         ResultsList.IsItemClickEnabled = enabled;

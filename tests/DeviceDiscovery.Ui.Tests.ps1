@@ -359,7 +359,7 @@ try {
     $previousOnline = Get-DiscoveryOnlineCount
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*Confirming remaining devices: address lookup*"
+        (Find-DiscoveryControl CancelButton).Current.HelpText -like "*Initial results shown*Confirming remaining devices: address lookup*"
     } "checkpointed initial results"
     $pendingOnline = Get-DiscoveryOnlineCount
     if ($pendingOnline -ne $previousOnline + 1) {
@@ -390,7 +390,7 @@ try {
     $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
     if ($checkpoint.state -ne 2) { throw "Normal close did not retain an Incomplete checkpoint." }
     Start-DiscoveryApp
-    if ((Find-DiscoveryControl ScanFreshnessText).Current.Name -notlike "*Incomplete scan*") {
+    if ((Find-DiscoveryControl ScanNetworkMenuButton).Current.HelpText -notlike "*Incomplete scan*") {
         throw "Restart misrepresented an interrupted checkpoint as complete."
     }
     if (-not (Find-DiscoveryControl ScanButton).Current.IsEnabled) { throw "Restart resumed an old retry timer." }
@@ -399,7 +399,7 @@ try {
     # A later final checkpoint updates the same scan without stealing focus from browsing.
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*Confirming remaining devices: address lookup*"
+        (Find-DiscoveryControl CancelButton).Current.HelpText -like "*Initial results shown*Confirming remaining devices: address lookup*"
     } "second initial checkpoint"
     Wait-DiscoveryState {
         (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
@@ -447,8 +447,8 @@ try {
         throw "The scheduled scan ran before the window could be minimized."
     }
     Wait-DiscoveryState {
-        $status = Find-DiscoveryControl ScanStatusText -Optional
-        $status -and $status.Current.Name -like "Scheduled scan*Finding devices:*"
+        $status = Find-DiscoveryControl CancelButton -Optional
+        $status -and $status.Current.HelpText -like "Scheduled scan*Finding devices:*"
     } "scheduled scan retaining previous evidence"
     if ((Get-DiscoveryOnlineCount) -ne $scheduledOnline) { throw "Scheduled scan start reset retained Online membership." }
     $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
@@ -520,7 +520,7 @@ try {
         }
         else {
             Start-DiscoveryApp -Activation $notificationId
-            $null = Wait-UiRegressionSurfaceState -GetElement { Find-DiscoveryControl ScanFreshnessText -Optional } `
+            $null = Wait-UiRegressionSurfaceState -GetElement { Find-DiscoveryControl ScanNetworkMenuButton -Optional } `
                 -Description "discovery activation" -State Ready -Selection "Discovery notification" -After 0
         }
         $header = Find-DiscoveryControl DiscoveryPopup
@@ -582,7 +582,7 @@ try {
         }
     }
     Start-DiscoveryApp -Activation "invalid"
-    $null = Wait-UiRegressionSurfaceState -GetElement { Find-DiscoveryControl ScanFreshnessText -Optional } `
+    $null = Wait-UiRegressionSurfaceState -GetElement { Find-DiscoveryControl ScanNetworkMenuButton -Optional } `
         -Description "invalid discovery activation" -State Error -Selection "Discovery notification" -After 0
     if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*Unable to open the discovery notification*") {
         throw "Invalid notification activation must report an explicit integration error."
@@ -609,7 +609,7 @@ try {
     }
     if ((Find-DiscoveryControl ResultCountText).Current.Name -ne "Showing 1 of 2 devices" -or
         (Get-DiscoveryOnlineCount) -ne 1 -or
-        (Find-DiscoveryControl ScanFreshnessText).Current.Name -notlike "Updated * ago*") {
+        (Find-DiscoveryControl ScanNetworkMenuButton).Current.HelpText -notlike "Updated * ago*") {
         throw "Old saved Online evidence must restore matching rows, counts and visible scan age without scanning."
     }
     (Find-DiscoveryControl OfflineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()

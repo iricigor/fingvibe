@@ -249,29 +249,34 @@
     $scanSource = Get-Content (Join-Path $appDirectory "MainWindow.Scan.cs") -Raw
     if ($scanSource -notmatch 'await SaveCompletedScanAsync\([^;]+\);\s*_scanMessage = null;' -or
         $scanSource -match 'Complete in ' -or
-        $scanSource -notmatch 'new\[\] \{ _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning \}' -or
-        $scanSource -notmatch 'ScanMessages\.Visibility = _isScanning \|\| !string\.IsNullOrWhiteSpace\(status\)\s*\? Visibility\.Visible : Visibility\.Collapsed;') {
+        $scanSource -notmatch 'new\[\] \{ IsScanProgressShown \? null : _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning \}' -or
+        $scanSource -notmatch 'ScanMessages\.Visibility = ScanMessages.IsOpen \? Visibility\.Visible : Visibility\.Collapsed;') {
         throw "Scan success must clear only its own message, retain independent errors/warnings, and collapse unused messages."
     }
-    $messages = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='ScanMessages']")
-    $messageRows = $messages.ParentNode.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*")
-    if ($messages.GetAttribute("Visibility") -cne "Collapsed" -or
-        @($messageRows | Where-Object { $_.GetAttribute("Height") -cne "Auto" }).Count -ne 0) {
-        throw "The shared header must not reserve an empty row for collapsed scan messages."
+    if ($scanHeader) { throw 'The old shared scan header must be removed.' }
+    $messages = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanMessages']")
+    if ($messages.LocalName -cne 'InfoBar' -or $messages.GetAttribute("IsOpen") -cne "False") {
+        throw 'Scan notices must use a closed-by-default InfoBar rather than a permanent shared header.'
     }
-    foreach ($id in @("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText")) {
-        $element = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")
-        if (-not $element -or $element.GetAttribute("VerticalAlignment") -cne "Center") {
-            throw "Shared network element '$id' must be centered in the shell header."
+    $titleBar = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='AppTitleBar']")
+    foreach ($id in @("NetworkMonitorIndicator", "ScanButton", "ScanNetworkMenuButton")) {
+        if (-not $titleBar.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")) {
+            throw "Global scan control '$id' must be in the title bar."
+        }
+    }
+    $flyout = $titleBar.SelectSingleNode(".//*[local-name()='Flyout']")
+    foreach ($id in @('NetworkPicker', 'ScanFreshnessText')) {
+        if (-not $flyout.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")) {
+            throw "Scan context '$id' must remain reachable through the title-bar menu."
         }
     }
     $progress = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanProgressBar']")
-    if ($progress.GetAttribute("Height") -cne "10" -or $progress.GetAttribute("MinHeight") -cne "8" -or
+    if ($progress.GetAttribute("Opacity") -cne "0" -or
         $progress.GetAttribute("IsIndeterminate") -eq "True") {
-        throw "Scan progress needs an 8-DIP native indicator and 10-DIP outer height to retain the high-contrast border."
+        throw "Border progress must retain a determinate native RangeValue peer without a second visible progress track."
     }
-    $scan = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='ScanButton']")
-    $cancel = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='CancelButton']")
+    $scan = $titleBar.SelectSingleNode(".//*[@*[local-name()='Name']='ScanButton']")
+    $cancel = $titleBar.SelectSingleNode(".//*[@*[local-name()='Name']='CancelButton']")
     if (-not $scan -or -not $cancel -or $scan.ParentNode -ne $cancel.ParentNode -or
         $scan.ParentNode.LocalName -cne "Grid" -or $cancel.GetAttribute("AutomationProperties.Name") -cne "Cancel scan") {
         throw "Scan LAN and Cancel scan must occupy the same shared-header slot with their existing automation IDs."
@@ -281,11 +286,9 @@
     if ($scan.GetAttribute("AutomationProperties.Name") -cne "Scan LAN" -or
         $scanIcon.GetAttribute("Glyph") -cne [string][char]0xE895 -or
         $scanIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
-        $scanIcon.GetAttribute("IsHitTestVisible") -cne "False" -or
-        $scanIcon.HasAttribute("Foreground") -or $scanIcon.GetAttribute("IsTextScaleFactorEnabled") -eq "False" -or
-        $scanIcon.NextSibling -ne $scanLabel -or $scanLabel.GetAttribute("Grid.Column") -cne "1" -or
-        $scanLabel.GetAttribute("Text") -cne "Scan LAN" -or $scanLabel.GetAttribute("TextWrapping") -cne "Wrap") {
-        throw "Scan LAN must retain its accessible label with a preceding decorative, theme-inherited, scalable refresh icon and wrapping text."
+        $scanIcon.HasAttribute("Foreground") -or
+        $scanIcon.NextSibling -ne $scanLabel -or $scanLabel.GetAttribute("Text") -cne "Scan LAN") {
+        throw "Scan LAN must retain its accessible label and preceding decorative, theme-inherited refresh icon."
     }
     $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
     $devicesCode = Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml.cs") -Raw
