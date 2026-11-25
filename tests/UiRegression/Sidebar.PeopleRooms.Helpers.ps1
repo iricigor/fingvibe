@@ -907,8 +907,8 @@ function Test-PersonPortraitAccessibility {
             ([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -ne 0
         }
         Start-SidebarApp
-        Set-SidebarWindowWidth 640
         Select-SidebarPage 'People & rooms' 'Search people and rooms'
+        Set-SidebarWindowWidth 640
         Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
         Set-PeopleRoomsText 'Short name' 'III'
         Select-PersonEmojiForReview 'III' 'narrow-text-200-high-contrast'
