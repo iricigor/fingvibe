@@ -25,10 +25,9 @@ For PR artifacts and build identification, see the [build reference](docs/refere
 
 ## 🖥️ Devices at a glance
 
-<a href="docs/screenshots/manual/devices.png"><img src="docs/screenshots/manual/devices.png" alt="FingVibe Devices with eight device types, service-discovery indicators and a collapsed two-NIC Workstation" width="960"></a>
+<a href="docs/screenshots/manual/devices-readme.png"><img src="docs/screenshots/manual/devices-readme.png" alt="FingVibe Devices with the app-themed title bar and one synthetic loopback device" width="960"></a>
 
-Nine synthetic equipment entries, including a linked Ethernet/Wi-Fi PC and
-service-discovery responders with no measured ping latency. This is a native
+One synthetic loopback responder after a completed scan. This is a native
 UI-review capture, not a real LAN or real response measurements. The sample subnet differs
 from the safe selected loopback target, so the warning is intentional.
 [Capture details](docs/manual/screenshots.md).
