@@ -1,0 +1,20 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 733,
+  "category": "ui",
+  "changedBehavior": "Diagnose and repair Network health incident/evidence narrow-window positioning without weakening stacking or selection checks.",
+  "selectors": [
+    "core-tests",
+    "native-pr-matrix",
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Saved incident evidence is alongside the incident list at wide width and below it at 640 pixels.",
+    "The selected incident and its saved evidence survive the narrow-window resize.",
+    "Positioning requires real rendered bounds and bounded condition-based waits."
+  ]
+}

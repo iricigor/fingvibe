@@ -130,14 +130,23 @@ function Show-IncidentEvidenceLayout {
     # incident item and the evidence outcome line, scrolled into the Network health viewport together.
     $targets = {
         foreach ($id in @("NetworkIncidentStatus0", "NetworkIncidentEvidenceOutcome")) {
-            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+            if ($element) {
+                Write-Host "Incident layout ${id}: bounds=$($element.Current.BoundingRectangle); offscreen=$($element.Current.IsOffscreen)."
+            }
+            $element
         }
     }
     $null = Show-UiRegressionScrollTargets -Description "Incident list and saved evidence" -GetWindow { $script:root } `
         -GetViewport {
-            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            $viewport = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthScroll"))
+            if ($viewport) {
+                $scrollState = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).Current
+                Write-Host "Incident layout viewport: bounds=$($viewport.Current.BoundingRectangle); scroll=$($scrollState.VerticalScrollPercent)%; view=$($scrollState.VerticalViewSize)%."
+            }
+            $viewport
         } -GetTargets $targets
     $item, $outcome = @(& $targets)
     $itemBounds = $item.Current.BoundingRectangle

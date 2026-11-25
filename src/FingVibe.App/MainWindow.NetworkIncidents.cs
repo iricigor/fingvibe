@@ -175,11 +175,14 @@ public sealed partial class MainWindow
         if (_periodicScansClosed) return;
         var now = DateTimeOffset.UtcNow;
         var incidents = _networkIncidents.Incidents;
+        var culture = IsUiReview &&
+            Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE") == "problem"
+                ? NetworkMonitorReviewFixture.IncidentCulture : CultureInfo.CurrentCulture;
         var rows = NetworkIncidentPresentation.Rows(incidents, _networkIncidentEvidence, now, TimeZoneInfo.Local,
-            CultureInfo.CurrentCulture);
+            culture);
         var evidence = incidents.ToDictionary(item => item.Id, item => NetworkIncidentPresentation.Evidence(item,
-            _networkIncidentEvidence.GetValueOrDefault(item.Id), now, TimeZoneInfo.Local, CultureInfo.CurrentCulture));
-        var summary = NetworkIncidentPresentation.Summary(incidents, now, TimeZoneInfo.Local, CultureInfo.CurrentCulture);
+            _networkIncidentEvidence.GetValueOrDefault(item.Id), now, TimeZoneInfo.Local, culture));
+        var summary = NetworkIncidentPresentation.Summary(incidents, now, TimeZoneInfo.Local, culture);
         var message = string.Join(" ", new[] { _networkIncidentStorageMessage, _networkIncidentRetentionMessage }
             .Where(part => part is not null));
         var storage = message.Length == 0 ? null : message;
