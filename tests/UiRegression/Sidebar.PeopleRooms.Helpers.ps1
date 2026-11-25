@@ -878,6 +878,11 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
     $null = Wait-UiRegressionState -Description 'portrait picker Escape returns keyboard focus' -Condition {
         $button.Current.HasKeyboardFocus
     }
+    # The picker's outer focus rectangle overlaps the touching preview header.
+    $save = Find-PeopleRoomsElement Name Save PeopleRoomsDialog
+    $null = Wait-UiRegressionState -Description 'preview capture focus moves to dialog footer' -Condition {
+        $save.Current.HasKeyboardFocus
+    }
     $preview = Find-SidebarElement AutomationId PersonDevicesPreview
     if ($preview.Current.Name -notlike '*Manager, Woman 2*' -or
         -not $preview.Current.Name.EndsWith(", $ExpectedShortName")) {
