@@ -813,6 +813,15 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
     }
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-picker-variants-$CaptureName.png")
+    (Find-SidebarElement Name 'Icon category: Hair').GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    $status = Find-SidebarElement AutomationId PersonIconStatus
+    $null = Wait-UiRegressionState -Description 'category and search combine for portraits' -Condition {
+        $status.Current.Name.StartsWith('No matching icons.')
+    }
+    (Find-SidebarElement Name 'Icon category: Professions').GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    $null = Find-SidebarElement Name 'Manager, Woman 2'
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('no-such-person-icon')
     $status = Find-SidebarElement AutomationId PersonIconStatus
     $null = Wait-UiRegressionState -Description 'explicit empty portrait search' -Condition {

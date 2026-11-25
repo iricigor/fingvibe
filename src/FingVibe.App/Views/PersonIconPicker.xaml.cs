@@ -29,7 +29,8 @@ public sealed partial class PersonIconPicker : UserControl
         {
             var button = new ToggleButton { Content = category, Tag = category, IsChecked = category == _category };
             AutomationProperties.SetName(button, $"Icon category: {category}");
-            button.Click += Category_Click;
+            button.Checked += Category_Checked;
+            button.Unchecked += Category_Unchecked;
             CategoriesPanel.Children.Add(button);
         }
         _initialized = true;
@@ -48,10 +49,12 @@ public sealed partial class PersonIconPicker : UserControl
     {
         var choice = PeopleRoomsIcons.Resolve(PeopleRoomsIcons.People, SelectedId);
         SelectedIcon.IconId = SelectedId;
-        SelectedLabel.Text = PersonEmojiCatalog.IsAvailable(choice, Environment.OSVersion.Version.Build)
-            ? choice.AccessibleName : $"{choice.AccessibleName} (unavailable on this Windows version)";
+        var known = SelectedId is null || PeopleRoomsIcons.People.Any(item => item.Id == SelectedId);
+        SelectedLabel.Text = !known ? "Unavailable saved icon (generic)"
+            : PersonEmojiCatalog.IsAvailable(choice, Environment.OSVersion.Version.Build)
+                ? choice.AccessibleName : $"{choice.AccessibleName} (unavailable on this Windows version)";
         TablePreview.SetIcon(SelectedId);
-        AutomationProperties.SetName(PickerButton, $"Person icon: {choice.AccessibleName}");
+        AutomationProperties.SetName(PickerButton, $"Person icon: {SelectedLabel.Text}");
         AutomationProperties.SetHelpText(PickerButton,
             "Choose a face or upper-body portrait. Include variants shows additional gender and tone combinations.");
     }
@@ -105,12 +108,20 @@ public sealed partial class PersonIconPicker : UserControl
     private void IconSearch_TextChanged(object sender, TextChangedEventArgs e) => RefreshChoices();
     private void IncludeVariants_Toggled(object sender, RoutedEventArgs e) => RefreshChoices();
 
-    private void Category_Click(object sender, RoutedEventArgs e)
+    private void Category_Checked(object sender, RoutedEventArgs e)
     {
-        _category = (string)((ToggleButton)sender).Tag;
+        var category = (string)((ToggleButton)sender).Tag;
+        if (_category == category) return;
+        _category = category;
         foreach (var button in CategoriesPanel.Children.OfType<ToggleButton>())
             button.IsChecked = (string)button.Tag == _category;
         RefreshChoices();
+    }
+
+    private void Category_Unchecked(object sender, RoutedEventArgs e)
+    {
+        var button = (ToggleButton)sender;
+        if ((string)button.Tag == _category) button.IsChecked = true;
     }
 
     private void Choose(PersonIconOption option)
