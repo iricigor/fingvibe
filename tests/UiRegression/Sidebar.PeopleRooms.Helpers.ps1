@@ -856,15 +856,24 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
     $null = Wait-UiRegressionState -Description 'portrait selection returns keyboard focus' -Condition {
         $button.Current.HasKeyboardFocus
     }
+    $null = Wait-UiRegressionState -Description 'portrait flyout dismissed by selection' -Condition {
+        -not (Find-SidebarElement AutomationId PersonIconSearch -Optional)
+    }
     Invoke-PeopleRoomsElement AutomationId PersonIconPicker
     $variants = Find-SidebarElement AutomationId PersonIconVariants
     $variants.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     $variants.SetFocus()
+    $null = Wait-UiRegressionState -Description 'variant switch receives keyboard focus' -Condition {
+        $variants.Current.HasKeyboardFocus
+    }
     $status = Find-SidebarElement AutomationId PersonIconStatus
     $null = Wait-UiRegressionState -Description 'hidden selected portrait remains unchanged' -Condition {
         $status.Current.Name.StartsWith('No matching icons.')
     }
     [SidebarReviewKeyboard]::Tap(0x1B)
+    $null = Wait-UiRegressionState -Description 'portrait flyout dismissed by Escape' -Condition {
+        -not (Find-SidebarElement AutomationId PersonIconSearch -Optional)
+    }
     $button = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
     $null = Wait-UiRegressionState -Description 'portrait picker Escape returns keyboard focus' -Condition {
         $button.Current.HasKeyboardFocus
@@ -875,45 +884,58 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
         throw 'The Devices-table preview must retain the selected portrait and complete Short name when variants are hidden.'
     }
     $path = Join-Path $ScreenshotDirectory "person-editor-preview-$CaptureName.png"
-    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
     $bounds = $preview.Current.BoundingRectangle
     $label = (Find-SidebarElement Name 'Devices table').Current.BoundingRectangle
     $window = Get-UiReviewWindowBounds $windowHandle
-    $bitmap = [System.Drawing.Bitmap]::new($path)
-    try {
-        $left = $label.Right - $window.Left + 12 * $scale
-        $right = $bounds.Right - $window.Left
-        $center = ($left + $right) / 2
-        $top = $bounds.Top - $window.Top
-        $background = $bitmap.GetPixel([int]($right + 4 * $scale), [int]($top + 56 * $scale))
-        $distance = {
-            param($Pixel)
-            [Math]::Max([Math]::Abs([int]$Pixel.R - $background.R),
-                [Math]::Max([Math]::Abs([int]$Pixel.G - $background.G), [Math]::Abs([int]$Pixel.B - $background.B)))
-        }
-        foreach ($point in @(
-            @(($left + 2 * $scale), ($top + 56 * $scale)),
-            @(($right - 2 * $scale), ($top + 56 * $scale)),
-            @($center, ($top + $scale)))) {
-            if ((& $distance $bitmap.GetPixel([int]($point[0]), [int]($point[1]))) -gt 2) {
-                throw "The entire table fragment, including its background, must fade into the dialog surface ($CaptureName)."
+    $paint = @{ Signature = $null; StableSince = $null }
+    $null = Wait-UiRegressionState -Description "stable rendered person preview ($CaptureName)" -Condition {
+        Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
+        $bitmap = [System.Drawing.Bitmap]::new($path)
+        try {
+            $left = $label.Right - $window.Left + 12 * $scale
+            $right = $bounds.Right - $window.Left
+            $center = ($left + $right) / 2
+            $top = $bounds.Top - $window.Top
+            $background = $bitmap.GetPixel([int]($right + 4 * $scale), [int]($top + 56 * $scale))
+            $distance = {
+                param($Pixel)
+                [Math]::Max([Math]::Abs([int]$Pixel.R - $background.R),
+                    [Math]::Max([Math]::Abs([int]$Pixel.G - $background.G), [Math]::Abs([int]$Pixel.B - $background.B)))
             }
-        }
-        $ink = @{}
-        foreach ($region in @(@{ Name = 'Person'; Left = -12; Right = 25 }, @{ Name = 'LastSeen'; Left = 62; Right = 122 })) {
-            $maximum = 0
-            for ($x = [int]($center + $region.Left * $scale); $x -lt $center + $region.Right * $scale; $x++) {
-                for ($y = [int]($top + 24 * $scale); $y -lt $top + 63 * $scale; $y++) {
-                    $maximum = [Math]::Max($maximum, (& $distance $bitmap.GetPixel($x, $y)))
+            foreach ($point in @(
+                @(($left + 2 * $scale), ($top + 56 * $scale)),
+                @(($right - 2 * $scale), ($top + 56 * $scale)),
+                @($center, ($top + $scale)))) {
+                $pixel = $bitmap.GetPixel([int]($point[0]), [int]($point[1]))
+                if ((& $distance $pixel) -gt 2) {
+                    throw "The entire table fragment, including its background, must fade into the dialog surface ($CaptureName; edge $pixel; surface $background)."
                 }
             }
-            $ink[$region.Name] = $maximum
+            $ink = @{}
+            foreach ($region in @(@{ Name = 'Person'; Left = -12; Right = 25 }, @{ Name = 'LastSeen'; Left = 62; Right = 122 })) {
+                $maximum = 0
+                for ($x = [int]($center + $region.Left * $scale); $x -lt $center + $region.Right * $scale; $x++) {
+                    for ($y = [int]($top + 24 * $scale); $y -lt $top + 63 * $scale; $y++) {
+                        $maximum = [Math]::Max($maximum, (& $distance $bitmap.GetPixel($x, $y)))
+                    }
+                }
+                $ink[$region.Name] = $maximum
+            }
+            if ($ink.Person -lt 40) { return $false }
+            if ($ink.LastSeen -lt .15 * $ink.Person -or $ink.LastSeen -gt .9 * $ink.Person) {
+                throw "Person must remain sharp while '2 h ago' is visibly but partially faded ($CaptureName; ink $($ink.Person)/$($ink.LastSeen))."
+            }
+            $signature = "$($background.R),$($background.G),$($background.B):$($ink.Person)/$($ink.LastSeen)"
+            if ($paint.Signature -ceq $signature -and $paint.StableSince.ElapsedMilliseconds -ge 100) {
+                Write-Host "Person preview $CaptureName matches its dialog at all edges; sharp/faded text ink: $($ink.Person)/$($ink.LastSeen)."
+                return $true
+            }
+            $paint.Signature = $signature
+            $paint.StableSince = [Diagnostics.Stopwatch]::StartNew()
+            $false
         }
-        if ($ink.Person -lt 40 -or $ink.LastSeen -lt .15 * $ink.Person -or $ink.LastSeen -gt .9 * $ink.Person) {
-            throw "Person must remain sharp while '2 h ago' is visibly but partially faded ($CaptureName; ink $($ink.Person)/$($ink.LastSeen))."
-        }
+        finally { $bitmap.Dispose() }
     }
-    finally { $bitmap.Dispose() }
 }
 
 function Test-PersonPortraitAccessibility {
