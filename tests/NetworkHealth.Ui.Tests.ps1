@@ -149,11 +149,11 @@ function Show-IncidentEvidenceLayout {
 function Assert-MonitorIndicatorContained {
     $window = Get-UiReviewWindowBounds $process.MainWindowHandle
     $indicator = (Find-ById "NetworkMonitorIndicator").Current
-    $picker = (Find-Control "Network" ([System.Windows.Automation.ControlType]::ComboBox)).Current.BoundingRectangle
+    $scan = (Find-ById "ScanButton").Current.BoundingRectangle
     $bounds = $indicator.BoundingRectangle
     if ($indicator.IsOffscreen -or $bounds.Left -lt $window.X -or $bounds.Right -gt $window.X + $window.Width -or
-        ($bounds.Right -gt $picker.Left -and $bounds.Bottom -gt $picker.Top)) {
-        throw "The monitoring dot must stay inside the shared header beside, not over, the network selector."
+        ($bounds.Right -gt $scan.Left -and $bounds.Bottom -gt $scan.Top)) {
+        throw "The monitoring dot must stay inside the title bar beside, not over, the scan action."
     }
 }
 

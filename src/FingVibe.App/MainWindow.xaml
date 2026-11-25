@@ -100,7 +100,9 @@
                         </Button>
                         <Grid x:Name="ScanProgressArea" Visibility="Collapsed" IsHitTestVisible="False">
                             <local:ScanBorderProgressBar x:Name="ScanProgressBar" Minimum="0" Maximum="1" Value="0"
-                                         MinWidth="0" MinHeight="0" AutomationProperties.Name="Scan progress">
+                                         Width="Auto" Height="Auto" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                         Margin="0" Padding="0" MinWidth="0" MinHeight="0"
+                                         AutomationProperties.Name="Scan progress">
                                 <local:ScanBorderProgressBar.Template>
                                     <ControlTemplate TargetType="local:ScanBorderProgressBar">
                                         <Grid Background="Transparent">

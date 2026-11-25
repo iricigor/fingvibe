@@ -274,7 +274,9 @@
     }
     $progress = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanProgressBar']")
     if ($progress.LocalName -cne "ScanBorderProgressBar" -or $progress.HasAttribute("Opacity") -or
-        $progress.GetAttribute("IsIndeterminate") -eq "True") {
+        $progress.GetAttribute("IsIndeterminate") -eq "True" -or
+        $progress.GetAttribute("Height") -cne "Auto" -or
+        $progress.GetAttribute("VerticalAlignment") -cne "Stretch") {
         throw "The rendered scan-border control must retain a visible determinate RangeValue peer without a second progress track."
     }
     $scan = $titleBar.SelectSingleNode(".//*[@*[local-name()='Name']='ScanButton']")

@@ -314,7 +314,7 @@ function Test-ScanPresentation {
                 if ($menu.Current.IsEnabled -or -not $cancelBounds.Contains($barBounds) -or
                     $statusBounds.Top -lt $cancelBounds.Bottom -or
                     $cancel.Current.HelpText -notlike "Finding devices:*$($case[1])*elapsed*") {
-                    throw "Border progress must surround Stop scan, lock the network menu and keep stage detail in the page and action help."
+                    throw "Border progress must surround Stop scan, lock the network menu and keep stage detail in the page and action help. Action=$cancelBounds; border=$barBounds; page=$statusBounds; menu enabled=$($menu.Current.IsEnabled); help=$($cancel.Current.HelpText)."
                 }
                 Test-TitleBarLayout
                 if ($case[0] -ge 640) {
