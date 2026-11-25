@@ -4,4 +4,5 @@ Test-RoomMapScale
 Test-RoomMapAccessibility
 Test-RoomMapDetailsRoundTrip
 Test-PeopleRoomsFlows
+Test-PersonPortraitAccessibility
 Test-PeopleRoomsPersistenceErrors

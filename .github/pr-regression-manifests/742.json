@@ -1,0 +1,28 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 742,
+  "category": "validation",
+  "changedBehavior": "People editors offer searchable categorized face and upper-body emoji portraits with optional gender and two-tone variants, preserve saved identifiers, preview the actual short name beside the portrait, and render the portrait consistently in People and Devices surfaces. Room icons are unchanged.",
+  "selectors": [
+    "core-tests",
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "documentation-tests",
+    "native-pr-matrix",
+    "native-sidebar-scan-flows",
+    "native-devices-columns-sorting",
+    "native-devices-filters-previews",
+    "native-details-summary"
+  ],
+  "expectedAssertions": [
+    "Manager offers one primary choice with variants off and four gender-by-tone combinations with variants on; search, category and variant filtering never replace a selected icon.",
+    "Keyboard selection and Escape close the picker and return focus; empty search results are explicit; the preview follows the full existing Short name without adding a letter field.",
+    "Rendered preview edges, including cell backgrounds, match the surrounding dialog surface within two RGB levels; Person stays sharp while neighboring Last seen text retains only partial contrast in Light, Dark and narrow enlarged-text high contrast.",
+    "An emoji choice survives save, reopen and application restart; cancellation and failed saves preserve the previous saved icon or current editor draft respectively.",
+    "Existing Fluent icon IDs, null IDs and unknown IDs round-trip unchanged; unsupported newer Windows sequences are not offered on older Windows builds.",
+    "People lists, person details and separate or combined Devices person cells render the saved portrait beside the existing short name without changing assignment, sorting or room behavior.",
+    "UI-review selection includes the new picker and preview views and all consumers of the shared portrait catalog and renderer."
+  ]
+}

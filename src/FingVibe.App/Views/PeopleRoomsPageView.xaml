@@ -106,7 +106,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <FontIcon Glyph="{x:Bind IconGlyph}" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                        <local:PersonIcon IconId="{x:Bind Person.IconId}" FontSize="20"
                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                   VerticalAlignment="Center"
                                                   AutomationProperties.AccessibilityView="Raw" />

@@ -2,7 +2,13 @@ using System.Diagnostics;
 
 namespace FingVibe.App;
 
-public sealed record PeopleRoomsIconChoice(string Id, string Label, string Glyph);
+public sealed record PeopleRoomsIconChoice(
+    string Id, string Label, string Glyph, string Category = "Existing icons",
+    string? Variant = null, bool IsPrimary = true, bool IsEmoji = false, string Keywords = "",
+    int MinimumWindowsBuild = 0)
+{
+    public string AccessibleName => Variant is null ? Label : $"{Label}, {Variant}";
+}
 
 public static class PeopleRoomsIcons
 {
@@ -11,7 +17,7 @@ public static class PeopleRoomsIcons
         new PeopleRoomsIconChoice("person", "Person", "\uE77B"),
         new PeopleRoomsIconChoice("profile", "Profile", "\uE8D4"),
         new PeopleRoomsIconChoice("person-filled", "Person (filled)", "\uEA8C")
-    });
+    }.Concat(PersonEmojiCatalog.Choices).ToArray());
 
     public static IReadOnlyList<PeopleRoomsIconChoice> Rooms { get; } = Array.AsReadOnly(new[]
     {

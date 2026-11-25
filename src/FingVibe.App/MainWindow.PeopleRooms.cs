@@ -49,6 +49,7 @@ public sealed partial class MainWindow
         Guid? personId = null;
         string? personShortName = null;
         string? personName = null;
+        string? personIconId = null;
         Guid? roomId = null;
         string? roomShortName = null;
         string? roomName = null;
@@ -62,6 +63,7 @@ public sealed partial class MainWindow
                 personId = person.Id;
                 personShortName = person.ShortName;
                 personName = person.Name;
+                personIconId = person.IconId;
             }
 
             if (assignment.RoomId is { } assignedRoomId
@@ -73,7 +75,7 @@ public sealed partial class MainWindow
             }
         }
 
-        row.SetPeopleRoomAssignments(personId, personShortName, personName, roomId, roomShortName, roomName);
+        row.SetPeopleRoomAssignments(personId, personShortName, personName, roomId, roomShortName, roomName, personIconId);
     }
 
     private void UpdatePeopleRoomsPages()

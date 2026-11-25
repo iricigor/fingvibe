@@ -1,0 +1,92 @@
+<UserControl
+    x:Class="FingVibe.App.Views.PersonIconPicker"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App"
+    xmlns:views="using:FingVibe.App.Views"
+    HorizontalContentAlignment="Stretch">
+    <StackPanel>
+        <TextBlock Text="Icon" Margin="0,0,0,8" />
+        <Button x:Name="PickerButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                Padding="12,8" AutomationProperties.AutomationId="PersonIconPicker">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <local:PersonIcon x:Name="SelectedIcon" FontSize="28" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="SelectedLabel" TextWrapping="Wrap" />
+                    <TextBlock Text="Change icon" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <FontIcon Grid.Column="2" Glyph="&#xE70D;" FontSize="12" />
+            </Grid>
+            <Button.Flyout>
+                <Flyout x:Name="IconFlyout" Placement="Full" Opening="IconFlyout_Opening" Closed="IconFlyout_Closed">
+                    <Flyout.FlyoutPresenterStyle>
+                        <Style TargetType="FlyoutPresenter">
+                            <Setter Property="MaxWidth" Value="800" />
+                            <Setter Property="MaxHeight" Value="1200" />
+                        </Style>
+                    </Flyout.FlyoutPresenterStyle>
+                    <ScrollViewer x:Name="PickerViewport" VerticalScrollBarVisibility="Auto"
+                                  AutomationProperties.AutomationId="PersonIconViewport"
+                                  HorizontalScrollBarVisibility="Disabled">
+                    <Grid x:Name="PickerPanel" Width="640" RowSpacing="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Choose an icon" FontSize="20" FontWeight="SemiBold" />
+                        <TextBox x:Name="IconSearch" Grid.Row="1" PlaceholderText="Search people, professions, hairstyles..."
+                                 AutomationProperties.Name="Search people icons"
+                                 AutomationProperties.AutomationId="PersonIconSearch"
+                                 TextChanged="IconSearch_TextChanged" />
+                        <ToggleSwitch x:Name="IncludeVariants" Grid.Row="2" Header="Include variants"
+                                      AutomationProperties.AutomationId="PersonIconVariants"
+                                      Toggled="IncludeVariants_Toggled" />
+                        <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                      HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled">
+                            <StackPanel x:Name="CategoriesPanel" Orientation="Horizontal" Spacing="6" />
+                        </ScrollViewer>
+                        <TextBlock x:Name="PickerStatus" Grid.Row="4" FontSize="12" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="PersonIconStatus"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   AutomationProperties.LiveSetting="Polite" />
+                        <GridView x:Name="IconChoices" Grid.Row="5" IsItemClickEnabled="True" SelectionMode="Single"
+                                  ItemClick="IconChoices_ItemClick" KeyDown="IconChoices_KeyDown"
+                                  ContainerContentChanging="IconChoices_ContainerContentChanging"
+                                  AutomationProperties.Name="People icons"
+                                  AutomationProperties.AutomationId="PersonIconChoices">
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsWrapGrid Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="views:PersonIconOption">
+                                    <StackPanel Width="86" MinHeight="76" Padding="4,6" Spacing="2"
+                                                AutomationProperties.Name="{x:Bind AccessibleName}">
+                                        <local:PersonIcon IconId="{x:Bind Choice.Id}" FontSize="30" HorizontalAlignment="Center" />
+                                        <TextBlock Text="{x:Bind Choice.Label}" TextWrapping="Wrap" TextAlignment="Center" FontSize="12" />
+                                        <TextBlock Text="{x:Bind Variant}" TextWrapping="Wrap" TextAlignment="Center" FontSize="11"
+                                                   Visibility="{x:Bind VariantVisibility}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                    </Grid>
+                    </ScrollViewer>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+        <views:PersonDevicePreview x:Name="TablePreview" />
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,52 @@
+<UserControl
+    x:Class="FingVibe.App.Views.PersonDevicePreview"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App"
+    IsHitTestVisible="False"
+    AutomationProperties.AutomationId="PersonDevicesPreview">
+    <Grid ColumnSpacing="12">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <TextBlock Text="Devices table" FontSize="12" VerticalAlignment="Center" Margin="0,24,0,0"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Grid x:Name="Viewport" Grid.Column="1" Height="64" SizeChanged="Viewport_SizeChanged">
+            <Grid.Clip>
+                <RectangleGeometry x:Name="ViewportClip" />
+            </Grid.Clip>
+            <Border x:Name="PreviewSurface" Width="370" HorizontalAlignment="Center"
+                    Background="{ThemeResource ContentDialogBackground}">
+                <Grid>
+                    <Canvas AutomationProperties.AccessibilityView="Raw">
+                        <TextBlock Text="Person" Canvas.Left="153" FontSize="12" FontWeight="SemiBold"
+                                   Opacity="0.5" IsTextScaleFactorEnabled="False" />
+                        <Border Canvas.Top="24" Width="370" Height="40" BorderThickness="0,0,0,1"
+                                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <Grid>
+                                <TextBlock Text="Personal" FontSize="11" Margin="10,0,0,0" VerticalAlignment="Center"
+                                           IsTextScaleFactorEnabled="False" />
+                                <Grid Margin="153,0,133,0" ColumnSpacing="4" VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <local:PersonIcon x:Name="PreviewIcon" FontSize="16" IsTextScaleFactorEnabled="False" />
+                                    <TextBlock x:Name="PreviewShortName" Grid.Column="1" FontSize="12"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               IsTextScaleFactorEnabled="False" />
+                                </Grid>
+                                <TextBlock Text="2 h ago" FontSize="12" Margin="247,0,0,0" VerticalAlignment="Center"
+                                           IsTextScaleFactorEnabled="False" />
+                            </Grid>
+                        </Border>
+                    </Canvas>
+                </Grid>
+            </Border>
+            <Border x:Name="HeaderFade" Height="24" VerticalAlignment="Top" />
+            <Border x:Name="SideFade" />
+        </Grid>
+    </Grid>
+</UserControl>

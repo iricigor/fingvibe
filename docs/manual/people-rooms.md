@@ -16,6 +16,30 @@ Short names contain one to three visible characters and must be unique within
 People or within Rooms. For example, **Living Room** can use **LR**.
 Editing a suggested short name stops its automatic updates.
 
+### Choose a person icon
+
+In the person editor, open **Icon** to browse faces and upper-body emoji
+portraits. Search by name or profession, or use **People**, **Hair**,
+**Professions** and **Fantasy**. **Existing icons** keeps the original
+monochrome choices available. Room icons are unchanged.
+
+**Include variants** starts off and shows one primary choice per portrait type.
+Turn it on for the two predefined light/medium-light tone variants and, where
+applicable, the four man/woman and tone combinations. There is no separate
+skin-tone or hair selector. Changing the search, category or variant visibility
+does not replace your current choice, even if it is outside the visible results.
+Choose an icon to close the picker; save the person to persist it. Cancelling
+the editor discards the change.
+
+The **Devices table** preview shows the selected icon beside the existing short
+name at table scale. Surrounding sample cells and their backgrounds fade into
+the dialog, including partially faded Last seen text. It is not a
+live device or a last-seen observation. Devices keep the complete short name
+beside the icon rather than overlapping letters on the face. Emoji artwork
+depends on the installed Windows font. Newer emoji sequences are offered only
+on compatible Windows versions; a saved newer icon remains retained, with a
+generic display and an explanation in the editor on an older Windows version.
+
 [![People & rooms page with shared search and short-name badges](../screenshots/manual/people.png)](../screenshots/manual/people.png)
 
 *The person is a synthetic test entry, not a real user.
