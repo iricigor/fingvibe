@@ -3,6 +3,10 @@
 The current manual uses real native Windows captures from disposable GitHub
 Actions runners. They show controlled review data, not a user's LAN, real
 equipment availability or internet speed measurements.
+The README Devices image was refreshed from the latest title-bar review so it
+shows the current app-themed header, appearance shortcut and custom caption
+controls. The broader Devices showcase remains the documentation image used in
+the manual.
 The retained November 20 captures predate the shared fixed headers, quiet Back
 controls, current Device Details tabs, shaded section headings and sidebar mode
 shortcut delivered on November 22. They still illustrate the recorded data and
@@ -10,6 +14,21 @@ states, but are not exact current-layout references. No replacement capture was
 made during the documentation synchronization.
 
 ## Current captures: v1.4.223 documentation
+
+The README title-bar image has newer shell provenance; the retained manual
+capture set below remains on the v1.4.223 baseline.
+
+### README title-bar capture
+
+[Actions run 45125254320, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/45125254320)
+captured `devices-readme.png` on **2026-11-23** from
+[`37f8d0857139d76de4a9bdbd0e3fb58d77381cbb`](https://github.com/iricigor/fingvibe/commit/37f8d0857139d76de4a9bdbd0e3fb58d77381cbb),
+the merged custom-title-bar implementation. The passing UI review captured the
+complete **1280 x 800** native window as `fingvibe-ui-review.png`; the PNG is
+copied unchanged. It shows Standard Dark with one synthetic loopback responder,
+the PR `TEST BUILD` identity and amber ribbon, runner hostname, and current
+window controls. It remains review evidence, not a real LAN or an official
+release screenshot.
 
 [Actions run 44808427805, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/44808427805)
 captured the images on **2026-11-20**.
@@ -160,7 +179,8 @@ and is not presented as the current page layout or discovered physical topology.
 
 | Gap | Boundary |
 | --- | --- |
-| Current headers, tabs, section headings and sidebar shortcut | Prose follows November 22 source; the retained images need replacement native captures from disposable Windows CI before claiming current visual coverage. |
+| Current README title bar | Covered by the November 23 native UI-review capture above. |
+| Current manual headers, tabs, section headings and sidebar shortcut | Prose follows November 22 source; the retained manual images need replacement native captures from disposable Windows CI before claiming current visual coverage. |
 | Windows discovery toast and in-app popup | Text explains delivered behavior; no new state-specific notification capture is claimed. |
 | Complete current diagnostics diagram | The available new view clips public providers; retain the clearly historical complete diagram rather than imply completeness. |
 | Stable-build update checks/download/install | About shows the actual Test build's no-check state; stable workflow steps come from released source, not a fabricated update screenshot. |

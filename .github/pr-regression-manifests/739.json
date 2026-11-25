@@ -1,0 +1,14 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 739,
+  "category": "documentation",
+  "changedBehavior": "The README Devices illustration is refreshed with a native current-layout capture that includes the app-themed title bar, appearance shortcut and custom caption controls.",
+  "selectors": [
+    "documentation-tests",
+    "documentation-publish"
+  ],
+  "expectedAssertions": [
+    "The README links to a checked-in current native capture and its image description matches the visible one-device review state.",
+    "Screenshot provenance records the immutable source revision, disposable Windows run, dimensions and unchanged-copy policy for the README image."
+  ]
+}
