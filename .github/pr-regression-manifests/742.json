@@ -19,6 +19,7 @@
   "expectedAssertions": [
     "Manager offers one primary choice with variants off and four gender-by-tone combinations with variants on; search, category and variant filtering never replace a selected icon.",
     "Keyboard selection and Escape close the picker and return focus; empty search results are explicit; the preview follows the full existing Short name without adding a letter field.",
+    "Rendered preview edges, including cell backgrounds, match the surrounding dialog surface within two RGB levels; Person stays sharp while neighboring Last seen text retains only partial contrast in Light, Dark and narrow enlarged-text high contrast.",
     "An emoji choice survives save, reopen and application restart; cancellation and failed saves preserve the previous saved icon or current editor draft respectively.",
     "Existing Fluent icon IDs, null IDs and unknown IDs round-trip unchanged; unsupported newer Windows sequences are not offered on older Windows builds.",
     "People lists, person details and separate or combined Devices person cells render the saved portrait beside the existing short name without changing assignment, sorting or room behavior.",

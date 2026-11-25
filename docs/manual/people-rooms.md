@@ -32,7 +32,8 @@ Choose an icon to close the picker; save the person to persist it. Cancelling
 the editor discards the change.
 
 The **Devices table** preview shows the selected icon beside the existing short
-name at table scale, with surrounding sample content fading away. It is not a
+name at table scale. Surrounding sample cells and their backgrounds fade into
+the dialog, including partially faded Last seen text. It is not a
 live device or a last-seen observation. Devices keep the complete short name
 beside the icon rather than overlapping letters on the face. Emoji artwork
 depends on the installed Windows font. Newer emoji sequences are offered only

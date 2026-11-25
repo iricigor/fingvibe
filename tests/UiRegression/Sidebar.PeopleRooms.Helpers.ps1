@@ -874,7 +874,46 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
         -not $preview.Current.Name.EndsWith(", $ExpectedShortName")) {
         throw 'The Devices-table preview must retain the selected portrait and complete Short name when variants are hidden.'
     }
-    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-editor-preview-$CaptureName.png")
+    $path = Join-Path $ScreenshotDirectory "person-editor-preview-$CaptureName.png"
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
+    $bounds = $preview.Current.BoundingRectangle
+    $label = (Find-SidebarElement Name 'Devices table').Current.BoundingRectangle
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bitmap = [System.Drawing.Bitmap]::new($path)
+    try {
+        $left = $label.Right - $window.Left + 12 * $scale
+        $right = $bounds.Right - $window.Left
+        $center = ($left + $right) / 2
+        $top = $bounds.Top - $window.Top
+        $background = $bitmap.GetPixel([int]($right + 4 * $scale), [int]($top + 56 * $scale))
+        $distance = {
+            param($Pixel)
+            [Math]::Max([Math]::Abs([int]$Pixel.R - $background.R),
+                [Math]::Max([Math]::Abs([int]$Pixel.G - $background.G), [Math]::Abs([int]$Pixel.B - $background.B)))
+        }
+        foreach ($point in @(
+            @(($left + 2 * $scale), ($top + 56 * $scale)),
+            @(($right - 2 * $scale), ($top + 56 * $scale)),
+            @($center, ($top + $scale)))) {
+            if ((& $distance $bitmap.GetPixel([int]($point[0]), [int]($point[1]))) -gt 2) {
+                throw "The entire table fragment, including its background, must fade into the dialog surface ($CaptureName)."
+            }
+        }
+        $ink = @{}
+        foreach ($region in @(@{ Name = 'Person'; Left = -12; Right = 25 }, @{ Name = 'LastSeen'; Left = 62; Right = 122 })) {
+            $maximum = 0
+            for ($x = [int]($center + $region.Left * $scale); $x -lt $center + $region.Right * $scale; $x++) {
+                for ($y = [int]($top + 24 * $scale); $y -lt $top + 63 * $scale; $y++) {
+                    $maximum = [Math]::Max($maximum, (& $distance $bitmap.GetPixel($x, $y)))
+                }
+            }
+            $ink[$region.Name] = $maximum
+        }
+        if ($ink.Person -lt 40 -or $ink.LastSeen -lt .15 * $ink.Person -or $ink.LastSeen -gt .9 * $ink.Person) {
+            throw "Person must remain sharp while '2 h ago' is visibly but partially faded ($CaptureName; ink $($ink.Person)/$($ink.LastSeen))."
+        }
+    }
+    finally { $bitmap.Dispose() }
 }
 
 function Test-PersonPortraitAccessibility {

@@ -43,10 +43,10 @@
                             </Grid>
                         </Border>
                     </Canvas>
-                    <Border x:Name="HeaderFade" Height="24" VerticalAlignment="Top" />
-                    <Border x:Name="SideFade" />
                 </Grid>
             </Border>
+            <Border x:Name="HeaderFade" Height="24" VerticalAlignment="Top" />
+            <Border x:Name="SideFade" />
         </Grid>
     </Grid>
 </UserControl>
