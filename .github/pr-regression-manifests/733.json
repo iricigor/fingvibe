@@ -2,7 +2,7 @@
   "schema": "fingvibe-pr-regression-v1",
   "issue": 733,
   "category": "ui",
-  "changedBehavior": "Diagnose and repair Network health incident/evidence narrow-window positioning without weakening stacking or selection checks.",
+  "changedBehavior": "Grouped UI Automation discovery uses rendered-peer-sized steps and fractional percentages to find a shared viewport position. The Network health problem fixture always exercises two-digit en-US incident and evidence times.",
   "selectors": [
     "core-tests",
     "native-pr-matrix",
@@ -15,6 +15,8 @@
   "expectedAssertions": [
     "Saved incident evidence is alongside the incident list at wide width and below it at 640 pixels.",
     "The selected incident and its saved evidence survive the narrow-window resize.",
-    "Positioning requires real rendered bounds and bounded condition-based waits."
+    "Positioning requires real rendered bounds and bounded condition-based waits.",
+    "A grouped target range between coarse scroll positions is found from either scroll direction, including sub-percent corrections; unrealized and oversized targets still fail.",
+    "Incident and evidence timestamps use two-digit en-US hours in the problem fixture independently of the real clock hour."
   ]
 }

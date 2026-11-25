@@ -68,7 +68,7 @@ function Show-UiRegressionScrollTargets {
         [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000
     )
     $state = @{
-        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0; LastMove = 0
+        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; MissingBoundsLimit = 0; Direction = 0; Reversals = 0; LastMove = 0
         MovedAt = $null; StartPercent = $null; RequestedPercent = $null; Reissues = 0
         StableGeometry = $null; StableSince = $null
     }
@@ -119,20 +119,30 @@ function Show-UiRegressionScrollTargets {
                 # the move bound still allows one full sweep in each direction.
                 $view = [Math]::Min(99.0, [Math]::Max(0.1, $scroll.Current.VerticalViewSize)) / 100
                 $step = [Math]::Min(25.0, [Math]::Max(1.0, 100 * $view / (1 - $view)))
-                $maximumMoves = 2 * [Math]::Ceiling(100 / $step) + 2
-                if ($state.MissingBoundsMoves -ge $maximumMoves) {
-                    throw "$targetDescription remained unrealized after $maximumMoves bounded viewport moves."
+                $rendered = @($elements | Where-Object { Test-UiRegressionElementVisible $_ })
+                if ($elements.Count -gt 1 -and $rendered.Count) {
+                    # A viewport-sized step can skip the overlap where grouped peers are rendered together.
+                    # Once one peer is visible, retain it while searching across that overlap.
+                    $height = ($rendered | ForEach-Object { $_.Current.BoundingRectangle.Height } | Measure-Object -Minimum).Minimum
+                    $extent = ($viewportBottom - $viewportTop) * (1 / $view - 1)
+                    $step = [Math]::Min($step, 100 * $height / $extent)
                 }
-                $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
+                $maximumMoves = 2 * [Math]::Ceiling(100 / $step) + 2
+                $state.MissingBoundsLimit = [Math]::Max($state.MissingBoundsLimit, $maximumMoves)
+                if ($state.MissingBoundsMoves -ge $state.MissingBoundsLimit) {
+                    throw "$targetDescription remained unrealized after $($state.MissingBoundsLimit) bounded viewport moves."
+                }
+                $nextPercent = [Math]::Max(0.0, [Math]::Min(100.0, $currentPercent + $step * $state.Direction))
                 if ($nextPercent -eq $currentPercent) {
                     if ($state.Reversals -ge 1) {
                         throw "$targetDescription has no rendered bounds after reaching both scroll limits."
                     }
                     $state.Direction = -$state.Direction
                     $state.Reversals++
-                    $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
+                    $nextPercent = [Math]::Max(0.0, [Math]::Min(100.0, $currentPercent + $step * $state.Direction))
                 }
                 $state.MissingBoundsMoves++
+                Write-Host "Discovering ${targetDescription}: $($missingBounds.Count)/$($elements.Count) empty bounds; viewport $top-$bottom; view $($scroll.Current.VerticalViewSize)%; scroll $currentPercent% -> $nextPercent%."
                 $scroll.SetScrollPercent(-1, $nextPercent)
                 return $null
             }

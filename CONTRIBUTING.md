@@ -124,6 +124,12 @@ do not treat a partially visible parent as proof of readable content.
 Positioning discovery must admit real offscreen or empty-bounds card peers so
 that bounded scrolling can reveal them, rather than awaiting visibility first.
 Keep ordinary lookup and post-position visibility/containment assertions strict.
+Grouped scroll discovery reduces its step when one peer is rendered, so it
+cannot jump over the shared visible range of separated targets. Preserve
+fractional percentages for these fine adjustments; every peer must still pass
+the existing rendered-bounds and containment checks together. Network health's
+problem-monitor fixture formats incident and evidence times with two-digit
+en-US hours to cover narrow-window wrapping independently of CI's clock hour.
 Select Tools before resizing only when its viewport is not already visible;
 responsive sidebar peers are not a prerequisite for an active landing. Await both
 window dimensions and the actual viewport's containment before checking card layout.

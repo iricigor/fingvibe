@@ -13,7 +13,7 @@ internal static class NetworkMonitorReviewFixture
 {
     public const string SyntheticDetail = "Synthetic UI-review evidence; no probes sent.";
 
-    // Keep the widest en-US hour in incident layout checks, regardless of when CI runs.
+    // Always exercise a two-digit en-US hour in incident layout checks, regardless of when CI runs.
     public static CultureInfo IncidentCulture { get; } = CreateIncidentCulture();
 
     private static CultureInfo CreateIncidentCulture()

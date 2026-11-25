@@ -130,23 +130,14 @@ function Show-IncidentEvidenceLayout {
     # incident item and the evidence outcome line, scrolled into the Network health viewport together.
     $targets = {
         foreach ($id in @("NetworkIncidentStatus0", "NetworkIncidentEvidenceOutcome")) {
-            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
-            if ($element) {
-                Write-Host "Incident layout ${id}: bounds=$($element.Current.BoundingRectangle); offscreen=$($element.Current.IsOffscreen)."
-            }
-            $element
         }
     }
     $null = Show-UiRegressionScrollTargets -Description "Incident list and saved evidence" -GetWindow { $script:root } `
         -GetViewport {
-            $viewport = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthScroll"))
-            if ($viewport) {
-                $scrollState = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).Current
-                Write-Host "Incident layout viewport: bounds=$($viewport.Current.BoundingRectangle); scroll=$($scrollState.VerticalScrollPercent)%; view=$($scrollState.VerticalViewSize)%."
-            }
-            $viewport
         } -GetTargets $targets
     $item, $outcome = @(& $targets)
     $itemBounds = $item.Current.BoundingRectangle
@@ -799,10 +790,13 @@ try {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 700, 0x0044)
         $null = Wait-UiRegressionState -Description "narrow saved evidence stacks below the incident list" -Condition {
             $list, $panel = Show-IncidentEvidenceLayout
-            $panel.Top -ge $list.Bottom
+            $panel.Top -ge $list.Bottom -and $panel.Height -ge $evidenceBounds.Height
         }
         if ((Find-ById "NetworkIncidentStatus0").GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -ne $true) {
             throw "Narrowing the window must keep the selected incident and its evidence."
+        }
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-problem-narrow.png")
         }
     }
     finally {
