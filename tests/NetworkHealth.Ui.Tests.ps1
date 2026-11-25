@@ -790,10 +790,13 @@ try {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 700, 0x0044)
         $null = Wait-UiRegressionState -Description "narrow saved evidence stacks below the incident list" -Condition {
             $list, $panel = Show-IncidentEvidenceLayout
-            $panel.Top -ge $list.Bottom
+            $panel.Top -ge $list.Bottom -and $panel.Height -ge $evidenceBounds.Height
         }
         if ((Find-ById "NetworkIncidentStatus0").GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -ne $true) {
             throw "Narrowing the window must keep the selected incident and its evidence."
+        }
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-problem-narrow.png")
         }
     }
     finally {

@@ -24,6 +24,31 @@ public sealed class NetworkIncidentPresentationTests
     private static NetworkIncidentRow Row(NetworkIncident incident) =>
         Assert.Single(NetworkIncidentPresentation.Rows([incident], Start.AddHours(1), TimeZoneInfo.Utc, Culture));
 
+    [Theory]
+    [InlineData(0, "12:00:00 AM")]
+    [InlineData(7, "07:00:00 AM")]
+    [InlineData(12, "12:00:00 PM")]
+    [InlineData(22, "10:00:00 PM")]
+    public void ReviewIncidentAndEvidenceAlwaysExerciseTwoDigitEnUsHours(int hour, string expected)
+    {
+        var time = new DateTimeOffset(2026, 11, 20, hour, 0, 0, TimeSpan.Zero);
+        var incident = Incident(NetworkIncidentState.Ongoing) with
+        {
+            FirstObservedAt = time, ConfirmedAt = time, LastObservedAt = time
+        };
+        var culture = NetworkMonitorReviewFixture.IncidentCulture;
+        var row = Assert.Single(NetworkIncidentPresentation.Rows([incident], time, TimeZoneInfo.Utc, culture));
+        var evidence = new NetworkIncidentEvidence(incident.Id, incident.ContextKey, incident.NetworkLabel, time)
+        {
+            Outcome = NetworkEvidenceOutcome.Complete, CompletedAt = time
+        };
+        var view = NetworkIncidentPresentation.Evidence(incident, evidence, time, TimeZoneInfo.Utc, culture);
+
+        Assert.Equal($"First observed today {expected}; confirmed today {expected}.", row.Times);
+        Assert.Contains($"last checked today {expected}.", row.Recovery);
+        Assert.Contains($"collected today {expected} to today {expected}.", view.Context);
+    }
+
     [Fact]
     public void OngoingShowsProgressAndLastCheckWithoutACurrentVerdict()
     {

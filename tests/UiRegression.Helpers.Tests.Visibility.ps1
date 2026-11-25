@@ -199,6 +199,62 @@
     $result = Show-UiRegressionScrollTargets @arguments
     Assert-Regression ($result -eq $target -and $positions.Count -le 4) 'Unknown bounds from the lower endpoint must discover content by moving back toward the viewport.'
 
+    # Each peer is discoverable in a viewport-sized sweep, but their shared visible range lies between coarse steps.
+    $group = @(
+        [pscustomobject]@{ DocumentTop = 1000.0; Height = 80.0; Current = $null },
+        [pscustomobject]@{ DocumentTop = 1220.0; Height = 40.0; Current = $null }
+    )
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    }; Extent = 1200.0 }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $this.Current.VerticalScrollPercent = $Percent
+        foreach ($peer in $group) {
+            $top = $peer.DocumentTop - $Percent * $this.Extent / 100
+            $visible = $top + $peer.Height -gt 0 -and $top -lt 300
+            $peer.Current = [pscustomobject]@{
+                IsOffscreen = -not $visible
+                BoundingRectangle = if ($visible) { New-TestRectangle 10 $top 100 $peer.Height }
+                    else { [Windows.Rect]::Empty }
+            }
+        }
+    }
+    foreach ($startPercent in @(0, 100)) {
+        $scroll.SetScrollPercent(-1, $startPercent)
+        $positions.Clear()
+        $result = Show-UiRegressionScrollTargets -Description 'separately realized grouped peers' `
+            -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $group }
+        Assert-Regression ($result -eq $group[0] -and $positions.Count -le 6) `
+            'Discovering one grouped peer must narrow the search rather than sweep past the shared rendered range.'
+        foreach ($peer in $group) {
+            Assert-Regression (Test-UiRegressionElementWithin $peer $viewport $window) `
+                'Every grouped peer must have real bounds fully contained in the viewport.'
+        }
+    }
+    $group[0].DocumentTop = 100
+    $group[1].DocumentTop = 320
+    $scroll.Extent = 120000
+    $scroll.Current.VerticalViewSize = 100 * 300 / (300 + $scroll.Extent)
+    $scroll.SetScrollPercent(-1, 0)
+    $positions.Clear()
+    $null = Show-UiRegressionScrollTargets -Description 'fractional grouped discovery' `
+        -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $group }
+    Assert-Regression ($positions.Count -eq 1 -and $positions[0] -gt 0 -and $positions[0] -lt 1) `
+        'Fine discovery must preserve sub-percent moves rather than round them to an unchanged percentage.'
+    $group[0].DocumentTop = 4000
+    $group[1].DocumentTop = 4220
+    $scroll.Extent = 1200
+    $scroll.Current.VerticalViewSize = 20
+    $scroll.SetScrollPercent(-1, 0)
+    $positions.Clear()
+    Assert-RegressionFailure {
+        Show-UiRegressionScrollTargets -Description 'unrealized grouped peers' `
+            -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $group }
+    } '*no rendered bounds after reaching both scroll limits*'
+    Assert-Regression ($positions.Count -le 10) 'Unrealized groups must still fail after a bounded sweep.'
+
     # A small view whose first measured move overshoots (its extent was still settling) hides the target
     # above the viewport; discovery must search back toward it in viewport-sized steps.
     $overshoot = @{ Top = 280.0; Moves = 0 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
@@ -11,6 +12,16 @@ namespace FingVibe.App;
 internal static class NetworkMonitorReviewFixture
 {
     public const string SyntheticDetail = "Synthetic UI-review evidence; no probes sent.";
+
+    // Always exercise a two-digit en-US hour in incident layout checks, regardless of when CI runs.
+    public static CultureInfo IncidentCulture { get; } = CreateIncidentCulture();
+
+    private static CultureInfo CreateIncidentCulture()
+    {
+        var culture = (CultureInfo)CultureInfo.GetCultureInfo("en-US").Clone();
+        culture.DateTimeFormat.LongTimePattern = "hh:mm:ss tt";
+        return CultureInfo.ReadOnly(culture);
+    }
 
     /// <summary>Answers every deeper diagnostic checkpoint and reaches 1.1.1.1 at hop 3 without sending probes.</summary>
     public static INetworkDiagnosticProbes DiagnosticProbes { get; } = new ReviewProbes();
