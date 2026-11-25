@@ -15,6 +15,9 @@ made during the documentation synchronization.
 
 ## Current captures: v1.4.223 documentation
 
+The README title-bar image has newer shell provenance; the retained manual
+capture set below remains on the v1.4.223 baseline.
+
 ### README title-bar capture
 
 [Actions run 45125254320, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/45125254320)
