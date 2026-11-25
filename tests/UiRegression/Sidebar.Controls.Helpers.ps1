@@ -234,9 +234,17 @@ function Get-SidebarScanNetwork {
         $picker = Find-SidebarElement AutomationId NetworkPicker
         $freshness = Find-SidebarElement AutomationId ScanFreshnessText
         $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
-        if ($freshness.Current.BoundingRectangle.Top -lt $picker.Current.BoundingRectangle.Bottom -or
-            -not $root.Current.BoundingRectangle.Contains($picker.Current.BoundingRectangle) -or
-            -not $root.Current.BoundingRectangle.Contains($freshness.Current.BoundingRectangle)) {
+        $settled = {
+            $pickerBounds = $picker.Current.BoundingRectangle
+            $freshnessBounds = $freshness.Current.BoundingRectangle
+            $window = $root.Current.BoundingRectangle
+            $freshnessBounds.Top -ge $pickerBounds.Bottom -and
+                $window.Contains($pickerBounds) -and $window.Contains($freshnessBounds)
+        }
+        # The flyout's entrance transition moves its content, so assert geometry only after it settles.
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        while (-not (& $settled) -and $clock.ElapsedMilliseconds -lt 3000) { Start-Sleep -Milliseconds 50 }
+        if (-not (& $settled)) {
             Save-SidebarAppearance "header-layout-failure"
             throw 'The scan menu must contain a readable network picker with freshness beneath it.'
         }
