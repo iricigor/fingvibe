@@ -1175,7 +1175,7 @@ router. FingVibe scans IPv4 addresses on the network you select.</p>
 <li>Connect your PC to the network you want to inspect.</li>
 <li>Open FingVibe.</li>
 <li>Open <strong>Devices</strong> from the left menu.</li>
-<li>Open the shared <strong>Network:</strong> picker near the top.</li>
+<li>Open the arrow beside <strong>Scan LAN</strong> in the title bar, then the <strong>Network</strong> picker.</li>
 <li>Select the Wi-Fi or Ethernet connection you want to scan.</li>
 </ol>
 <p>The picker shows the adapter and its network range, for example
@@ -1185,14 +1185,19 @@ active connection in Windows network settings.</p>
 Only scan a network you own or have permission to inspect.</p>
 <h2 id="run-the-scan">Run the scan<a class="headerlink" href="#run-the-scan" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Choose <strong>Scan LAN</strong> on Devices.</li>
-<li>Watch the progress and status beneath the network picker.</li>
-<li>Wait for the scan to finish, or choose <strong>Cancel scan</strong> to stop it.</li>
+<li>Choose <strong>Scan LAN</strong> in the title bar.</li>
+<li>Watch the button-border progress and the stage text on Devices or Overview.</li>
+<li>Wait for the scan to finish, or choose <strong>Stop scan</strong> to stop it.</li>
 <li>Select a device row to inspect the result.</li>
 </ol>
 <p>Initial results become available before the background checks finish.
 You can browse and filter them while those checks continue.
-<strong>Cancel scan</strong> remains available if you visit another page.</p>
+<strong>Stop scan</strong> remains available if you visit another page. Its tooltip includes
+the stage, elapsed time and protocol counters; its accessible name is <strong>Cancel scan</strong>.
+Narrow windows use icons with the full action names in accessible labels/tooltips.
+The border fills for the current stage's measured address count, not a time estimate.
+A separate travelling highlight indicates activity; Windows reduced motion and
+high contrast keep the measured border progress without that moving highlight.</p>
 <p><a href="../../screenshots/manual/first-scan.png"><img alt="Devices after a completed loopback scan, with one responding review device" src="../../screenshots/manual/first-scan.png" /></a></p>
 <p><em>Safe loopback review scan, not a real LAN. The name and MAC are sample data.
 <a href="../screenshots/">Screenshot sources</a>.</em></p>
@@ -1209,7 +1214,7 @@ ping of every address. <strong>Confirming remaining devices</strong> covers the 
 (shown as an address lookup), each ten-second wait, the <strong>second try</strong> and the
 <strong>last try</strong>. The status also shows how long the scan has been running, such as
 <code>0:42 elapsed</code>; it does not predict when the scan will finish. Point at the
-status to see the exact ARP or ping attempt and its counts.</p>
+status or Stop scan to see the exact ARP or ping attempt and its counts.</p>
 <p>The later stages can take longer than the first results. A mostly silent
 network can take more than twenty extra seconds, plus probe and save time.
 The selected network cannot silently change to a different network mid-scan.</p>
