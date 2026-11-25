@@ -729,7 +729,7 @@
     $identityHeaders = @(
         @{ View = "DeviceDetailsPageView"; Row = "HeaderGrid"; Back = "DeviceBackButton"; Icon = "DeviceTypeIcon"; Title = "DeviceNameValue"
             TitleType = "DeviceDetailValue"; TitleStyle = "PageHeaderSingleLineTitleStyle"; Secondary = "DeviceStatusText"; Columns = "Auto,Auto,*,Auto" },
-        @{ View = "PersonDetailsPageView"; Row = "PersonDetailHeading"; Icon = "PersonDetailIcon"; Title = "PersonDetailName"
+        @{ View = "PersonDetailsPageView"; Row = "PersonDetailHeading"; Icon = "PersonDetailIcon"; IconType = "PersonIcon"; Title = "PersonDetailName"
             TitleType = "TextBlock"; Badge = "PersonDetailShortName"; Actions = "PersonDetailActions"; Columns = "Auto,48,*,Auto"
             Buttons = @("EditPersonDetailButton=EditPersonButton_Click", "DeletePersonDetailButton=DeletePersonButton_Click") },
         @{ View = "RoomDetailsPageView"; Row = "RoomDetailHeading"; Back = "RoomBackButton"; Icon = "RoomDetailIcon"; Title = "RoomDetailName"
@@ -758,9 +758,10 @@
         $back = $children[0]
         $icon = $children[1]
         $title = $children[2]
+        $iconType = if ($entry.IconType) { $entry.IconType } else { "FontIcon" }
         if ($back.LocalName -cne "PageBackButton" -or $back.HasAttribute("Margin") -or $back.HasAttribute("Grid.Column") -or
             $back.HasAttribute("Grid.Row") -or $back.GetAttribute("Name", $xamlNamespace) -cne "$($entry.Back)" -or
-            $icon.LocalName -cne "FontIcon" -or $icon.GetAttribute("Name", $xamlNamespace) -cne $entry.Icon -or
+            $icon.LocalName -cne $iconType -or $icon.GetAttribute("Name", $xamlNamespace) -cne $entry.Icon -or
             $icon.GetAttribute("Grid.Column") -cne "1" -or $icon.HasAttribute("Grid.Row") -or $icon.HasAttribute("Margin") -or
             $icon.GetAttribute("Width") -cne "48" -or $icon.GetAttribute("Height") -cne "48" -or $icon.GetAttribute("FontSize") -cne "48" -or
             $icon.GetAttribute("IsTextScaleFactorEnabled") -cne "False" -or

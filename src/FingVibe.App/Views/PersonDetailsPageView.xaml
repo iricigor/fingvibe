@@ -26,8 +26,8 @@
             </Grid.RowDefinitions>
             <local:PageBackButton Destination="People &amp; rooms" AccessibleDestination="people and rooms"
                     BackRequested="BackToPeopleButton_Click" />
-            <FontIcon x:Name="PersonDetailIcon" Grid.Column="1" Width="48" Height="48" FontSize="48"
-                      FontFamily="Segoe Fluent Icons" IsTextScaleFactorEnabled="False"
+            <local:PersonIcon x:Name="PersonDetailIcon" Grid.Column="1" Width="48" Height="48" FontSize="48"
+                      IsTextScaleFactorEnabled="False"
                       Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                       AutomationProperties.AccessibilityView="Raw" />
             <TextBlock x:Name="PersonDetailName" Grid.Column="2" Style="{StaticResource PageHeaderTitleStyle}" />

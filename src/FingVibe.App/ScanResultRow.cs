@@ -40,6 +40,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     private Guid? _personId;
     private string? _personShortName;
     private string? _personName;
+    private string? _personIconId;
     private Guid? _roomId;
     private string? _roomShortName;
     private string? _roomName;
@@ -740,6 +741,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string MacOui { get; private set; }
     public string MacNic { get; private set; }
     public Guid? PersonId => _personId;
+    public string? PersonIconId => _personIconId;
     public Guid? RoomId => _roomId;
     public bool HasPersonAssignment => _personId is not null && !string.IsNullOrWhiteSpace(_personShortName);
     public bool HasRoomAssignment => _roomId is not null && !string.IsNullOrWhiteSpace(_roomShortName);
@@ -904,17 +906,19 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         string? personName,
         Guid? roomId,
         string? roomShortName,
-        string? roomName)
+        string? roomName,
+        string? personIconId = null)
     {
         _personId = personId;
         _personShortName = personShortName;
         _personName = personName;
+        _personIconId = personId is null ? null : personIconId;
         _roomId = roomId;
         _roomShortName = roomShortName;
         _roomName = roomName;
         foreach (var property in new[]
         {
-            nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity),
+            nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity), nameof(PersonIconId),
             nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity),
             nameof(HasPersonAssignment), nameof(HasRoomAssignment), nameof(HasNoAssignments),
             nameof(PersonAssignmentDescription), nameof(RoomAssignmentDescription)

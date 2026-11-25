@@ -1292,8 +1292,9 @@
             { "name": "Assert-RoomMapConnectionInk", "refactored": true, "introducedBy": "#557: rendered Room map connection trunk contrast in light, dark, high-contrast and 200% text-scale modes." },
             { "name": "Assert-RoomMapDetailsBack", "refactored": true, "introducedBy": "#557: unclipped Room map Back label beside the Device Details tabs at narrow width and 200% text scale." },
             { "name": "Test-RoomMapAccessibility", "refactored": true, "introducedBy": "#361: narrow-window scrolling with normal-size devices and 200% text-scale room and device labels on the 10-room/100-device fixture." },
-            { "name": "Test-PeopleRoomsFlows", "refactored": true, "changedBy": "#670: opened Person and Room details also require the identity header geometry (title 76 DIP after Back and centered with it, short-name badge beneath the 48-DIP icon slot)." },
-            { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true }
+            { "name": "Select-PersonEmojiForReview", "refactored": true, "introducedBy": "#742: searchable four-way portrait variants, keyboard selection/Escape, hidden selection retention and preview capture." },
+            { "name": "Test-PeopleRoomsFlows", "refactored": true, "changedBy": "#670: opened Person and Room details also require the identity header geometry (title 76 DIP after Back and centered with it, short-name badge beneath the 48-DIP icon slot). #742: emoji save/reopen and cancellation retain the expected portrait." },
+            { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true, "changedBy": "#742: emoji selection survives a failed save, retry and application restart." }
           ],
           "captures": [
             "98398f39a18546d52fcea617ee18b263d93f4c075ce94fe7c514210608ce8648"

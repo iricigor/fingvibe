@@ -795,6 +795,50 @@ function Test-RoomMapAccessibility {
     }
 }
 
+function Select-PersonEmojiForReview {
+    Invoke-PeopleRoomsElement AutomationId PersonIconPicker
+    $search = Find-SidebarElement AutomationId PersonIconSearch
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('manager')
+    $variants = Find-SidebarElement AutomationId PersonIconVariants
+    $toggle = $variants.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
+        throw 'A new person editor must initially hide icon variants.'
+    }
+    $null = Find-SidebarElement Name 'Manager, Man 1'
+    $toggle.Toggle()
+    foreach ($name in @('Manager, Man 1', 'Manager, Man 2', 'Manager, Woman 1', 'Manager, Woman 2')) {
+        $option = Find-SidebarElement Name $name
+        if ($option.Current.BoundingRectangle.Width -le 0) { throw "Icon '$name' has no rendered bounds." }
+    }
+    $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'person-picker-variants.png')
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('no-such-person-icon')
+    $status = Find-SidebarElement AutomationId PersonIconStatus
+    $null = Wait-UiRegressionState -Description 'explicit empty portrait search' -Condition {
+        $status.Current.Name.StartsWith('No matching icons.')
+    }
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('manager woman 2')
+    $option = Find-SidebarElement AutomationId 'PersonIconOption-emoji:1f469-1f3fc-200d-1f4bc'
+    $option.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $option.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x0D)
+    $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+    Invoke-PeopleRoomsElement AutomationId PersonIconPicker
+    $variants = Find-SidebarElement AutomationId PersonIconVariants
+    $variants.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    $variants.SetFocus()
+    $status = Find-SidebarElement AutomationId PersonIconStatus
+    $null = Wait-UiRegressionState -Description 'hidden selected portrait remains unchanged' -Condition {
+        $status.Current.Name.StartsWith('No matching icons.')
+    }
+    [SidebarReviewKeyboard]::Tap(0x1B)
+    $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+    $preview = Find-SidebarElement AutomationId PersonDevicesPreview
+    if ($preview.Current.Name -notlike '*Manager, Woman 2*') {
+        throw 'The Devices-table preview must follow the selected portrait even when variants are hidden.'
+    }
+}
+
 function Test-PeopleRoomsFlows {
     Set-SidebarWindowWidth $expandedWidth
     foreach ($category in @('Person', 'Room')) {
@@ -828,9 +872,13 @@ function Test-PeopleRoomsFlows {
         Set-PeopleRoomsText 'Full name' $name
         Set-PeopleRoomsText 'Short name' $short
         Set-PeopleRoomsText 'Notes (optional)' 'Original notes'
+        if ($category -eq 'Person') { Select-PersonEmojiForReview }
         Invoke-PeopleRoomsElement Name Save
         Invoke-PeopleRoomsElement Name "Actions for $name" $pageId
         Invoke-PeopleRoomsElement Name Edit
+        if ($category -eq 'Person') {
+            $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+        }
         Set-PeopleRoomsText 'Notes (optional)' 'Saved notes'
         Invoke-PeopleRoomsElement Name Save
         Open-PeopleRoomsDetails $name $pageId
@@ -854,9 +902,20 @@ function Test-PeopleRoomsFlows {
 
         Invoke-PeopleRoomsElement AutomationId "Edit${category}DetailButton" $detailId
         Set-PeopleRoomsText 'Full name' 'Cancelled edit'
+        if ($category -eq 'Person') {
+            Invoke-PeopleRoomsElement AutomationId PersonIconPicker
+            (Find-SidebarElement AutomationId PersonIconSearch).GetCurrentPattern(
+                [System.Windows.Automation.ValuePattern]::Pattern).SetValue('manager man 1')
+            $option = Find-SidebarElement AutomationId 'PersonIconOption-emoji:1f468-1f3fb-200d-1f4bc'
+            $option.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            $option.SetFocus()
+            [SidebarReviewKeyboard]::Tap(0x0D)
+            $null = Find-SidebarElement Name 'Person icon: Manager, Man 1'
+        }
         Invoke-PeopleRoomsElement Name Cancel
         $null = Find-PeopleRoomsElement Name $name $detailId
         Invoke-PeopleRoomsElement AutomationId "Edit${category}DetailButton" $detailId
+        if ($category -eq 'Person') { $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2' }
         Set-PeopleRoomsText 'Full name' "$name edited"
         Invoke-PeopleRoomsElement Name Save
         $null = Find-PeopleRoomsElement Name "$name edited" $detailId
@@ -913,6 +972,7 @@ function Test-PeopleRoomsPersistenceErrors {
         Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
         Set-PeopleRoomsText 'Full name' 'Retained draft'
         Set-PeopleRoomsText 'Short name' 'RD'
+        Select-PersonEmojiForReview
         Invoke-PeopleRoomsElement Name Save
         $null = Find-PeopleRoomsElement Name 'The person could not be saved.'
         $draft = (Find-PeopleRoomsElement Name 'Full name').GetCurrentPattern(
@@ -926,6 +986,10 @@ function Test-PeopleRoomsPersistenceErrors {
         Start-SidebarApp
         Select-SidebarPage 'People & rooms' 'Search people and rooms'
         $null = Find-PeopleRoomsElement Name 'Retained draft' PeopleRoomsPage
+        Invoke-PeopleRoomsElement Name 'Actions for Retained draft' PeopleRoomsPage
+        Invoke-PeopleRoomsElement Name Edit
+        $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+        Invoke-PeopleRoomsElement Name Cancel
         Stop-SidebarApp
         Set-Content -LiteralPath $database -Value 'not a SQLite database' -Encoding ASCII
         Start-SidebarApp

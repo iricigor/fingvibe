@@ -152,6 +152,7 @@
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "DeviceHistory") "Device scan history"
     }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs",
+         "src\FingVibe.App\PersonEmojiCatalog.cs", "src\FingVibe.App\PersonIcon.cs",
         "src\FingVibe.App\PeopleRoomsPresentation.cs", "src\FingVibe.App\Views\PeopleRoomsDialogs.cs")) {
         Test-Change @{ $iconPath = "changed" } `
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails") "People/Rooms icon surfaces"
@@ -242,6 +243,8 @@
         DeviceDetailsPageView = @("Devices", "DeviceDetails", "DeviceHistory")
         PeopleRoomsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails")
         PersonDetailsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
+        PersonIconPicker = @("Devices", "People", "PersonDetails")
+        PersonDevicePreview = @("Devices", "People")
         RoomDetailsPageView = @("Devices", "DeviceDetails", "Rooms", "RoomDetails")
         RoomMapPageView = @("Devices", "DeviceDetails", "RoomMap", "RoomDetails")
         SettingsPageView = @($UiReviewScenarios.Keys)

@@ -14,7 +14,9 @@ internal static class PeopleRoomsDialogs
         var shortNameBox = new TextBox { Header = "Short name", Text = existing?.ShortName ?? string.Empty, MaxLength = 12 };
         var notesBox = CreateNotesBox(existing?.Notes);
         var validation = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        var iconPicker = PeopleRoomsIconPicker.Create(PeopleRoomsIcons.People, existing?.IconId);
+        var iconPicker = new PersonIconPicker();
+        iconPicker.Initialize(existing?.IconId, shortNameBox.Text);
+        shortNameBox.TextChanged += (_, _) => iconPicker.SetShortName(shortNameBox.Text);
         var dialog = CreateEditorDialog(root, existing is null ? "Add person" : "Edit person",
             nameBox, shortNameBox, notesBox, iconPicker, validation);
         ManagedPerson? saved = null;
@@ -42,7 +44,7 @@ internal static class PeopleRoomsDialogs
                 var candidate = new ManagedPerson(
                     existing?.Id ?? Guid.NewGuid(), nameBox.Text.Trim(), shortNameBox.Text.Trim(),
                     string.IsNullOrWhiteSpace(notesBox.Text) ? null : notesBox.Text.Trim(),
-                    iconPicker.SelectedValue as string ?? throw new ArgumentException("Choose a person icon."));
+                    iconPicker.SelectedId);
                 if (await save(candidate))
                 {
                     saved = candidate;
@@ -174,7 +176,7 @@ internal static class PeopleRoomsDialogs
 
     private static ContentDialog CreateEditorDialog(
         XamlRoot root, string title, TextBox nameBox, TextBox shortNameBox, TextBox notesBox,
-        ComboBox iconPicker, TextBlock validation)
+        FrameworkElement iconPicker, TextBlock validation)
     {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nameBox, "Full name");
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(shortNameBox, "Short name");
