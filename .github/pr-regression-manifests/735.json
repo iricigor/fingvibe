@@ -1,0 +1,16 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 735,
+  "category": "core",
+  "changedBehavior": "Resolve an owned IPv4 address from its exact local adapter before neighbor/ARP data, keeping unusable local MACs unknown and preserving remote resolution.",
+  "selectors": [
+    "core-tests",
+    "native-pr-matrix"
+  ],
+  "expectedAssertions": [
+    "A conflicting neighbor MAC cannot override the exact owning local adapter, including when other adapters are enumerated first.",
+    "Empty, zero, multicast, broadcast and non-six-byte local MACs remain unknown without consulting the remote resolver.",
+    "Unavailable adapter metadata remains unknown rather than falling back to potentially conflicting neighbor data.",
+    "Nonlocal addresses invoke the existing remote resolution path exactly once and preserve its MAC or unknown result."
+  ]
+}

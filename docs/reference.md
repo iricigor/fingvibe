@@ -104,6 +104,11 @@ dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 
 The scanner uses fresh ICMP echo replies, fresh ARP responses, and validated mDNS/SSDP replies sent by the device's own address on the selected directly connected IPv4 LAN. Silent devices can remain undetected; no fixed device count is guaranteed. An address merely advertised by another device is not presence evidence.
 
+For MAC enrichment of this computer's own IPv4 address, the adapter assigned that
+exact address is authoritative, ahead of any cached neighbor entry. An invalid
+or unavailable local adapter MAC remains unknown rather than using a conflicting
+neighbor MAC. Other devices retain the existing neighbor/ARP resolution path.
+
 Manual and scheduled scans first ping every usable address with a 700 ms timeout and up to 256 concurrent probes, then attempt fresh ARP resolution once for each ping miss on the selected adapter. Windows `ResolveIpNetEntry2` flushes the entry and requests fresh resolution; cached, stale or permanent neighbor membership is never Online evidence. The ARP MAC is preserved for enrichment, without inventing an ICMP latency or TTL.
 
 Background ARP uses up to 32 concurrent requests independently of the ICMP concurrency setting, refilling each available scan slot as its work finishes without a fixed launch delay. The same shared limit caps in-flight blocking native ARP calls at 32 process-wide, including across scans. Windows controls the native response timeout; the higher bound does not guarantee a fixed speedup or responder count. Cancellation drains in-flight calls before releasing the measurement lease and rejects their late responses. `WindowsFreshArpTests` verifies native resolution and adapter scoping against the disposable Windows CI runner's directly connected gateway; it is skipped locally to avoid probing the user's LAN.
