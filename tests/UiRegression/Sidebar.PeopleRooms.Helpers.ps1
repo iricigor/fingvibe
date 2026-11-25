@@ -806,10 +806,17 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
         throw 'A new person editor must initially hide icon variants.'
     }
     $null = Find-SidebarElement Name 'Manager, Man 1'
+    $status = Find-SidebarElement AutomationId PersonIconStatus
+    $null = Wait-UiRegressionState -Description 'one primary Manager portrait' -Condition {
+        $status.Current.Name.StartsWith('1 icons.')
+    }
     $toggle.Toggle()
     foreach ($name in @('Manager, Man 1', 'Manager, Man 2', 'Manager, Woman 1', 'Manager, Woman 2')) {
         $option = Find-SidebarElement Name $name
         if ($option.Current.BoundingRectangle.Width -le 0) { throw "Icon '$name' has no rendered bounds." }
+    }
+    $null = Wait-UiRegressionState -Description 'four Manager gender and tone combinations' -Condition {
+        $status.Current.Name.StartsWith('4 icons.')
     }
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-picker-variants-$CaptureName.png")
@@ -832,7 +839,10 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
     $option.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $option.SetFocus()
     [SidebarReviewKeyboard]::Tap(0x0D)
-    $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+    $button = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+    $null = Wait-UiRegressionState -Description 'portrait selection returns keyboard focus' -Condition {
+        $button.Current.HasKeyboardFocus
+    }
     Invoke-PeopleRoomsElement AutomationId PersonIconPicker
     $variants = Find-SidebarElement AutomationId PersonIconVariants
     $variants.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
@@ -842,7 +852,10 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
         $status.Current.Name.StartsWith('No matching icons.')
     }
     [SidebarReviewKeyboard]::Tap(0x1B)
-    $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+    $button = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+    $null = Wait-UiRegressionState -Description 'portrait picker Escape returns keyboard focus' -Condition {
+        $button.Current.HasKeyboardFocus
+    }
     $preview = Find-SidebarElement AutomationId PersonDevicesPreview
     if ($preview.Current.Name -notlike '*Manager, Woman 2*' -or
         -not $preview.Current.Name.EndsWith(", $ExpectedShortName")) {

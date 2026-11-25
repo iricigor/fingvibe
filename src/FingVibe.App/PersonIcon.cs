@@ -41,6 +41,7 @@ public sealed class PersonIcon : ContentControl
         })
             _text.SetBinding(property, new Binding { Source = this, Path = new PropertyPath(path) });
         AutomationProperties.SetAccessibilityView(this, AccessibilityView.Raw);
+        AutomationProperties.SetAccessibilityView(_text, AccessibilityView.Raw);
         UpdateIcon();
     }
 
