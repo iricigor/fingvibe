@@ -19,6 +19,7 @@ internal static class PeopleRoomsDialogs
         shortNameBox.TextChanged += (_, _) => iconPicker.SetShortName(shortNameBox.Text);
         var dialog = CreateEditorDialog(root, existing is null ? "Add person" : "Edit person",
             nameBox, shortNameBox, notesBox, iconPicker, validation);
+        if (root.Content is FrameworkElement owner) dialog.RequestedTheme = owner.ActualTheme;
         ManagedPerson? saved = null;
 
         void Validate()

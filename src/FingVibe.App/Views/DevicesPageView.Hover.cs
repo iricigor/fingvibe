@@ -259,7 +259,7 @@ public sealed partial class DevicesPageView
     {
         if (element is TextBlock text) return text;
         // Icon templates also contain TextBlocks, but their glyph fonts cannot render values.
-        if (element is IconElement) return null;
+        if (element is IconElement or PersonIcon) return null;
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
             if (FindText(VisualTreeHelper.GetChild(element, index)) is { } child) return child;
         return null;

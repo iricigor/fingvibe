@@ -4,7 +4,7 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     # Wait-UiRegressionState's $Condition parameter shadows caller variables in callbacks.
     $peopleRoomsCondition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
-    if ($OwnerId -in @('PersonDetailPage', 'RoomDetailPage', 'PeopleRoomsPage', 'RoomMapPage')) {
+    if ($OwnerId -in @('PersonDetailPage', 'RoomDetailPage', 'PeopleRoomsPage', 'RoomMapPage', 'PeopleRoomsDialog')) {
         $getPage = {
             $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new(
@@ -56,6 +56,7 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
 }
 
 function Invoke-PeopleRoomsElement([string] $Property, [string] $Value, [string] $OwnerId) {
+    if ($Property -eq 'AutomationId' -and $Value -eq 'PersonIconPicker') { $OwnerId = 'PeopleRoomsDialog' }
     if (-not $OwnerId -and $Property -eq 'Name' -and $Value -in @('Save', 'Cancel', 'Delete', 'Assign')) {
         $OwnerId = 'PeopleRoomsDialog'
     }
@@ -72,8 +73,16 @@ function Invoke-PeopleRoomsElement([string] $Property, [string] $Value, [string]
 }
 
 function Set-PeopleRoomsText([string] $Name, [string] $Value) {
-    (Find-PeopleRoomsElement Name $Name).GetCurrentPattern(
-        [System.Windows.Automation.ValuePattern]::Pattern).SetValue($Value)
+    $editCondition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Name),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit))
+    $edit = Wait-UiRegressionState -Description "editable People/Rooms '$Name'" -Condition {
+        $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $editCondition)
+    }
+    $edit.SetFocus()
+    $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Value)
 }
 
 function Open-PeopleRoomsDetails([string] $Name, [string] $PageId) {
@@ -798,6 +807,10 @@ function Test-RoomMapAccessibility {
 function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $CaptureName = 'default') {
     Invoke-PeopleRoomsElement AutomationId PersonIconPicker
     $search = Find-SidebarElement AutomationId PersonIconSearch
+    $viewport = Find-SidebarElement AutomationId PersonIconViewport
+    if (-not (Test-UiRegressionElementWithin $search $viewport $root)) {
+        throw 'The portrait search must fit inside the scrollable picker and application window, not be clipped by its presenter.'
+    }
     Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "person-picker-off-$CaptureName.png")
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('manager')
     $variants = Find-SidebarElement AutomationId PersonIconVariants

@@ -24,8 +24,15 @@
                 <FontIcon Grid.Column="2" Glyph="&#xE70D;" FontSize="12" />
             </Grid>
             <Button.Flyout>
-                <Flyout x:Name="IconFlyout" Opening="IconFlyout_Opening" Closed="IconFlyout_Closed">
+                <Flyout x:Name="IconFlyout" Placement="Full" Opening="IconFlyout_Opening" Closed="IconFlyout_Closed">
+                    <Flyout.FlyoutPresenterStyle>
+                        <Style TargetType="FlyoutPresenter">
+                            <Setter Property="MaxWidth" Value="800" />
+                            <Setter Property="MaxHeight" Value="1200" />
+                        </Style>
+                    </Flyout.FlyoutPresenterStyle>
                     <ScrollViewer x:Name="PickerViewport" VerticalScrollBarVisibility="Auto"
+                                  AutomationProperties.AutomationId="PersonIconViewport"
                                   HorizontalScrollBarVisibility="Disabled">
                     <Grid x:Name="PickerPanel" Width="640" RowSpacing="10">
                         <Grid.RowDefinitions>
