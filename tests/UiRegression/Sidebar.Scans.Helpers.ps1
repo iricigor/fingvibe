@@ -8,8 +8,7 @@
 function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel,
     [ValidateSet('Name', 'AutomationId')][string] $SentinelProperty = 'Name') {
     $null = Find-SidebarElement $SentinelProperty $Sentinel
-    $network = (Find-SidebarElement AutomationId NetworkPicker).GetCurrentPattern(
-        [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name
+    $network = (Get-SidebarScanNetwork).Network
     if (Test-Path -LiteralPath $scanHoldPath) { throw 'A prior scan hold was not released.' }
     [IO.File]::WriteAllText($scanHoldPath, 'Observe the current page before completing the shared scan.')
     try {
@@ -22,7 +21,7 @@ function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel,
         }
         $null = Find-SidebarElement $SentinelProperty $Sentinel
         if (-not $cancelButton.Current.IsEnabled -or -not $cancelButton.Current.HasKeyboardFocus -or
-            (Find-SidebarElement AutomationId NetworkPicker).Current.IsEnabled -or
+            (Find-SidebarElement AutomationId ScanNetworkMenuButton).Current.IsEnabled -or
             (Find-SidebarElement AutomationId ScanButton -Optional)) {
             throw 'A shared scan must preserve its page, lock its LAN and transfer keyboard focus to Cancel scan.'
         }
@@ -35,12 +34,11 @@ function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel,
         }
         Wait-DeviceScan
         $null = Find-SidebarElement $SentinelProperty $Sentinel
-        $selected = (Find-SidebarElement AutomationId NetworkPicker).GetCurrentPattern(
-            [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name
-        if ($selected -ne $network -or -not (Find-SidebarElement AutomationId ScanButton).Current.HasKeyboardFocus -or
+        if (-not (Find-SidebarElement AutomationId ScanButton).Current.HasKeyboardFocus -or
             (Find-SidebarElement AutomationId CancelButton -Optional)) {
             throw 'Ending a shared scan must retain the selected LAN and page and restore Scan LAN focus.'
         }
+        if ((Get-SidebarScanNetwork).Network -ne $network) { throw 'Ending a scan must retain the selected LAN.' }
     }
     finally {
         if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
@@ -125,11 +123,11 @@ function Test-DeviceRefresh {
         (Find-SidebarElement AutomationId ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         if (Find-SidebarElement AutomationId ScanButton -Optional) { throw "Scan LAN must be replaced, not left disabled, during refresh." }
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "Showing 1 device" -or
-            (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*Displaying retained results*") {
+            (Find-SidebarElement AutomationId CancelButton).Current.HelpText -notlike "*Displaying retained results*") {
             throw "Refresh must retain the displayed devices and explain their status."
         }
         Select-SidebarPage Overview "Online devices"
-        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Finding devices:*elapsed*") {
+        if ((Find-SidebarElement AutomationId ScanProgressText).Current.Name -notlike "Finding devices:*elapsed*") {
             throw "Live scan progress must remain visible after navigation."
         }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -224,9 +222,10 @@ function Test-UnavailableScanTarget {
             @("Tools", "Speed test"), @("Settings", "Window backdrop")
         )) {
             Select-SidebarPage $page[0] $page[1]
+            $context = Get-SidebarScanNetwork
             $scan = Find-SidebarElement AutomationId ScanButton
             if ($scan.Current.IsEnabled -or $scan.Current.Name -ne 'Scan LAN' -or
-                (Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -notlike '*Connect to a LAN to scan*' -or
+                $context.Freshness -notlike '*Connect to a LAN to scan*' -or
                 (Find-SidebarElement AutomationId CancelButton -Optional)) {
                 throw "Without a selected LAN, $($page[0]) must retain the disabled shared action and unavailable feedback."
             }
@@ -249,6 +248,9 @@ function Test-ScanPresentation {
     $animations = $null
     $captureTopmost = $false
     try {
+        if ($env:GITHUB_ACTIONS -eq "true") {
+            $animations = [SidebarReviewKeyboard]::GetAnimations()
+        }
         foreach ($theme in $UiReviewAppearanceThemes) {
             Set-SidebarWindowWidth $expandedWidth
             Select-SidebarPage Settings "Window backdrop"
@@ -259,13 +261,15 @@ function Test-ScanPresentation {
                 $cases += @(@(640, 90, "NoAnimation"), @(640, 90, "HighContrast"))
             }
             foreach ($case in $cases) {
-                if ($case[2] -eq "NoAnimation") {
-                    $animations = [SidebarReviewKeyboard]::GetAnimations()
-                    [SidebarReviewKeyboard]::SetAnimations($false)
-                    if ([SidebarReviewKeyboard]::GetAnimations()) { throw "Reduced animation did not activate." }
+                if ($null -ne $animations) {
+                    $animate = $case[2] -ne "NoAnimation"
+                    [SidebarReviewKeyboard]::SetAnimations($animate)
+                    if ([SidebarReviewKeyboard]::GetAnimations() -ne $animate) {
+                        throw "The requested Windows animation preference did not activate."
+                    }
                     Start-Sleep -Seconds 2
                 }
-                elseif ($case[2] -eq "HighContrast") {
+                if ($case[2] -eq "HighContrast") {
                     $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
                     [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
                     if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) {
@@ -297,24 +301,36 @@ function Test-ScanPresentation {
                     [Math]::Abs($idleBounds.Width - $cancelBounds.Width) -gt $scale) {
                     throw "Scan LAN and Cancel scan must share one fixed position and width. Idle=$idleBounds; active=$cancelBounds; theme=$theme; case=$case."
                 }
+                $cancelLabel = $cancel.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                        [System.Windows.Automation.ControlType]::Text))
+                if ($cancelLabel -and -not $cancelLabel.Current.IsOffscreen -and
+                    $cancelLabel.Current.BoundingRectangle.Width -gt 0 -and
+                    $cancelBounds.Width - $cancelLabel.Current.BoundingRectangle.Width -gt 64 * $scale) {
+                    throw "The title-bar action must fit its Stop scan label instead of reserving empty width. Action=$cancelBounds; label=$($cancelLabel.Current.BoundingRectangle); case=$case."
+                }
                 $bar = Find-SidebarElement AutomationId ScanProgressBar
                 $value = $bar.GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern).Current
                 if ($value.Value -ne $case[1] -or $value.Maximum -ne 100) {
                     throw "The native progress indicator must preserve the fixture's exact measured fraction."
                 }
-                $pickerBounds = (Find-SidebarElement AutomationId NetworkPicker).Current.BoundingRectangle
-                $statusBounds = (Find-SidebarElement AutomationId ScanStatusText).Current.BoundingRectangle
+                $menu = Find-SidebarElement AutomationId ScanNetworkMenuButton
+                $statusBounds = (Find-SidebarElement AutomationId ScanProgressText).Current.BoundingRectangle
                 $barBounds = $bar.Current.BoundingRectangle
                 $windowBounds = Get-UiReviewWindowBounds $windowHandle
-                foreach ($bounds in @($pickerBounds, $statusBounds, $barBounds, $cancelBounds)) {
+                foreach ($bounds in @($menu.Current.BoundingRectangle, $statusBounds, $barBounds, $cancelBounds)) {
                     if (-not $root.Current.BoundingRectangle.Contains($bounds)) {
                         throw "Scan context, action and progress must not clip at $($case[0]) DIPs."
                     }
                 }
 
-                if ($statusBounds.Top -lt $pickerBounds.Bottom -or $barBounds.Top -lt $statusBounds.Bottom) {
-                    throw "Scan text and progress must stay together below the network selector."
+                if ($menu.Current.IsEnabled -or -not $cancelBounds.Contains($barBounds) -or
+                    $statusBounds.Top -lt $cancelBounds.Bottom -or
+                    $cancel.Current.HelpText -notlike "Finding devices:*$($case[1])*elapsed*") {
+                    throw "Border progress must surround Stop scan, lock the network menu and keep stage detail in the page and action help. Action=$cancelBounds; border=$barBounds; page=$statusBounds; menu enabled=$($menu.Current.IsEnabled); help=$($cancel.Current.HelpText)."
                 }
+                Test-TitleBarLayout
                 if ($case[0] -ge 640) {
                     $path = Join-Path $ScreenshotDirectory "scan-$theme-$($case[0])-$($case[1])-$($case[2]).png"
                     if ($env:GITHUB_ACTIONS -eq "true") {
@@ -327,40 +343,49 @@ function Test-ScanPresentation {
                         Start-Sleep -Milliseconds 250
                     }
                     Focus-SidebarWindow
+                    (Find-SidebarElement AutomationId TitleBarAppearanceButton).SetFocus()
                     Save-UiReviewWindowScreenshot $windowHandle $path
                     $bitmap = [System.Drawing.Bitmap]::new($path)
                     try {
                         $left = $barBounds.Left - $windowBounds.Left
                         $top = $barBounds.Top - $windowBounds.Top
-                        $filledX = [int]($left + $barBounds.Width * $case[1] / 200)
-                        $emptyX = [int]($left + $barBounds.Width * 0.98)
-                        $thickPixels = 0
-                        for ($y = [int][Math]::Ceiling($top); $y -lt [Math]::Floor($top + $barBounds.Height); $y++) {
-                            $fill = $bitmap.GetPixel($filledX, $y)
-                            $empty = $bitmap.GetPixel($emptyX, $y)
-                            $difference = [Math]::Abs([int]$fill.R - $empty.R) +
-                                [Math]::Abs([int]$fill.G - $empty.G) + [Math]::Abs([int]$fill.B - $empty.B)
-                            if ($difference -gt 40) { $thickPixels++ }
-                        }
-                        if ($thickPixels -lt 7 * $scale) {
-                            throw "The completed segment must actually paint at least 7 of its 8 DIPs, not just occupy a taller container."
-                        }
-                        if ($case[2]) {
-                            Start-Sleep -Milliseconds 650
-                            $staticPath = Join-Path $ScreenshotDirectory "scan-static-$($case[2]).png"
-                            Save-UiReviewWindowScreenshot $windowHandle $staticPath
-                            $static = [System.Drawing.Bitmap]::new($staticPath)
-                            try {
-                                for ($x = [int]($left + 2 * $scale); $x -lt $left + $barBounds.Width - 2 * $scale; $x++) {
-                                    for ($y = [int][Math]::Ceiling($top); $y -lt [Math]::Floor($top + $barBounds.Height); $y++) {
-                                        if ($bitmap.GetPixel($x, $y).ToArgb() -ne $static.GetPixel($x, $y).ToArgb()) {
-                                            throw "Progress must be static with $($case[2]), not just visually dimmed."
-                                        }
-                                    }
-                                }
+                        $points = @(
+                            for ($x = 7; $x -lt $barBounds.Width / $scale - 7; $x++) {
+                                ,@([int]($left + $x * $scale), [int]($top + 2 * $scale))
+                                ,@([int]($left + $x * $scale), [int]($top + $barBounds.Height - 3 * $scale))
                             }
-                            finally { $static.Dispose() }
+                            for ($y = 7; $y -lt $barBounds.Height / $scale - 7; $y++) {
+                                ,@([int]($left + 2 * $scale), [int]($top + $y * $scale))
+                                ,@([int]($left + $barBounds.Width - 3 * $scale), [int]($top + $y * $scale))
+                            }
+                        )
+                        $painted = 0
+                        foreach ($point in $points) {
+                            $pixel = $bitmap.GetPixel($point[0], $point[1])
+                            $insideX = [int][Math]::Max($left + 5 * $scale, [Math]::Min($point[0], $left + $barBounds.Width - 6 * $scale))
+                            $insideY = [int][Math]::Max($top + 5 * $scale, [Math]::Min($point[1], $top + $barBounds.Height - 6 * $scale))
+                            $inside = $bitmap.GetPixel($insideX, $insideY)
+                            $difference = [Math]::Abs([int]$pixel.R - $inside.R) +
+                                [Math]::Abs([int]$pixel.G - $inside.G) + [Math]::Abs([int]$pixel.B - $inside.B)
+                            if ($difference -gt 60) { $painted++ }
                         }
+                        $fraction = $painted / [double]$points.Count
+                        if ($fraction -lt $case[1] / 100.0 - 0.15 -or $fraction -gt $case[1] / 100.0 + 0.30) {
+                            throw "The rendered border must represent $($case[1]) percent plus at most the travelling highlight; measured $fraction."
+                        }
+                        Start-Sleep -Milliseconds 650
+                        $nextPath = Join-Path $ScreenshotDirectory "scan-next-$theme-$($case[0])-$($case[1])-$($case[2]).png"
+                        Save-UiReviewWindowScreenshot $windowHandle $nextPath
+                        $next = [System.Drawing.Bitmap]::new($nextPath)
+                        try {
+                            $changed = @($points | Where-Object {
+                                $bitmap.GetPixel($_[0], $_[1]).ToArgb() -ne $next.GetPixel($_[0], $_[1]).ToArgb()
+                            }).Count
+                            if (($case[2] -and $changed -ne 0) -or (-not $case[2] -and $changed -eq 0)) {
+                                throw "The border highlight must travel normally and remain static with reduced motion/high contrast; changed=$changed."
+                            }
+                        }
+                        finally { $next.Dispose() }
                     }
                     finally { $bitmap.Dispose() }
                     if ($captureTopmost) {
@@ -374,7 +399,8 @@ function Test-ScanPresentation {
                 else {
                     Write-Host "480-DIP scan geometry/value/focus assertions enabled; capture helper requires at least 640 physical pixels."
                 }
-                $cancel.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                $cancel.SetFocus()
+                [SidebarReviewKeyboard]::Tap(0x20)
                 Wait-DeviceScan
                 $restored = Find-SidebarElement AutomationId ScanButton
                 if (-not $restored.Current.HasKeyboardFocus -or
@@ -388,13 +414,9 @@ function Test-ScanPresentation {
                     $highContrast = $null
                     Start-Sleep -Seconds 2
                 }
-                if ($null -ne $animations) {
-                    [SidebarReviewKeyboard]::SetAnimations($animations)
-                    $animations = $null
-                }
             }
         }
-        Write-Host "Single-position action, actual filled thickness, low/90% progress, cancellation/focus and narrow layouts passed in every theme."
+        Write-Host "Title-bar action, rendered low/90% border progress, motion/static borders, cancellation/focus and narrow layouts passed in every theme."
     }
     finally {
         if ($null -ne $highContrast) { [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast) }
@@ -416,7 +438,15 @@ function Assert-ScaledScanAction([System.Windows.Rect] $NormalTextBounds, [int] 
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text))
     $bounds = $scan.Current.BoundingRectangle
     $textBounds = if ($text) { $text.Current.BoundingRectangle } else { [System.Windows.Rect]::Empty }
-    # Windows text scaling need not double UIA line metrics; require growth in both axes, not wrapping alone.
+    if ($Width -le 640) {
+        if ($scan.Current.Name -ne 'Scan LAN' -or -not $scan.Current.IsEnabled -or
+            -not $root.Current.BoundingRectangle.Contains($bounds) -or
+            [string]::IsNullOrWhiteSpace($scan.Current.HelpText) -or
+            ($text -and -not $text.Current.IsOffscreen -and $textBounds.Width -gt 0)) {
+            throw 'The compact scaled title-bar action must retain its full accessible name/help without a clipped label.'
+        }
+        return
+    }
     if ($scan.Current.Name -ne 'Scan LAN' -or -not $scan.Current.IsEnabled -or
         -not $root.Current.BoundingRectangle.Contains($bounds) -or
         -not $text -or $text.Current.IsOffscreen -or $text.Current.Name -ne 'Scan LAN' -or
@@ -435,7 +465,6 @@ function Test-ScanTextScaling {
     }
     Set-SidebarWindowWidth $expandedWidth
     Select-SidebarPage Overview "Online devices"
-    Set-SidebarWindowWidth 640
     $normalScan = Find-SidebarElement AutomationId ScanButton
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
@@ -456,7 +485,7 @@ function Test-ScanTextScaling {
         }
         Start-SidebarApp
         Wait-DeviceScan
-        foreach ($width in @(640, 480)) {
+        foreach ($width in @($expandedWidth, 640, 480)) {
             Set-SidebarWindowWidth $width
             Assert-ScaledScanAction -NormalTextBounds $normalTextBounds -Width $width
             Test-TitleBarLayout

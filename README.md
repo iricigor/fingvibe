@@ -25,11 +25,12 @@ For PR artifacts and build identification, see the [build reference](docs/refere
 
 ## 🖥️ Devices at a glance
 
-<a href="docs/screenshots/manual/devices-readme.png"><img src="docs/screenshots/manual/devices-readme.png" alt="FingVibe Devices with the app-themed title bar and one synthetic loopback device" width="960"></a>
+<a href="docs/screenshots/manual/devices-readme.png"><img src="docs/screenshots/manual/devices-readme.png" alt="FingVibe Devices with nine synthetic devices and Scan LAN in the title bar" width="960"></a>
 
-One synthetic loopback responder after a completed scan. This is a native
-UI-review capture, not a real LAN or real response measurements. The sample subnet differs
-from the safe selected loopback target, so the warning is intentional.
+Nine invented sample devices, with **Scan LAN**, its network menu and the
+network-monitor circle in the title bar. This is a native UI-review capture, not a
+real LAN or real response measurements. The sample subnet differs from the safe
+selected loopback target, so the notice at the bottom is intentional.
 [Capture details](docs/manual/screenshots.md).
 
 ## ✨ Features

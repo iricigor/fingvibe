@@ -262,6 +262,8 @@
                                    TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Grid>
+                    <TextBlock x:Name="ScanProgressText" Visibility="Collapsed" TextWrapping="Wrap"
+                               FontSize="12" AutomationProperties.LiveSetting="Polite" />
                     <Border Padding="0,4,0,0">
                         <StackPanel x:Name="DeviceFilters" Spacing="8"
                               SizeChanged="DeviceFilters_SizeChanged">

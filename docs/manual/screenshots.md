@@ -3,10 +3,10 @@
 The current manual uses real native Windows captures from disposable GitHub
 Actions runners. They show controlled review data, not a user's LAN, real
 equipment availability or internet speed measurements.
-The README Devices image was refreshed from the latest title-bar review so it
-shows the current app-themed header, appearance shortcut and custom caption
-controls. The broader Devices showcase remains the documentation image used in
-the manual.
+The README Devices image is a fresh documentation-showcase capture of the
+title-bar scan action: nine synthetic devices with Scan LAN, its network menu
+and the monitor circle in the title bar. The manual's Devices image remains the
+earlier showcase capture.
 The retained November 20 captures predate the shared fixed headers, quiet Back
 controls, current Device Details tabs, shaded section headings and sidebar mode
 shortcut delivered on November 22. They still illustrate the recorded data and
@@ -20,15 +20,19 @@ capture set below remains on the v1.4.223 baseline.
 
 ### README title-bar capture
 
-[Actions run 45125254320, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/45125254320)
-captured `devices-readme.png` on **2026-11-23** from
-[`37f8d0857139d76de4a9bdbd0e3fb58d77381cbb`](https://github.com/iricigor/fingvibe/commit/37f8d0857139d76de4a9bdbd0e3fb58d77381cbb),
-the merged custom-title-bar implementation. The passing UI review captured the
-complete **1280 x 800** native window as `fingvibe-ui-review.png`; the PNG is
-copied unchanged. It shows Standard Dark with one synthetic loopback responder,
-the PR `TEST BUILD` identity and amber ribbon, runner hostname, and current
-window controls. It remains review evidence, not a real LAN or an official
-release screenshot.
+[Actions run 45718090696, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/45718090696)
+captured `devices-readme.png` on **2026-11-25** from
+[`349eec07a02b03d10d583a3986f7948f655bf102`](https://github.com/iricigor/fingvibe/commit/349eec07a02b03d10d583a3986f7948f655bf102),
+the title-bar scan-action change in #744. The **Pull request build** workflow's
+manual documentation showcase ran on that branch; its capture step passed in
+**13.1 seconds** after native readiness and content assertions. The
+`documentation-devices.png` image from artifact
+`fingvibe-ui-review-pr-1263-attempt-1` (a manual run number, not a pull request)
+is copied unchanged. The complete **1600 x 900** native window shows Standard
+Dark with nine synthetic devices, expanded filters, the intentional
+different-target notice, and Scan LAN, its network menu and the monitor circle in
+the title bar. The **v0.0.1263 TEST** identity and amber ribbon remain visible.
+It is review evidence, not a real LAN or an official release screenshot.
 
 [Actions run 44808427805, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/44808427805)
 captured the images on **2026-11-20**.
@@ -179,7 +183,7 @@ and is not presented as the current page layout or discovered physical topology.
 
 | Gap | Boundary |
 | --- | --- |
-| Current README title bar | Covered by the November 23 native UI-review capture above. |
+| Current README title bar | Covered by the November 25 documentation showcase capture above. |
 | Current manual headers, tabs, section headings and sidebar shortcut | Prose follows November 22 source; the retained manual images need replacement native captures from disposable Windows CI before claiming current visual coverage. |
 | Windows discovery toast and in-app popup | Text explains delivered behavior; no new state-specific notification capture is claimed. |
 | Complete current diagnostics diagram | The available new view clips public providers; retain the clearly historical complete diagram rather than imply completeness. |

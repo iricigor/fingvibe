@@ -15,6 +15,14 @@ public sealed partial class OverviewPageView : UserControl
     public event RoutedEventHandler? OpenPortDevicesRequested;
     public event RoutedEventHandler? AboutRequested;
 
+    internal void ShowScanProgress(string? progress, string? detail)
+    {
+        ScanProgressText.Text = progress ?? string.Empty;
+        ScanProgressText.Visibility = progress is null ? Visibility.Collapsed : Visibility.Visible;
+        ToolTipService.SetToolTip(ScanProgressText, detail);
+        AutomationProperties.SetHelpText(ScanProgressText, detail ?? string.Empty);
+    }
+
     internal void ShowBuild(string summary)
     {
         OverviewVersionText.Text = summary;

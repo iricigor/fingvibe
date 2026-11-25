@@ -1,0 +1,23 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 743,
+  "category": "validation",
+  "changedBehavior": "Global LAN scanning moves to the custom title bar with a network/freshness menu, determinate rounded-border progress, a reduced-motion-aware travelling highlight and conditional scan notices.",
+  "selectors": [
+    "core-tests",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "documentation-tests",
+    "documentation-publish",
+    "pr-validation",
+    "native-validation",
+    "native-pr-matrix"
+  ],
+  "expectedAssertions": [
+    "Every page retains title-bar scan/cancel and network-health actions without the former shared scan header.",
+    "The keyboard-accessible network menu retains target selection and freshness and is disabled during manual and scheduled scans.",
+    "Rendered low and high border progress retain the measured phase fraction, while the independent highlight travels normally and stays static under reduced motion/high contrast.",
+    "Narrow windows and enlarged text preserve accessible names, action hit targets, drag space and caption/Snap behavior.",
+    "Completion, cancellation, failure, busy measurement and different-network notices preserve page context, independent errors and keyboard focus."
+  ]
+}

@@ -16,7 +16,8 @@ Current ownership boundaries:
 - `PeriodicScanScheduler` owns recurring-scan timing, retry backoff, and missed-interval handling.
 - `PeriodicScanController` owns the scheduled-scan lifecycle: loading readiness, enable/interval changes, sleep pause/resume, and shutdown on close.
 - `PeriodicScanPresentation` owns scheduled-scan status, header-summary, and deferred-discovery text; `MainWindow.PeriodicScans.cs` wires it to Settings, saved preferences, and Windows power events.
-- `MainWindow.ScanPresentation.cs` owns responsive shared network-header layout and the scan-progress pulse.
+- `MainWindow.ScanPresentation.cs` owns responsive title-bar scan-action layout and determinate/animated scan-border presentation.
+- `ScanBorderProgressBar` owns the rounded-border rendering and native determinate progress automation peer; the shell supplies scan counters and activity timing.
 - `MainWindow.Results.cs` owns result collection, filtering, sorting, comparer state, and result summaries.
 - `Views/DeviceLastSeenAgeRefresh.cs` owns the Devices page's presentation-only minute refresh of Last seen ages while that page is shown.
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
@@ -30,7 +31,7 @@ Current ownership boundaries:
 - `RoomMapLayout` owns network-scoped room/device projection and pure deterministic geometry. `Views/RoomMapPageView` owns native rendering, focusability, scrolling and map-local presentation; `MainWindow.RoomMap.cs` supplies selected-network/inventory context and route orchestration. Keep connection routing and origin-aware details return in the separate follow-on task rather than folding them into the read-only map.
 - `Views/PeopleRoomsDialogs` owns People/Rooms add/edit, delete-confirmation and device-choice UI for all entry points. The shell supplies the window's `XamlRoot`, current records and a save callback; dialogs keep failed saves open and return a saved record only after success. Stores, serialized/revision-checked writes, navigation and cross-page refreshes remain outside the views.
 - `Views/*PageView.xaml(.cs)` owns each page's visual tree, child controls, local layout, and UI request events. Child controls stay private; the shell supplies display data and handles requests through focused page APIs.
-- `MainWindow.xaml` owns navigation, the shared scan header and independent build-ribbon overlay, and composes the page controls. `Tools/ToolsPage.xaml(.cs)` continues to own Tools navigation and lifecycle forwarding.
+- `MainWindow.xaml` owns navigation, title-bar scan controls, global scan notices and the independent build-ribbon overlay, and composes the page controls. `Tools/ToolsPage.xaml(.cs)` continues to own Tools navigation and lifecycle forwarding.
 - `Tools/ServiceStatusPage.xaml(.cs)` renders the Service status page, entered from Network health. Core `Networking/ServiceStatus*.cs` owns the approved provider catalog, report states and presentation rules, and the `IServiceStatusSource` contract; supported-feed retrieval, parsing and caching implement that contract without changing the view. Without a source the page reports nothing and sends no requests; UI review uses the synthetic `ControlledServiceStatusSource`.
 - `LanScannerService` owns scan orchestration and probe lifecycle. `IScanResultEnricher` and `ScanResultEnricher` own device name, vendor, MAC, and port enrichment.
 

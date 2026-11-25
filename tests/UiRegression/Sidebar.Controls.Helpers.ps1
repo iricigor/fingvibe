@@ -138,6 +138,8 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
     $ownerId = if ($Property -eq 'AutomationId' -and $Value -eq 'ResultsList') {
         $pageMarkerId = 'DevicesHeading'
         'TableViewport'
+    } elseif ($Property -eq 'AutomationId' -and $Value -eq 'NetworkMonitorIndicator') {
+        $null
     } elseif ($Property -eq 'AutomationId' -and
         $Value -match '^(ResultSearchBox|ResultCountText|LastScanText|FilterExpander)$') {
         $pageMarkerId = 'DevicesHeading'
@@ -211,37 +213,47 @@ function Select-SidebarPage([string] $Name, [string] $Sentinel) {
 }
 
 function Assert-SharedNetworkHeader {
-    $elements = @("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText") |
-        ForEach-Object { Find-SidebarElement AutomationId $_ }
-    $bounds = @($elements | ForEach-Object { $_.Current.BoundingRectangle })
-    for ($index = 1; $index -lt 2; $index++) {
-        $previousCenter = $bounds[$index - 1].Top + $bounds[$index - 1].Height / 2
-        $center = $bounds[$index].Top + $bounds[$index].Height / 2
-        if ([Math]::Abs($center - $previousCenter) -gt 3 * $scale) {
-            throw "Shared network header elements must be vertically centered on one row."
-        }
-        if ($bounds[$index].Left -lt $bounds[$index - 1].Right) {
-            throw "Shared network header elements overlap."
-        }
-    }
-    if ([string]::IsNullOrWhiteSpace($elements[2].Current.Name)) {
-        throw "Shared network freshness must not disappear on any page."
-    }
-    # Native ComboBox automation includes a four-DIP outer focus margin.
-    if ($bounds[2].Top -lt $bounds[1].Bottom -or
-        [Math]::Abs($bounds[2].Left - $bounds[1].Left) -gt 5 * $scale) {
-        Save-SidebarAppearance "header-layout-failure"
-        throw "Secondary freshness must sit immediately below the network selector. Picker=$($bounds[1]); freshness=$($bounds[2])."
-    }
+    Test-TitleBarLayout
     $scan = Find-SidebarElement AutomationId ScanButton
     $scanBounds = $scan.Current.BoundingRectangle
     if ($scan.Current.Name -ne "Scan LAN" -or -not $scan.Current.IsEnabled -or
         -not $scan.Current.IsKeyboardFocusable -or
         -not $root.Current.BoundingRectangle.Contains($scanBounds) -or
-        $scanBounds.Left -lt $bounds[1].Right -or
         (Find-SidebarElement AutomationId CancelButton -Optional)) {
-        throw "Every page must share one accessible, usable Scan LAN action beside the network selector."
+        throw "Every page must share one accessible, usable title-bar Scan LAN action."
     }
+    $context = Get-SidebarScanNetwork
+    if ([string]::IsNullOrWhiteSpace($context.Freshness)) { throw 'Scan freshness must remain available in the network menu.' }
+}
+
+function Get-SidebarScanNetwork {
+    $menu = Find-SidebarElement AutomationId ScanNetworkMenuButton
+    $menu.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x20)
+    try {
+        $picker = Find-SidebarElement AutomationId NetworkPicker
+        $freshness = Find-SidebarElement AutomationId ScanFreshnessText
+        $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+        $settled = {
+            $pickerBounds = $picker.Current.BoundingRectangle
+            $freshnessBounds = $freshness.Current.BoundingRectangle
+            $window = $root.Current.BoundingRectangle
+            $freshnessBounds.Top -ge $pickerBounds.Bottom -and
+                $window.Contains($pickerBounds) -and $window.Contains($freshnessBounds)
+        }
+        # The flyout's entrance transition moves its content, so assert geometry only after it settles.
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        while (-not (& $settled) -and $clock.ElapsedMilliseconds -lt 3000) { Start-Sleep -Milliseconds 50 }
+        if (-not (& $settled)) {
+            Save-SidebarAppearance "header-layout-failure"
+            throw 'The scan menu must contain a readable network picker with freshness beneath it.'
+        }
+        return [pscustomobject]@{
+            Network = if ($selection.Count) { $selection[0].Current.Name } else { $null }
+            Freshness = $freshness.Current.Name
+        }
+    }
+    finally { [SidebarReviewKeyboard]::Tap(0x1B) }
 }
 
 function Set-SidebarAppearance([string] $Picker, [string] $Choice) {

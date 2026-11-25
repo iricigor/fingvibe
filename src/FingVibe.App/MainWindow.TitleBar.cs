@@ -89,14 +89,16 @@ public sealed partial class MainWindow
 
     private void UpdateTitleBarLayout()
     {
+        UpdateScanActionLayout();
         if (_titleBarClosed || AppTitleBar.XamlRoot is not { } root || _titleBarPointerSource is not { } source)
         {
             return;
         }
 
         var scale = root.RasterizationScale;
-        var regions = new[] { TitleBarAppearanceButton, TitleBarMinimizeButton, TitleBarMaximizeButton, TitleBarCloseButton }
-            .Select(button => GetTitleBarRegion(button, scale)).ToArray();
+        var regions = new FrameworkElement[] { TitleBarAppearanceButton, TitleBarMinimizeButton,
+            TitleBarMaximizeButton, TitleBarCloseButton, ScanActions, NetworkMonitorIndicator }
+            .Select(element => GetTitleBarRegion(element, scale)).ToArray();
         if (regions.Any(region => region.Width <= 0 || region.Height <= 0))
         {
             return;

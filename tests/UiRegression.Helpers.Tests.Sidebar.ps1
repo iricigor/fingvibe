@@ -134,6 +134,7 @@ foreach ($case in @('completed', 'cancelled', 'hidden', 'missing', 'name')) {
         $scan | Add-Member ScriptMethod SetFocus {}
         $cancelControl = [pscustomobject]@{ Current = [pscustomobject]@{ IsEnabled = $true; HasKeyboardFocus = $true } }
         function Focus-SidebarWindow {}
+        function Get-SidebarScanNetwork { return [pscustomobject]@{ Network = 'Review LAN' } }
         function Wait-UiRegressionState {
             param($Condition, $Description)
             $result = & $Condition
@@ -149,7 +150,7 @@ foreach ($case in @('completed', 'cancelled', 'hidden', 'missing', 'name')) {
             param($Property, $Value, [switch] $Optional)
             $scanning = [SidebarReviewKeyboard]::Taps -gt 0 -and -not $state.Finished
             switch ($Value) {
-                NetworkPicker { $picker.Current.IsEnabled = -not $scanning; return $picker }
+                ScanNetworkMenuButton { $picker.Current.IsEnabled = -not $scanning; return $picker }
                 ScanButton { if (-not $scanning) { return $scan }; return $null }
                 CancelButton { if ($scanning) { return $cancelControl }; return $null }
                 ScanProgressBar { return [pscustomobject]@{} }
@@ -200,7 +201,7 @@ foreach ($initialWidth in @(480, 640)) {
             $state.OverviewSelected = $true
         }
         function Find-SidebarElement($Property, $Value) {
-            Assert-Regression ($state.OverviewSelected -and $state.Width -eq 640) 'The unscaled scan baseline must still be measured at 640 DIPs.'
+            Assert-Regression ($state.OverviewSelected -and $state.Width -eq $expandedWidth) 'The unscaled scan baseline must measure the full label at expanded width.'
             Assert-Regression ($Property -eq 'AutomationId' -and $Value -eq 'ScanButton') 'Text-scale setup must measure the shared scan action.'
             $state.BaselineMeasured = $true
             throw 'Text-scale baseline reached without desktop automation.'
@@ -209,7 +210,7 @@ foreach ($initialWidth in @(480, 640)) {
         try {
             $env:GITHUB_ACTIONS = 'true'
             Assert-RegressionFailure { Test-ScanTextScaling } 'Text-scale baseline reached without desktop automation.'
-            Assert-Regression $state.BaselineMeasured 'Text-scale setup did not reach its narrow baseline.'
+            Assert-Regression $state.BaselineMeasured 'Text-scale setup did not reach its expanded baseline.'
         }
         finally { $env:GITHUB_ACTIONS = $previousActions }
     }
@@ -239,12 +240,38 @@ foreach ($case in @('scaled', 'unscaled', 'wrapped', 'clipped', 'missing', 'disa
         function Save-SidebarAppearance($Name) { $state.Captured = $true }
         $state = @{ Captured = $false }
         if ($case -eq 'scaled') {
-            Assert-ScaledScanAction -NormalTextBounds ([System.Windows.Rect]::new(0, 0, 55, 19)) -Width 640
+            Assert-ScaledScanAction -NormalTextBounds ([System.Windows.Rect]::new(0, 0, 55, 19)) -Width 1280
             Assert-Regression (-not $state.Captured) 'Correctly scaled text must not produce failure evidence.'
         }
         else {
-            Assert-RegressionFailure { Assert-ScaledScanAction -NormalTextBounds ([System.Windows.Rect]::new(0, 0, 55, 19)) -Width 640 } '*label must grow without clipping*'
+            Assert-RegressionFailure { Assert-ScaledScanAction -NormalTextBounds ([System.Windows.Rect]::new(0, 0, 55, 19)) -Width 1280 } '*label must grow without clipping*'
             Assert-Regression $state.Captured 'Scale failures must capture evidence before settings restoration.'
+        }
+    }
+}
+foreach ($case in @('compact', 'name', 'help', 'clipped', 'visible-label')) {
+    & {
+        . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
+        $root = [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = [Windows.Rect]::new(0, 0, 480, 720) } }
+        $scan = [pscustomobject]@{ Current = [pscustomobject]@{
+            Name = $(if ($case -eq 'name') { '' } else { 'Scan LAN' })
+            HelpText = $(if ($case -eq 'help') { '' } else { 'Ready for your first scan' })
+            IsEnabled = $true
+            BoundingRectangle = $(if ($case -eq 'clipped') { [Windows.Rect]::new(470, 4, 40, 32) } else { [Windows.Rect]::new(200, 4, 40, 32) })
+        } }
+        $text = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $case -ne 'visible-label'
+            BoundingRectangle = [Windows.Rect]::new(210, 8, 20, 20)
+        } }
+        $scan | Add-Member ScriptMethod FindFirst { param($Scope, $Condition) return $text }
+        function Find-SidebarElement($Property, $Value) { return $scan }
+        if ($case -eq 'compact') {
+            Assert-ScaledScanAction -NormalTextBounds ([Windows.Rect]::new(0, 0, 55, 19)) -Width 480
+        }
+        else {
+            Assert-RegressionFailure {
+                Assert-ScaledScanAction -NormalTextBounds ([Windows.Rect]::new(0, 0, 55, 19)) -Width 480
+            } '*compact scaled title-bar action*'
         }
     }
 }

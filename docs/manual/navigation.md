@@ -1,9 +1,9 @@
 # Find your way around
 
-The left menu switches pages. The **Network:** picker and scan status are shared
-across pages. Changing pages does not automatically start another scan.
-Page icons, titles and Back actions stay fixed below that shared header while
-the page body scrolls.
+The left menu switches pages. **Scan LAN** and the network-status circle are in
+the title bar on every page. The arrow beside Scan LAN opens the network picker
+and scan freshness/scheduling information. Changing pages does not start a scan.
+Page icons, titles and Back actions stay fixed while the page body scrolls.
 
 | Page | What it is for |
 | --- | --- |

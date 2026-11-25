@@ -689,7 +689,7 @@ try {
     $fixture.DnsMode = 0
     Invoke-ServiceControl "Scan additional ports"
     Select-ServicePage Overview
-    Wait-ServiceState { (Find-ServiceControl NetworkPicker).Current.IsEnabled } "navigation cancellation cleanup"
+    Wait-ServiceState { (Find-ServiceControl ScanButton).Current.IsEnabled } "navigation cancellation cleanup"
     Open-ServiceDetails
     $udp = (Find-ServiceControl DeviceIncludeUdpCheckBox).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "Returning to details must reset opt-in UDP." }

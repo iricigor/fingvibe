@@ -784,6 +784,12 @@
             },
             {
               "assertions": [],
+              "name": "Get-SidebarScanNetwork",
+              "refactored": true,
+              "introducedBy": "#743: explicitly open the title-bar scan menu with the keyboard, verify readable target/freshness geometry, capture its selection and close it."
+            },
+            {
+              "assertions": [],
               "name": "Set-SidebarAppearance",
               "refactored": true,
               "baselineSha256": "d727e045926246e6b8e490b6f261fc4bc17b74cbe4fb573d48e34b38fd0aa786"
@@ -1168,6 +1174,12 @@
               "name": "Wait-SidebarText",
               "refactored": true,
               "baselineSha256": "7ea2e0a8cefd6f7bef91349a888fa4f5a6d37aad956fbb5b8a5ef4f099dc2524"
+            },
+            {
+              "assertions": [],
+              "name": "Wait-SidebarScanProgress",
+              "refactored": true,
+              "introducedBy": "#743: await scheduled stage information on the globally accessible cancellation action after moving progress out of the removed header."
             },
             {
               "assertions": [],

@@ -70,6 +70,20 @@ function Test-TitleBarLayout {
     $maximize = (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.BoundingRectangle
     $close = (Find-SidebarElement AutomationId TitleBarCloseButton).Current.BoundingRectangle
     $navigationTop = (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle.Top
+    $scan = Find-SidebarElement AutomationId ScanButton -Optional
+    if (-not $scan) { $scan = Find-SidebarElement AutomationId CancelButton }
+    $monitor = (Find-SidebarElement AutomationId NetworkMonitorIndicator).Current.BoundingRectangle
+    $scanBounds = $scan.Current.BoundingRectangle
+    $menu = (Find-SidebarElement AutomationId ScanNetworkMenuButton).Current.BoundingRectangle
+    foreach ($bounds in @($monitor, $scanBounds, $menu)) {
+        if (-not $windowBounds.Contains($bounds) -or $bounds.Bottom -gt $navigationTop -or
+            $bounds.Left -lt $buildBounds.Right -or $bounds.Right -gt $buttonBounds.Left) {
+            throw 'Network status, scan action and its menu must fit in the title bar before appearance and caption controls.'
+        }
+    }
+    if ($monitor.Right -gt $scanBounds.Left -or $scanBounds.Right -gt $menu.Left) {
+        throw 'Title-bar scan controls must not overlap.'
+    }
     $previous = $buttonBounds
     foreach ($id in @('TitleBarMinimizeButton', 'TitleBarMaximizeButton', 'TitleBarCloseButton')) {
         $caption = Find-SidebarElement AutomationId $id
@@ -84,6 +98,9 @@ function Test-TitleBarLayout {
     foreach ($target in @(
         @{ X = [int]($nameBounds.Left + $nameBounds.Width / 2); Expected = 2; Name = 'drag area' },
         @{ X = [int]($buttonBounds.Left + $buttonBounds.Width / 2); Expected = 1; Name = 'appearance button' },
+        @{ X = [int]($monitor.Left + $monitor.Width / 2); Expected = 1; Name = 'network status' },
+        @{ X = [int]($scanBounds.Left + $scanBounds.Width / 2); Expected = 1; Name = 'scan action' },
+        @{ X = [int]($menu.Left + $menu.Width / 2); Expected = 1; Name = 'network menu' },
         @{ X = [int]($close.Left + $close.Width / 2); Expected = 1; Name = 'custom Close' },
         @{ X = [int]($maximize.Left + $maximize.Width / 2); Expected = 9; Name = 'Maximize/Restore Snap region' },
         @{ X = [int]($minimize.Left + $minimize.Width / 2); Expected = 1; Name = 'custom Minimize' }
@@ -190,7 +207,6 @@ function Test-TitleBarInteractions {
 function Test-SidebarContentInset([string] $Page) {
     $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
     $edge = $grip.Left + $grip.Width / 2
-    $header = (Find-SidebarElement AutomationId DetectedNetworkLabel).Current.BoundingRectangle
     $condition = [System.Windows.Automation.AndCondition]::new(
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::NameProperty, $Page),
@@ -202,7 +218,7 @@ function Test-SidebarContentInset([string] $Page) {
     if ($heading.Count -ne 1) { throw "Expected one visible content heading for '$Page'; got $($heading.Count)." }
     # Every main page's shared header (#657) places a 48-DIP icon and 12-DIP gap before the title; the row still starts at 12.
     $headingInset = 12 + 48 + 12
-    foreach ($check in @(@{ Bounds = $header; Inset = 12 }, @{ Bounds = $heading[0].Current.BoundingRectangle; Inset = $headingInset })) {
+    foreach ($check in @(@{ Bounds = $heading[0].Current.BoundingRectangle; Inset = $headingInset })) {
         $bounds = $check.Bounds
         $inset = ($bounds.Left - $edge) / $scale
         if ([Math]::Abs($inset - $check.Inset) -gt 2) {
