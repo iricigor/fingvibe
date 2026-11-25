@@ -879,9 +879,9 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
         $button.Current.HasKeyboardFocus
     }
     # The picker's outer focus rectangle overlaps the touching preview header.
-    $save = Find-PeopleRoomsElement Name Save PeopleRoomsDialog
+    $footer = Find-PeopleRoomsElement Name Cancel PeopleRoomsDialog
     $null = Wait-UiRegressionState -Description 'preview capture focus moves to dialog footer' -Condition {
-        $save.Current.HasKeyboardFocus
+        $footer.Current.HasKeyboardFocus
     }
     $preview = Find-SidebarElement AutomationId PersonDevicesPreview
     if ($preview.Current.Name -notlike '*Manager, Woman 2*' -or
