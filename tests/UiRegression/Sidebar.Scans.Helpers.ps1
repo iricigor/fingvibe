@@ -301,6 +301,15 @@ function Test-ScanPresentation {
                     [Math]::Abs($idleBounds.Width - $cancelBounds.Width) -gt $scale) {
                     throw "Scan LAN and Cancel scan must share one fixed position and width. Idle=$idleBounds; active=$cancelBounds; theme=$theme; case=$case."
                 }
+                $cancelLabel = $cancel.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                        [System.Windows.Automation.ControlType]::Text))
+                if ($cancelLabel -and -not $cancelLabel.Current.IsOffscreen -and
+                    $cancelLabel.Current.BoundingRectangle.Width -gt 0 -and
+                    $cancelBounds.Width - $cancelLabel.Current.BoundingRectangle.Width -gt 64 * $scale) {
+                    throw "The title-bar action must fit its Stop scan label instead of reserving empty width. Action=$cancelBounds; label=$($cancelLabel.Current.BoundingRectangle); case=$case."
+                }
                 $bar = Find-SidebarElement AutomationId ScanProgressBar
                 $value = $bar.GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern).Current
                 if ($value.Value -ne $case[1] -or $value.Maximum -ne 100) {

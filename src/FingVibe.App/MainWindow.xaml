@@ -19,10 +19,6 @@
             <Grid.Resources>
                 <SolidColorBrush x:Key="TitleBarForegroundBrush" Color="{ThemeResource TextFillColorPrimary}" />
                 <SolidColorBrush x:Key="TitleBarSecondaryBrush" Color="{ThemeResource TextFillColorSecondary}" />
-                <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
-                <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
-                <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
-                <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
                 <Style x:Key="TitleBarCaptionButtonStyle" TargetType="Button">
                     <Setter Property="Width" Value="46" />
                     <Setter Property="MinHeight" Value="40" />
@@ -80,18 +76,30 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Grid>
+                        <StackPanel x:Name="ScanActionSizer" Orientation="Horizontal" Spacing="8" Padding="11,0,10,0"
+                                    Opacity="0" IsHitTestVisible="False">
+                            <FontIcon Glyph="&#xE71A;" FontSize="16" IsTextScaleFactorEnabled="False"
+                                      AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Text="Stop scan · 00:00" AutomationProperties.AccessibilityView="Raw" />
+                        </StackPanel>
                         <Button x:Name="ScanButton" IsEnabled="False" Click="ScanButton_Click"
-                                AutomationProperties.Name="Scan LAN" Style="{ThemeResource AccentButtonStyle}"
-                                Padding="10,4" MinHeight="32" CornerRadius="4,0,0,4" HorizontalAlignment="Stretch">
+                                AutomationProperties.Name="Scan LAN" Padding="10,0" MinHeight="28"
+                                CornerRadius="4,0,0,4" BorderThickness="1,1,0,1" HorizontalAlignment="Stretch">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE895;" FontSize="16" IsTextScaleFactorEnabled="False"
-                                          AutomationProperties.AccessibilityView="Raw" />
+                                <Grid>
+                                    <FontIcon x:Name="ScanButtonIcon" Glyph="&#xE895;" FontSize="16"
+                                              IsTextScaleFactorEnabled="False" AutomationProperties.AccessibilityView="Raw" />
+                                    <FontIcon x:Name="ScanButtonAccentIcon" Glyph="&#xE895;" FontSize="16"
+                                              IsTextScaleFactorEnabled="False" Visibility="Collapsed"
+                                              Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                              AutomationProperties.AccessibilityView="Raw" />
+                                </Grid>
                                 <TextBlock x:Name="ScanButtonLabel" Text="Scan LAN" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <Button x:Name="CancelButton" Click="CancelButton_Click" Visibility="Collapsed" IsEnabled="False"
-                                AutomationProperties.Name="Cancel scan" Padding="10,4" MinHeight="32"
-                                CornerRadius="4,0,0,4" HorizontalAlignment="Stretch">
+                                AutomationProperties.Name="Cancel scan" Padding="10,0" MinHeight="28"
+                                CornerRadius="4,0,0,4" BorderThickness="1,1,0,1" HorizontalAlignment="Stretch">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE71A;" FontSize="16" IsTextScaleFactorEnabled="False"
                                           AutomationProperties.AccessibilityView="Raw" />
@@ -125,7 +133,7 @@
                             </local:ScanBorderProgressBar>
                         </Grid>
                     </Grid>
-                    <Button x:Name="ScanNetworkMenuButton" Grid.Column="1" Padding="6,4" MinWidth="28" MinHeight="32"
+                    <Button x:Name="ScanNetworkMenuButton" Grid.Column="1" Padding="7,0" MinWidth="26" MinHeight="28"
                             CornerRadius="0,4,4,0" AutomationProperties.Name="Scan network and freshness"
                             ToolTipService.ToolTip="Choose scan network and view freshness">
                         <FontIcon Glyph="&#xE70D;" FontSize="10" IsTextScaleFactorEnabled="False" />
@@ -145,7 +153,13 @@
                 </Grid>
             </StackPanel>
             <Grid Grid.Column="2" Margin="0,4,8,4" VerticalAlignment="Center">
-                <Button x:Name="TitleBarAppearanceButton" Width="32" Height="32" Padding="0" CornerRadius="4"
+                <Grid.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
+                </Grid.Resources>
+                <Button x:Name="TitleBarAppearanceButton" Width="28" Height="28" Padding="0" CornerRadius="4"
                         Background="Transparent" Click="TitleBarAppearanceButton_Click"
                         AutomationProperties.AutomationId="TitleBarAppearanceButton"
                         AutomationProperties.Name="Appearance mode: Dark">
@@ -158,6 +172,12 @@
                            AutomationProperties.AccessibilityView="Raw" />
             </Grid>
             <StackPanel Grid.Column="3" Orientation="Horizontal">
+                <StackPanel.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{ThemeResource TextFillColorPrimary}" />
+                    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{ThemeResource TextFillColorPrimary}" />
+                </StackPanel.Resources>
                 <Button x:Name="TitleBarMinimizeButton" Style="{StaticResource TitleBarCaptionButtonStyle}"
                         Click="TitleBarMinimizeButton_Click" AutomationProperties.Name="Minimize"
                         ToolTipService.ToolTip="Minimize">

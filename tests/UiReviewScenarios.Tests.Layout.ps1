@@ -285,14 +285,22 @@
         $scan.ParentNode.LocalName -cne "Grid" -or $cancel.GetAttribute("AutomationProperties.Name") -cne "Cancel scan") {
         throw "Scan LAN and Cancel scan must occupy the same shared-header slot with their existing automation IDs."
     }
-    $scanIcon = $scan.SelectSingleNode(".//*[local-name()='FontIcon']")
+    $scanIcons = @($scan.SelectNodes(".//*[local-name()='FontIcon']"))
     $scanLabel = $scan.SelectSingleNode(".//*[local-name()='TextBlock']")
-    if ($scan.GetAttribute("AutomationProperties.Name") -cne "Scan LAN" -or
-        $scanIcon.GetAttribute("Glyph") -cne [string][char]0xE895 -or
-        $scanIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
-        $scanIcon.HasAttribute("Foreground") -or
-        $scanIcon.NextSibling -ne $scanLabel -or $scanLabel.GetAttribute("Text") -cne "Scan LAN") {
-        throw "Scan LAN must retain its accessible label and preceding decorative, theme-inherited refresh icon."
+    if ($scan.GetAttribute("AutomationProperties.Name") -cne "Scan LAN" -or $scan.HasAttribute("Style") -or
+        $scanIcons.Count -ne 2 -or $scanIcons[0].ParentNode -ne $scanIcons[1].ParentNode -or
+        $scanIcons[0].ParentNode.NextSibling -ne $scanLabel -or $scanLabel.GetAttribute("Text") -cne "Scan LAN" -or
+        @($scanIcons | Where-Object { $_.GetAttribute("Glyph") -cne [string][char]0xE895 -or
+            $_.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" }).Count -ne 0 -or
+        $scanIcons[0].HasAttribute("Foreground") -or
+        $scanIcons[1].GetAttribute("Foreground") -cne "{ThemeResource AccentTextFillColorPrimaryBrush}" -or
+        $scanIcons[1].GetAttribute("Visibility") -cne "Collapsed") {
+        throw "Scan LAN must keep its accessible label on a neutral surface, with decorative refresh icons: accent when enabled and theme-inherited when disabled."
+    }
+    $sizer = $scan.ParentNode.SelectSingleNode("./*[@*[local-name()='Name']='ScanActionSizer']")
+    if (-not $sizer -or $sizer.GetAttribute("Opacity") -cne "0" -or $sizer.GetAttribute("IsHitTestVisible") -cne "False" -or
+        @($sizer.ChildNodes | Where-Object { $_.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" }).Count -ne 0) {
+        throw "The scan-action width sizer must stay invisible, non-interactive and absent from UI Automation."
     }
     $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
     $devicesCode = Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml.cs") -Raw

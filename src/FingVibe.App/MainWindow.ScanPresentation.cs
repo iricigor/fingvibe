@@ -9,11 +9,26 @@ public sealed partial class MainWindow
     private readonly Stopwatch _scanPulseClock = new();
     private bool _scanPulseInitialized;
 
+    private void InitializeScanAction()
+    {
+        ScanButton.IsEnabledChanged += (_, _) => UpdateScanActionIcon();
+        UpdateScanActionIcon();
+    }
+
+    // A fixed accent foreground cannot dim with the disabled label, so disabled actions use the inherited icon.
+    private void UpdateScanActionIcon()
+    {
+        ScanButtonAccentIcon.Visibility = ScanButton.IsEnabled ? Visibility.Visible : Visibility.Collapsed;
+        ScanButtonIcon.Visibility = ScanButton.IsEnabled ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private void UpdateScanActionLayout()
     {
         var compact = RootGrid.ActualWidth < 480 + 280 * _uiSettings.TextScaleFactor;
-        ScanButtonLabel.Visibility = CancelButtonLabel.Visibility = compact ? Visibility.Collapsed : Visibility.Visible;
-        ScanButton.Width = CancelButton.Width = compact ? 40 : 200 * _uiSettings.TextScaleFactor;
+        // Both actions stretch to their shared cell; the invisible sizer reserves the widest Stop scan label,
+        // so the slot keeps one width across states and timer ticks. Compact actions shrink to their icons.
+        ScanButtonLabel.Visibility = CancelButtonLabel.Visibility = ScanActionSizer.Visibility =
+            compact ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void StartScanPulse()
