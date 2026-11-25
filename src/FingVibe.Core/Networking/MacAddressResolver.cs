@@ -17,6 +17,48 @@ public sealed class MacAddressResolver
             return null;
         }
 
+        return ResolveIPv4(address, GetLocalAddresses(), ResolveRemote);
+    }
+
+    internal static PhysicalAddress? ResolveIPv4(
+        IPAddress address,
+        IEnumerable<(IPAddress Address, PhysicalAddress MacAddress)> localAddresses,
+        Func<IPAddress, PhysicalAddress?> resolveRemote)
+    {
+        try
+        {
+            foreach (var local in localAddresses)
+            {
+                if (!local.Address.Equals(address)) continue;
+                if (IsUsableNeighbor(local.MacAddress.GetAddressBytes(), 5))
+                    return local.MacAddress;
+                Debug.WriteLine($"Local adapter for {address} has no usable MAC address; ignoring neighbor data.");
+                return null;
+            }
+        }
+        catch (NetworkInformationException exception)
+        {
+            // Ownership is uncertain, so cached neighbor data cannot safely identify this address.
+            Debug.WriteLine($"Local adapter MAC lookup for {address} failed: {exception.Message}");
+            return null;
+        }
+        return resolveRemote(address);
+    }
+
+    private static IEnumerable<(IPAddress Address, PhysicalAddress MacAddress)> GetLocalAddresses()
+    {
+        foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            foreach (var unicast in adapter.GetIPProperties().UnicastAddresses)
+            {
+                if (unicast.Address.AddressFamily == AddressFamily.InterNetwork)
+                    yield return (unicast.Address, adapter.GetPhysicalAddress());
+            }
+        }
+    }
+
+    private static PhysicalAddress? ResolveRemote(IPAddress address)
+    {
         var destination = BitConverter.ToUInt32(address.GetAddressBytes());
         var routeResult = GetBestInterface(destination, out var interfaceIndex);
         if (routeResult != 0)
