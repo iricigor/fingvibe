@@ -245,10 +245,9 @@ public sealed partial class RoomMapPageView : UserControl
         titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         titleRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var roomIcon = new FontIcon
+        var roomIcon = new RoomIcon
         {
-            Glyph = PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, room.IconId).Glyph,
-            FontFamily = new FontFamily("Segoe Fluent Icons"),
+            IconId = room.IconId,
             FontSize = 16,
             IsHitTestVisible = false
         };

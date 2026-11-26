@@ -59,6 +59,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
+    <Content Include="Assets\Fonts\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
   <Target Name="GenerateLogoDevConfiguration" BeforeTargets="AssignTargetPaths">
     <Exec Command="powershell.exe -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\..\..\tools\New-LogoDevConfiguration.ps1&quot; -OutputPath &quot;$(IntermediateOutputPath)LogoDevPublishableKey.txt&quot;"

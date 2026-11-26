@@ -1,0 +1,30 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 745,
+  "category": "validation",
+  "changedBehavior": "Room editors offer 49 bundled Font Awesome Free solid icons with suggested-room captions, search and categories, preserving legacy IDs and displaying saved artwork consistently across room and Devices surfaces.",
+  "selectors": [
+    "core-tests",
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "documentation-tests",
+    "documentation-publish",
+    "native-pr-matrix",
+    "native-sidebar-scan-flows",
+    "native-devices-columns-sorting",
+    "native-devices-filters-previews",
+    "native-details-summary"
+  ],
+  "expectedAssertions": [
+    "Object names, suggested rooms and aliases combine with category filters without mutating the current selection.",
+    "Keyboard selection and Escape update or retain the choice and restore focus; empty results are explicit.",
+    "Icon suggestions never rename rooms; the preview uses the actual Short name.",
+    "New room icon IDs survive save, reopen and restart; cancellation retains the prior saved choice.",
+    "Original Fluent choices, null and unavailable saved IDs retain their compatibility and preservation behavior.",
+    "Room lists, details, map and separate, combined or room-only Devices cells render saved monochrome artwork using the theme foreground without changing assignment, sorting or row density.",
+    "Light, Dark and narrow enlarged-text high-contrast room pickers remain reachable and named for assistive technology.",
+    "UI review selects room picker, shared preview and all room catalog/renderer/font consumers."
+  ]
+}

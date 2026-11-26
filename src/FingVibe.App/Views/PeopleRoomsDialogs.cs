@@ -85,9 +85,12 @@ internal static class PeopleRoomsDialogs
         };
         var notesBox = CreateNotesBox(existing?.Notes);
         var validation = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        var iconPicker = PeopleRoomsIconPicker.Create(PeopleRoomsIcons.Rooms, existing?.IconId);
+        var iconPicker = new RoomIconPicker();
+        iconPicker.Initialize(existing?.IconId, shortNameBox.Text);
+        shortNameBox.TextChanged += (_, _) => iconPicker.SetShortName(shortNameBox.Text);
         var dialog = CreateEditorDialog(root, existing is null ? "Add room" : "Edit room",
             nameBox, shortNameBox, notesBox, iconPicker, validation);
+        if (root.Content is FrameworkElement owner) dialog.RequestedTheme = owner.ActualTheme;
         ManagedRoom? saved = null;
 
         void Validate()
@@ -113,7 +116,7 @@ internal static class PeopleRoomsDialogs
                 var candidate = new ManagedRoom(
                     existing?.Id ?? Guid.NewGuid(), nameBox.Text.Trim(), shortNameBox.Text.Trim(),
                     string.IsNullOrWhiteSpace(notesBox.Text) ? null : notesBox.Text.Trim(),
-                    iconPicker.SelectedValue as string ?? throw new ArgumentException("Choose a room icon."));
+                    iconPicker.SelectedId);
                 if (await save(candidate))
                 {
                     saved = candidate;

@@ -21,7 +21,7 @@ Editing a suggested short name stops its automatic updates.
 In the person editor, open **Icon** to browse faces and upper-body emoji
 portraits. Search by name or profession, or use **People**, **Hair**,
 **Professions** and **Fantasy**. **Existing icons** keeps the original
-monochrome choices available. Room icons are unchanged.
+monochrome choices available.
 
 **Include variants** starts off and shows one primary choice per portrait type.
 Turn it on for the two predefined light/medium-light tone variants and, where
@@ -39,6 +39,27 @@ beside the icon rather than overlapping letters on the face. Emoji artwork
 depends on the installed Windows font. Newer emoji sequences are offered only
 on compatible Windows versions; a saved newer icon remains retained, with a
 generic display and an explanation in the editor on an older Windows version.
+
+### Choose a room icon
+
+Open **Icon** in the room editor for a searchable, categorized grid of 49
+monochrome **Font Awesome Free** solid icons. Search by object or suggested room,
+such as **Bed**, **master bedroom**, **lounge** or **laundry**. Each new choice
+shows its icon name and a suggested room or area underneath. These suggestions
+never rename or restrict your room; use any icon with your own Full name and
+Short name. The **Devices table** preview uses your actual Short name.
+
+The original eight Fluent choices remain under **Existing icons**, with their
+saved appearance unchanged. Filtering retains your selection; choose an icon
+and save to persist it, or cancel the editor to discard changes. Unavailable
+saved IDs display a generic room icon and remain preserved until explicitly
+replaced. Saved artwork appears in room lists, details, the Room map and Devices.
+Room symbols follow the theme foreground, while people emoji remain colorful.
+
+The bundled, unmodified Font Awesome Free 6.7.2 solid font is by
+[Fonticons, Inc.](https://fontawesome.com/) and uses the SIL Open Font License
+1.1. Its license and attribution ship beside the font in `Assets\Fonts`.
+No Pro icons, double-bed/two-person additions or runtime icon downloads are used.
 
 [![People & rooms page with shared search and short-name badges](../screenshots/manual/people.png)](../screenshots/manual/people.png)
 

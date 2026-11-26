@@ -44,6 +44,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     private Guid? _roomId;
     private string? _roomShortName;
     private string? _roomName;
+    private string? _roomIconId;
     private bool _isAlternateRow;
     private bool _isSelected;
     private bool _isPointerOver;
@@ -743,6 +744,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public Guid? PersonId => _personId;
     public string? PersonIconId => _personIconId;
     public Guid? RoomId => _roomId;
+    public string? RoomIconId => _roomIconId;
     public bool HasPersonAssignment => _personId is not null && !string.IsNullOrWhiteSpace(_personShortName);
     public bool HasRoomAssignment => _roomId is not null && !string.IsNullOrWhiteSpace(_roomShortName);
     public bool HasNoAssignments => !HasPersonAssignment && !HasRoomAssignment;
@@ -907,7 +909,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         Guid? roomId,
         string? roomShortName,
         string? roomName,
-        string? personIconId = null)
+        string? personIconId = null,
+        string? roomIconId = null)
     {
         _personId = personId;
         _personShortName = personShortName;
@@ -916,10 +919,11 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _roomId = roomId;
         _roomShortName = roomShortName;
         _roomName = roomName;
+        _roomIconId = roomId is null ? null : roomIconId;
         foreach (var property in new[]
         {
             nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity), nameof(PersonIconId),
-            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity),
+            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity), nameof(RoomIconId),
             nameof(HasPersonAssignment), nameof(HasRoomAssignment), nameof(HasNoAssignments),
             nameof(PersonAssignmentDescription), nameof(RoomAssignmentDescription)
         })

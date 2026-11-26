@@ -1,0 +1,91 @@
+<UserControl
+    x:Class="FingVibe.App.Views.RoomIconPicker"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App"
+    xmlns:views="using:FingVibe.App.Views"
+    HorizontalContentAlignment="Stretch">
+    <StackPanel>
+        <TextBlock Text="Icon" Margin="0,0,0,8" />
+        <Button x:Name="PickerButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                Padding="12,8" AutomationProperties.AutomationId="RoomIconPicker">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <local:RoomIcon x:Name="SelectedIcon" FontSize="28" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock x:Name="SelectedLabel" TextWrapping="Wrap" />
+                    <TextBlock x:Name="SelectedSuggestion" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Text="Change icon" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <FontIcon Grid.Column="2" Glyph="&#xE70D;" FontSize="12" />
+            </Grid>
+            <Button.Flyout>
+                <Flyout x:Name="IconFlyout" Placement="Full" Opening="IconFlyout_Opening" Closed="IconFlyout_Closed">
+                    <Flyout.FlyoutPresenterStyle>
+                        <Style TargetType="FlyoutPresenter">
+                            <Setter Property="MaxWidth" Value="800" />
+                            <Setter Property="MaxHeight" Value="1200" />
+                        </Style>
+                    </Flyout.FlyoutPresenterStyle>
+                    <ScrollViewer x:Name="PickerViewport" VerticalScrollBarVisibility="Auto"
+                                  AutomationProperties.AutomationId="RoomIconViewport"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <Grid x:Name="PickerPanel" Width="640" RowSpacing="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Choose a room icon" FontSize="20" FontWeight="SemiBold" />
+                            <TextBox x:Name="IconSearch" Grid.Row="1" PlaceholderText="Search icons or room names..."
+                                     AutomationProperties.Name="Search room icons"
+                                     AutomationProperties.AutomationId="RoomIconSearch" TextChanged="IconSearch_TextChanged" />
+                            <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                          HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled">
+                                <StackPanel x:Name="CategoriesPanel" Orientation="Horizontal" Spacing="6" />
+                            </ScrollViewer>
+                            <TextBlock Grid.Row="3" Text="Suggested rooms are examples. Any icon can be used anywhere."
+                                       FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="PickerStatus" Grid.Row="4" FontSize="12" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="RoomIconStatus"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       AutomationProperties.LiveSetting="Polite" />
+                            <GridView x:Name="IconChoices" Grid.Row="5" IsItemClickEnabled="True" SelectionMode="Single"
+                                      ItemClick="IconChoices_ItemClick" KeyDown="IconChoices_KeyDown"
+                                      ContainerContentChanging="IconChoices_ContainerContentChanging"
+                                      AutomationProperties.Name="Room icons" AutomationProperties.AutomationId="RoomIconChoices">
+                                <GridView.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsWrapGrid Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </GridView.ItemsPanel>
+                                <GridView.ItemTemplate>
+                                    <DataTemplate x:DataType="views:RoomIconOption">
+                                        <StackPanel Width="96" MinHeight="86" Padding="4,6" Spacing="2"
+                                                    AutomationProperties.Name="{x:Bind Choice.AccessibleName}">
+                                            <local:RoomIcon IconId="{x:Bind Choice.Id}" FontSize="30" HorizontalAlignment="Center" />
+                                            <TextBlock Text="{x:Bind Choice.Label}" TextWrapping="Wrap" TextAlignment="Center" FontSize="12" />
+                                            <TextBlock Text="{x:Bind Choice.SuggestedRoom}" TextWrapping="Wrap"
+                                                       TextAlignment="Center" FontSize="11" Visibility="{x:Bind SuggestionVisibility}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </GridView.ItemTemplate>
+                            </GridView>
+                        </Grid>
+                    </ScrollViewer>
+                </Flyout>
+            </Button.Flyout>
+        </Button>
+        <views:PersonDevicePreview x:Name="TablePreview" />
+    </StackPanel>
+</UserControl>

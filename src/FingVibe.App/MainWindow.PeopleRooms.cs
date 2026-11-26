@@ -53,6 +53,7 @@ public sealed partial class MainWindow
         Guid? roomId = null;
         string? roomShortName = null;
         string? roomName = null;
+        string? roomIconId = null;
         var assignment = row.VirtualDevice is { } virtualDevice ? virtualDevice.Assignment
             : row.MacAddress is { } macAddress ? CurrentDeviceData.GetAssignment(macAddress.ToString()) : null;
         if (assignment is not null)
@@ -72,10 +73,11 @@ public sealed partial class MainWindow
                 roomId = room.Id;
                 roomShortName = room.ShortName;
                 roomName = room.Name;
+                roomIconId = room.IconId;
             }
         }
 
-        row.SetPeopleRoomAssignments(personId, personShortName, personName, roomId, roomShortName, roomName, personIconId);
+        row.SetPeopleRoomAssignments(personId, personShortName, personName, roomId, roomShortName, roomName, personIconId, roomIconId);
     }
 
     private void UpdatePeopleRoomsPages()

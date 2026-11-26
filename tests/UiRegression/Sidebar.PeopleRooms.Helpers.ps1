@@ -56,7 +56,7 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
 }
 
 function Invoke-PeopleRoomsElement([string] $Property, [string] $Value, [string] $OwnerId) {
-    if ($Property -eq 'AutomationId' -and $Value -eq 'PersonIconPicker') { $OwnerId = 'PeopleRoomsDialog' }
+    if ($Property -eq 'AutomationId' -and $Value -in @('PersonIconPicker', 'RoomIconPicker')) { $OwnerId = 'PeopleRoomsDialog' }
     if (-not $OwnerId -and $Property -eq 'Name' -and $Value -in @('Save', 'Cancel', 'Delete', 'Assign')) {
         $OwnerId = 'PeopleRoomsDialog'
     }
@@ -943,6 +943,54 @@ function Select-PersonEmojiForReview([string] $ExpectedShortName, [string] $Capt
     }
 }
 
+function Select-RoomIconForReview([string] $ExpectedShortName, [string] $CaptureName = 'default') {
+    Invoke-PeopleRoomsElement AutomationId RoomIconPicker
+    $search = Find-SidebarElement AutomationId RoomIconSearch
+    $viewport = Find-SidebarElement AutomationId RoomIconViewport
+    if (-not (Test-UiRegressionElementWithin $search $viewport $root)) {
+        throw 'Room icon search must fit within its scrollable picker and window.'
+    }
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('laundry')
+    $null = Find-SidebarElement Name 'Detergent, suggested room: Laundry room'
+    (Find-SidebarElement AutomationId 'RoomIconCategory-Kitchen').GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    $null = Wait-UiRegressionState -Description 'room category and search combine' -Condition {
+        (Find-SidebarElement AutomationId RoomIconStatus).Current.Name.StartsWith('No matching icons.')
+    }
+    (Find-SidebarElement AutomationId 'RoomIconCategory-All').GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('master bedroom')
+    $option = Find-SidebarElement AutomationId 'RoomIconOption-fa-solid:bed'
+    if ($option.Current.Name -ne 'Bed, suggested room: Master bedroom') {
+        throw 'Room icon option must expose both the icon label and suggested room.'
+    }
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "room-picker-$CaptureName.png")
+    $option.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $option.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x0D)
+    $button = Find-SidebarElement AutomationId RoomIconPicker
+    if ($button.Current.Name -ne 'Room icon: Bed, suggested room: Master bedroom') {
+        throw 'Keyboard room selection must update the compact control.'
+    }
+    $preview = Find-PeopleRoomsElement AutomationId RoomDevicesPreview PeopleRoomsDialog
+    if (-not $preview.Current.Name.EndsWith(", $ExpectedShortName") -or
+        $preview.Current.Name -notlike '*Bed, suggested room: Master bedroom*') {
+        throw 'Room preview must retain the actual Short name, not the suggested room.'
+    }
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "room-editor-$CaptureName.png")
+    Invoke-PeopleRoomsElement AutomationId RoomIconPicker
+    (Find-SidebarElement AutomationId RoomIconSearch).GetCurrentPattern(
+        [System.Windows.Automation.ValuePattern]::Pattern).SetValue('no-such-room-icon')
+    $null = Wait-UiRegressionState -Description 'room choice retained outside empty search' -Condition {
+        (Find-SidebarElement AutomationId RoomIconStatus).Current.Name -like 'No matching icons.*'
+    }
+    [SidebarReviewKeyboard]::Tap(0x1B)
+    $button = Find-SidebarElement AutomationId RoomIconPicker
+    if (-not $button.Current.HasKeyboardFocus -or $button.Current.Name -ne 'Room icon: Bed, suggested room: Master bedroom') {
+        throw 'Escape must return focus without changing the selected room icon.'
+    }
+}
+
 function Test-PersonPortraitAccessibility {
     $mode = Get-SidebarAppearanceSelection ModePicker
     $style = Get-SidebarAppearanceSelection ThemePicker
@@ -961,6 +1009,10 @@ function Test-PersonPortraitAccessibility {
             Set-PeopleRoomsText 'Short name' 'III'
             Select-PersonEmojiForReview 'III' ($theme.Replace(' ', '-').ToLowerInvariant())
             Invoke-PeopleRoomsElement Name Cancel
+            Invoke-PeopleRoomsElement AutomationId AddRoomButton PeopleRoomsPage
+            Set-PeopleRoomsText 'Short name' 'III'
+            Select-RoomIconForReview 'III' ($theme.Replace(' ', '-').ToLowerInvariant())
+            Invoke-PeopleRoomsElement Name Cancel
         }
         Stop-SidebarApp
         $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
@@ -978,6 +1030,10 @@ function Test-PersonPortraitAccessibility {
         Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
         Set-PeopleRoomsText 'Short name' 'III'
         Select-PersonEmojiForReview 'III' 'narrow-text-200-high-contrast'
+        Invoke-PeopleRoomsElement Name Cancel
+        Invoke-PeopleRoomsElement AutomationId AddRoomButton PeopleRoomsPage
+        Set-PeopleRoomsText 'Short name' 'III'
+        Select-RoomIconForReview 'III' 'narrow-text-200-high-contrast'
         Invoke-PeopleRoomsElement Name Cancel
         $failed = $false
     }
@@ -1039,12 +1095,14 @@ function Test-PeopleRoomsFlows {
         Set-PeopleRoomsText 'Short name' $short
         Set-PeopleRoomsText 'Notes (optional)' 'Original notes'
         if ($category -eq 'Person') { Select-PersonEmojiForReview $short }
+        else { Select-RoomIconForReview $short }
         Invoke-PeopleRoomsElement Name Save
         Invoke-PeopleRoomsElement Name "Actions for $name" $pageId
         Invoke-PeopleRoomsElement Name Edit
         if ($category -eq 'Person') {
             $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
         }
+        else { $null = Find-SidebarElement Name 'Room icon: Bed, suggested room: Master bedroom' }
         Set-PeopleRoomsText 'Notes (optional)' 'Saved notes'
         Invoke-PeopleRoomsElement Name Save
         Open-PeopleRoomsDetails $name $pageId
@@ -1078,10 +1136,21 @@ function Test-PeopleRoomsFlows {
             [SidebarReviewKeyboard]::Tap(0x0D)
             $null = Find-SidebarElement Name 'Person icon: Manager, Man 1'
         }
+        else {
+            Invoke-PeopleRoomsElement AutomationId RoomIconPicker
+            (Find-SidebarElement AutomationId RoomIconSearch).GetCurrentPattern(
+                [System.Windows.Automation.ValuePattern]::Pattern).SetValue('laundry')
+            $option = Find-SidebarElement AutomationId 'RoomIconOption-fa-solid:jug-detergent'
+            $option.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            $option.SetFocus()
+            [SidebarReviewKeyboard]::Tap(0x0D)
+            $null = Find-SidebarElement Name 'Room icon: Detergent, suggested room: Laundry room'
+        }
         Invoke-PeopleRoomsElement Name Cancel
         $null = Find-PeopleRoomsElement Name $name $detailId
         Invoke-PeopleRoomsElement AutomationId "Edit${category}DetailButton" $detailId
         if ($category -eq 'Person') { $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2' }
+        else { $null = Find-SidebarElement Name 'Room icon: Bed, suggested room: Master bedroom' }
         Set-PeopleRoomsText 'Full name' "$name edited"
         Invoke-PeopleRoomsElement Name Save
         $null = Find-PeopleRoomsElement Name "$name edited" $detailId
@@ -1155,6 +1224,21 @@ function Test-PeopleRoomsPersistenceErrors {
         Invoke-PeopleRoomsElement Name 'Actions for Retained draft' PeopleRoomsPage
         Invoke-PeopleRoomsElement Name Edit
         $null = Find-SidebarElement Name 'Person icon: Manager, Woman 2'
+        Invoke-PeopleRoomsElement Name Cancel
+        Invoke-PeopleRoomsElement AutomationId AddRoomButton PeopleRoomsPage
+        Set-PeopleRoomsText 'Full name' 'Persisted custom room'
+        Set-PeopleRoomsText 'Short name' 'CR'
+        Select-RoomIconForReview 'CR' 'restart'
+        Invoke-PeopleRoomsElement Name Save
+        Stop-SidebarApp
+        Start-SidebarApp
+        Select-SidebarPage 'People & rooms' 'Search people and rooms'
+        Invoke-PeopleRoomsElement Name 'Actions for Persisted custom room' PeopleRoomsPage
+        Invoke-PeopleRoomsElement Name Edit
+        $null = Find-SidebarElement Name 'Room icon: Bed, suggested room: Master bedroom'
+        $fullName = (Find-PeopleRoomsElement Name 'Full name').GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+        if ($fullName -ne 'Persisted custom room') { throw 'An icon suggestion renamed the room.' }
         Invoke-PeopleRoomsElement Name Cancel
         Stop-SidebarApp
         Set-Content -LiteralPath $database -Value 'not a SQLite database' -Encoding ASCII
