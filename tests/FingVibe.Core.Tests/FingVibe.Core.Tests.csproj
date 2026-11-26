@@ -83,6 +83,7 @@
     <Compile Include="..\..\src\FingVibe.App\LinkedDevicePresentation.cs" Link="LinkedDevicePresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeopleRoomsIcons.cs" Link="PeopleRoomsIcons.cs" />
     <Compile Include="..\..\src\FingVibe.App\PersonEmojiCatalog.cs" Link="PersonEmojiCatalog.cs" />
+    <Compile Include="..\..\src\FingVibe.App\RoomIconCatalog.cs" Link="RoomIconCatalog.cs" />
     <None Include="..\..\src\FingVibe.App\Tools\NetworkHealthPage.xaml"
           Link="NetworkHealthPage.xaml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml"

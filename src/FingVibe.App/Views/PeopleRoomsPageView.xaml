@@ -213,7 +213,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <FontIcon Glyph="{x:Bind IconGlyph}" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                        <local:RoomIcon IconId="{x:Bind Room.IconId}" FontSize="16"
                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                   VerticalAlignment="Center"
                                                   AutomationProperties.AccessibilityView="Raw" />

@@ -5,9 +5,10 @@ namespace FingVibe.App;
 public sealed record PeopleRoomsIconChoice(
     string Id, string Label, string Glyph, string Category = "Existing icons",
     string? Variant = null, bool IsPrimary = true, bool IsEmoji = false, string Keywords = "",
-    int MinimumWindowsBuild = 0)
+    int MinimumWindowsBuild = 0, string? SuggestedRoom = null, bool IsFontAwesome = false)
 {
-    public string AccessibleName => Variant is null ? Label : $"{Label}, {Variant}";
+    public string AccessibleName => SuggestedRoom is not null ? $"{Label}, suggested room: {SuggestedRoom}"
+        : Variant is null ? Label : $"{Label}, {Variant}";
 }
 
 public static class PeopleRoomsIcons
@@ -29,7 +30,20 @@ public static class PeopleRoomsIcons
         new PeopleRoomsIconChoice("office", "Office (briefcase)", "\uE821"),
         new PeopleRoomsIconChoice("garage", "Garage (car)", "\uE804"),
         new PeopleRoomsIconChoice("garden", "Garden (leaf)", "\uE8BE")
-    });
+    }.Concat(RoomIconCatalog.Choices).ToArray());
+
+    public static IReadOnlyList<PeopleRoomsIconChoice> Filter(
+        IEnumerable<PeopleRoomsIconChoice> choices, string? search, string category, bool includeVariants = true)
+    {
+        var terms = (search ?? string.Empty).Split((char[]?)null,
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return choices.Where(choice =>
+            (includeVariants || choice.IsPrimary)
+            && (category == "All" || choice.Category == category)
+            && terms.All(term =>
+                $"{choice.Label} {choice.Variant} {choice.SuggestedRoom} {choice.Category} {choice.Keywords}"
+                    .Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
+    }
 
     public static PeopleRoomsIconChoice Resolve(IReadOnlyList<PeopleRoomsIconChoice> choices, string? id)
     {

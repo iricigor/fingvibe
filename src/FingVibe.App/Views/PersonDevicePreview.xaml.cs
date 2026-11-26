@@ -12,6 +12,7 @@ namespace FingVibe.App.Views;
 public sealed partial class PersonDevicePreview : UserControl
 {
     private readonly UISettings _uiSettings = new();
+    private bool _room;
 
     public PersonDevicePreview()
     {
@@ -30,7 +31,8 @@ public sealed partial class PersonDevicePreview : UserControl
 
     internal void SetIcon(string? id)
     {
-        PreviewIcon.IconId = id;
+        if (_room) PreviewRoomIcon.IconId = id;
+        else PreviewIcon.IconId = id;
         UpdateAccessibleName();
     }
 
@@ -40,8 +42,19 @@ public sealed partial class PersonDevicePreview : UserControl
         UpdateAccessibleName();
     }
 
+    internal void UseRoom()
+    {
+        _room = true;
+        PreviewHeading.Text = "Room";
+        PreviewIcon.Visibility = Visibility.Collapsed;
+        PreviewRoomIcon.Visibility = Visibility.Visible;
+        AutomationProperties.SetAutomationId(this, "RoomDevicesPreview");
+        UpdateAccessibleName();
+    }
+
     private void UpdateAccessibleName() => AutomationProperties.SetName(this,
-        $"Devices table preview: {PeopleRoomsIcons.Resolve(PeopleRoomsIcons.People, PreviewIcon.IconId).AccessibleName}, {PreviewShortName.Text}");
+        $"Devices table preview: {PeopleRoomsIcons.Resolve(_room ? PeopleRoomsIcons.Rooms : PeopleRoomsIcons.People,
+            _room ? PreviewRoomIcon.IconId : PreviewIcon.IconId).AccessibleName}, {PreviewShortName.Text}");
 
     private void Viewport_SizeChanged(object sender, SizeChangedEventArgs e)
     {

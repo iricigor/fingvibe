@@ -14,15 +14,7 @@ public static class PersonEmojiCatalog
 
     public static IReadOnlyList<PeopleRoomsIconChoice> Filter(
         IEnumerable<PeopleRoomsIconChoice> choices, string? search, string category, bool includeVariants)
-    {
-        var terms = (search ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return choices.Where(choice =>
-            (includeVariants || choice.IsPrimary)
-            && (category == "All" || choice.Category == category)
-            && terms.All(term =>
-                $"{choice.Label} {choice.Variant} {choice.Category} {choice.Keywords}"
-                    .Contains(term, StringComparison.OrdinalIgnoreCase))).ToArray();
-    }
+        => PeopleRoomsIcons.Filter(choices, search, category, includeVariants);
 
     private static IReadOnlyList<PeopleRoomsIconChoice> Create()
     {

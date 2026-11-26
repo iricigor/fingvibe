@@ -14,11 +14,11 @@ public sealed class PeopleRoomsIconsTests
     {
         Assert.Equal(new[] { "person", "profile", "person-filled" }, PeopleRoomsIcons.People.Take(3).Select(item => item.Id));
         Assert.Equal(new[] { "room", "home", "bedroom", "kitchen", "living-room", "office", "garage", "garden" },
-            PeopleRoomsIcons.Rooms.Select(item => item.Id));
+            PeopleRoomsIcons.Rooms.Take(8).Select(item => item.Id));
         foreach (var palette in new[] { PeopleRoomsIcons.People, PeopleRoomsIcons.Rooms })
         {
             Assert.Equal(palette.Count, palette.Select(item => item.Id).Distinct().Count());
-            Assert.Equal(palette.Count, palette.Select(item => item.Glyph).Distinct().Count());
+            Assert.Equal(palette.Count, palette.Select(item => (item.IsFontAwesome, item.Glyph)).Distinct().Count());
             foreach (var choice in palette)
             {
                 Assert.False(string.IsNullOrWhiteSpace(choice.Label));
@@ -33,6 +33,48 @@ public sealed class PeopleRoomsIconsTests
         Assert.Equal("\uEA8C", PeopleRoomsIcons.Resolve(PeopleRoomsIcons.People, "person-filled").Glyph);
         Assert.Equal("\uEC32", PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, "kitchen").Glyph);
         Assert.Equal("\uE7F4", PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, "living-room").Glyph);
+    }
+
+    [Fact]
+    public void RoomCatalog_SearchesSuggestedRoomsAndAliasesWithoutChangingTheSelectedChoice()
+    {
+        var bedroom = Assert.Single(PeopleRoomsIcons.Filter(PeopleRoomsIcons.Rooms, "master bedroom", "All"));
+        Assert.Equal("fa-solid:bed", bedroom.Id);
+        Assert.Equal("Bed, suggested room: Master bedroom", bedroom.AccessibleName);
+        Assert.Equal("fa-solid:jug-detergent",
+            Assert.Single(PeopleRoomsIcons.Filter(PeopleRoomsIcons.Rooms, "LAUNDRY", "Utility")).Id);
+        Assert.Contains(PeopleRoomsIcons.Filter(PeopleRoomsIcons.Rooms, "lounge", "All"), item => item.Id == "fa-solid:couch");
+        Assert.Empty(PeopleRoomsIcons.Filter(PeopleRoomsIcons.Rooms, "master bedroom", "Kitchen"));
+        Assert.Empty(PeopleRoomsIcons.Filter(PeopleRoomsIcons.Rooms, "no-such-room-icon", "All"));
+        Assert.Equal(8, PeopleRoomsIcons.Filter(PeopleRoomsIcons.Rooms, null, "Existing icons").Count);
+        Assert.Same(bedroom, PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, bedroom.Id));
+        Assert.All(RoomIconCatalog.Choices, choice =>
+        {
+            Assert.StartsWith("fa-solid:", choice.Id);
+            Assert.True(choice.IsFontAwesome);
+            Assert.False(choice.IsEmoji);
+            Assert.False(string.IsNullOrWhiteSpace(choice.SuggestedRoom));
+            Assert.Contains(choice.Category, RoomIconCatalog.Categories);
+        });
+        Assert.DoesNotContain(RoomIconCatalog.Choices, choice => choice.Id is "fa-solid:user-group" or "fa-solid:bed-front");
+    }
+
+    [Fact]
+    public void RoomAssignments_NotifyIconChangesAndClearUnassignedArtwork()
+    {
+        var row = new ScanResultRow(result: null, prefixLength: 24);
+        var changed = new List<string?>();
+        row.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var roomId = Guid.NewGuid();
+        row.SetPeopleRoomAssignments(null, null, null, roomId, "III", "Custom room name", roomIconId: "fa-solid:bed");
+        Assert.Equal("fa-solid:bed", row.RoomIconId);
+        Assert.Equal("III", row.RoomShortName);
+        Assert.Equal("Custom room name", row.RoomFullName);
+        Assert.Contains(nameof(ScanResultRow.RoomIconId), changed);
+        row.SetPeopleRoomAssignments(null, null, null, null, "III", "Stale room", roomIconId: "fa-solid:bed");
+        Assert.Null(row.RoomIconId);
+        Assert.False(row.HasRoomAssignment);
+        Assert.Equal("-", row.RoomShortName);
     }
 
     [Fact]
@@ -142,6 +184,8 @@ public sealed class PeopleRoomsIconsTests
     [InlineData(true, "future-person", "future-room")]
     [InlineData(true, "emoji:1f469-1f3fc-200d-1f4bc", "garden")]
     [InlineData(true, null, null)]
+    [InlineData(true, "person", "fa-solid:bed")]
+    [InlineData(true, "person", "fa-solid:jug-detergent")]
     public async Task Storage_OldEntriesLoadAndChoicesSurviveInventoryUpdates(bool inventory, string? personIcon, string? roomIcon)
     {
         var directory = Path.Combine(Path.GetTempPath(), $"fingvibe-icons-{Guid.NewGuid():N}");

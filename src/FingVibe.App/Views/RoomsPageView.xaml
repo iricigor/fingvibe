@@ -76,7 +76,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <FontIcon Glyph="{x:Bind IconGlyph}" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                        <local:RoomIcon IconId="{x:Bind Room.IconId}" FontSize="16"
                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                   AutomationProperties.AccessibilityView="Raw" />
                                         <TextBlock Grid.Column="1" Text="{x:Bind Room.Name}" TextTrimming="CharacterEllipsis" />

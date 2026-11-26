@@ -75,7 +75,7 @@ public sealed partial class RoomDetailsPageView : UserControl
         string count, string responses, bool isEmpty)
     {
         RoomDetailShortName.Text = room.ShortName;
-        RoomDetailIcon.Glyph = PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, room.IconId).Glyph;
+        RoomDetailIcon.IconId = room.IconId;
         RoomDetailName.Text = room.Name;
         RoomDetailNotes.Text = room.Notes ?? string.Empty;
         RoomDetailNotes.Visibility = string.IsNullOrWhiteSpace(room.Notes) ? Visibility.Collapsed : Visibility.Visible;
