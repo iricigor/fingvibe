@@ -44,7 +44,7 @@ titles only: accessible names, full-value tooltips and table headings retain the
 full category names.
 
 Status dropdown choices supplement their labels and checkboxes with colored
-dots: green Online, red Offline, amber Unknown and blue Fing Only. The status
+dots: green Online, slate-gray Offline, amber Unknown and blue Fing Only. The status
 totals above the table use the same dot colors, and a restricted **Status**
 button shows one dot per selected status beside its label. High contrast uses
 system colors while retaining labels and checkbox selection cues. Device-row

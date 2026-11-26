@@ -1,0 +1,22 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 750,
+  "category": "ui",
+  "changedBehavior": "Devices Offline row badges, counts and filter indicators share a neutral slate-gray palette so routine absence does not look like an error. Fing Only badges share blue filter/count foregrounds. Quiet theme-specific backgrounds, live binding updates, neutral retained evidence and system high-contrast colors are preserved.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "ui-review-scenarios",
+    "native-pr-matrix",
+    "native-devices-presentation",
+    "native-devices-filters-previews"
+  ],
+  "expectedAssertions": [
+    "Offline and Fing Only row dots and text share the existing filter/count foreground resources.",
+    "Offline indicators use low-chroma slate-gray in light and dark themes rather than an error-red emphasis.",
+    "Light and dark badges have subtle matching backgrounds; high contrast uses system window and text colors.",
+    "Historical badges retain neutral styling above saved status badges and refresh away when reused scan rows receive current evidence.",
+    "All status badge visibility, labels and evidence help track property changes during scanning rather than retaining one-time binding values.",
+    "Status labels, filter behavior, row layout and automation names remain unchanged."
+  ]
+}

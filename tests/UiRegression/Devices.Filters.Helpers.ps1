@@ -177,8 +177,8 @@ function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) 
     $bitmap = [System.Drawing.Bitmap]::new($capture)
     try {
         $colors = if ($Theme -eq "Standard Light") {
-            @("#16803D", "#C42B1C", "#B76E00", "#2563EB")
-        } else { @("#4ADE80", "#FF8080", "#FBBF24", "#70ADFF") }
+            @("#16803D", "#475569", "#B76E00", "#2563EB")
+        } else { @("#4ADE80", "#CBD5E1", "#FBBF24", "#70ADFF") }
         $names = @("Online", "Offline", "Unknown", "Fing Only")
         foreach ($name in $names) {
             $check = $panel.FindFirst([System.Windows.Automation.TreeScope]::Descendants,

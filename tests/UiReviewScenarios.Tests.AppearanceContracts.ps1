@@ -22,3 +22,68 @@
     }
     Assert-Throws { Set-UiReviewTheme -Root ([pscustomobject]@{}) -Theme "Unknown" } "*Cannot validate argument*"
 }
+
+& {
+    function Get-StatusBadgeLuminance([string] $Color) {
+        $channels = @(1, 3, 5 | ForEach-Object {
+            $value = [Convert]::ToInt32($Color.Substring($_, 2), 16) / 255.0
+            if ($value -le 0.04045) { $value / 12.92 }
+            else { [Math]::Pow(($value + 0.055) / 1.055, 2.4) }
+        })
+        return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2]
+    }
+    [xml] $devices = Get-Content (Join-Path $PSScriptRoot '..\src\FingVibe.App\Views\DevicesPageView.xaml') -Raw
+    $statusCell = $devices.SelectSingleNode("//*[local-name()='Grid' and @*[local-name()='Name']='DeviceStatusCell']")
+    $badges = @($statusCell.SelectNodes("*[local-name()='Border']"))
+    Assert-Equal $statusCell.GetAttribute('ToolTipService.ToolTip') '{x:Bind StatusContext, Mode=OneWay}' "Status evidence help refreshes with reused scan rows"
+    foreach ($case in @(
+        @('IsOffline', 'StatusChoiceOfflineBrush', 'OfflineRowBadgeBackgroundBrush'),
+        @('IsFingOnly', 'StatusChoiceFingOnlyBrush', 'FingOnlyRowBadgeBackgroundBrush'),
+        @('IsHistorical', 'ScannerOfflineForegroundBrush', 'ScannerOfflineBackgroundBrush')
+    )) {
+        $badge = @($badges | Where-Object Visibility -eq "{x:Bind $($case[0]), Mode=OneWay}")
+        Assert-Equal $badge.Count 1 "$($case[0]) has one badge"
+        Assert-Equal $badge[0].Background "{ThemeResource $($case[2])}" "$($case[0]) badge background"
+        Assert-Equal $badge[0].StackPanel.Ellipse.Fill "{ThemeResource $($case[1])}" "$($case[0]) badge dot"
+        Assert-Equal $badge[0].StackPanel.TextBlock.Foreground "{ThemeResource $($case[1])}" "$($case[0]) badge text"
+        Assert-Equal $badge[0].StackPanel.TextBlock.Text '{x:Bind StatusLabel, Mode=OneWay}' "Refresh status labels with reused scan rows"
+    }
+    Assert-Equal $badges[-1].Visibility '{x:Bind IsHistorical, Mode=OneWay}' "Neutral historical badge refreshes when a scan confirms current evidence"
+    $onlineBadge = @($badges | Where-Object Visibility -eq '{x:Bind IsOnline, Mode=OneWay}')
+    Assert-Equal $onlineBadge.Count 1 "Online badge refreshes with reused scan rows"
+    Assert-Equal $onlineBadge[0].StackPanel.TextBlock.Text '{x:Bind StatusLabel, Mode=OneWay}' "Online label refreshes after status changes"
+    foreach ($theme in @('Light', 'Dark', 'HighContrast')) {
+        $dictionary = $devices.SelectSingleNode("//*[local-name()='ResourceDictionary' and @*[local-name()='Key']='$theme']")
+        foreach ($key in @('OfflineRowBadgeBackgroundBrush', 'FingOnlyRowBadgeBackgroundBrush')) {
+            $brush = $dictionary.SelectSingleNode("*[local-name()='SolidColorBrush' and @*[local-name()='Key']='$key']")
+            if (-not $brush) { throw "$theme lacks $key." }
+            if ($theme -eq 'HighContrast') {
+                Assert-Equal $brush.Color '{ThemeResource SystemColorWindowColor}' "High contrast badge background uses system colors"
+            }
+        }
+        if ($theme -eq 'HighContrast') {
+            foreach ($key in @('StatusChoiceOfflineBrush', 'StatusChoiceFingOnlyBrush')) {
+                $brush = $dictionary.SelectSingleNode("*[local-name()='SolidColorBrush' and @*[local-name()='Key']='$key']")
+                Assert-Equal $brush.Color '{ThemeResource SystemColorWindowTextColor}' "High contrast status text uses system colors"
+            }
+        } else {
+            $offlineBrush = $dictionary.SelectSingleNode("*[local-name()='SolidColorBrush' and @*[local-name()='Key']='StatusChoiceOfflineBrush']")
+            $offlineChannels = @(1, 3, 5 | ForEach-Object { [Convert]::ToInt32($offlineBrush.Color.Substring($_, 2), 16) })
+            $range = $offlineChannels | Measure-Object -Minimum -Maximum
+            if ($range.Maximum - $range.Minimum -gt 35) {
+                throw "$theme Offline must use a neutral slate-gray, not a saturated error color."
+            }
+            foreach ($case in @(
+                @('StatusChoiceOfflineBrush', 'OfflineRowBadgeBackgroundBrush'),
+                @('StatusChoiceFingOnlyBrush', 'FingOnlyRowBadgeBackgroundBrush')
+            )) {
+                $foreground = $dictionary.SelectSingleNode("*[local-name()='SolidColorBrush' and @*[local-name()='Key']='$($case[0])']")
+                $background = $dictionary.SelectSingleNode("*[local-name()='SolidColorBrush' and @*[local-name()='Key']='$($case[1])']")
+                $fg = Get-StatusBadgeLuminance $foreground.Color
+                $bg = Get-StatusBadgeLuminance $background.Color
+                $contrast = ([Math]::Max($fg, $bg) + 0.05) / ([Math]::Min($fg, $bg) + 0.05)
+                if ($contrast -lt 4.5) { throw "$theme $($case[0]) badge text contrast is $contrast; expected at least 4.5:1." }
+            }
+        }
+    }
+}
