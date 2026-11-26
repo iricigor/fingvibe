@@ -1,0 +1,20 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 750,
+  "category": "ui",
+  "changedBehavior": "Devices row badges use the existing red Offline and blue Fing Only filter/count foregrounds with quiet theme-specific backgrounds, preserving neutral retained evidence and system high-contrast colors.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "ui-review-scenarios",
+    "native-pr-matrix",
+    "native-devices-presentation",
+    "native-devices-filters-previews"
+  ],
+  "expectedAssertions": [
+    "Offline and Fing Only row dots and text share the existing filter/count foreground resources.",
+    "Light and dark badges have subtle matching backgrounds; high contrast uses system window and text colors.",
+    "Historical badges retain neutral styling above saved status badges.",
+    "Status labels, filter behavior, row layout and automation names remain unchanged."
+  ]
+}

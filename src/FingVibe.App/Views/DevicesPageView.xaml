@@ -14,6 +14,8 @@
                 <!-- Amber marks Unknown as unresolved rather than a quiet, offline-like gray. -->
                 <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#B76E00" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#2563EB" />
+                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="#FCEDEB" />
+                <SolidColorBrush x:Key="FingOnlyRowBadgeBackgroundBrush" Color="#EDF3FF" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#20000000" />
                 <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="#3022A060" />
@@ -26,6 +28,8 @@
                 <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#FF8080" />
                 <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#FBBF24" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#70ADFF" />
+                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="#3A2828" />
+                <SolidColorBrush x:Key="FingOnlyRowBadgeBackgroundBrush" Color="#253147" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#24FFFFFF" />
                 <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="#4039B873" />
@@ -38,6 +42,8 @@
                 <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                <SolidColorBrush x:Key="FingOnlyRowBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="{ThemeResource SystemColorHotlightColor}" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                 <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -804,20 +810,20 @@
                                                 </Border>
                                                 <Border Visibility="{x:Bind IsOffline}" Padding="8,1" CornerRadius="10"
                                                         HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                        Background="{ThemeResource ScannerOfflineBackgroundBrush}">
+                                                        Background="{ThemeResource OfflineRowBadgeBackgroundBrush}">
                                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource StatusChoiceOfflineBrush}" />
                                                         <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                                                   Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                                   Foreground="{ThemeResource StatusChoiceOfflineBrush}" />
                                                     </StackPanel>
                                                 </Border>
                                                 <Border Visibility="{x:Bind IsFingOnly}" Padding="8,1" CornerRadius="10"
                                                         HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                        Background="{ThemeResource ScannerImportedBackgroundBrush}">
+                                                        Background="{ThemeResource FingOnlyRowBadgeBackgroundBrush}">
                                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerImportedForegroundBrush}" />
+                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource StatusChoiceFingOnlyBrush}" />
                                                         <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                                                   Foreground="{ThemeResource ScannerImportedForegroundBrush}" />
+                                                                   Foreground="{ThemeResource StatusChoiceFingOnlyBrush}" />
                                                     </StackPanel>
                                                 </Border>
                                                 <Border Visibility="{x:Bind IsHistorical}" Padding="8,1" CornerRadius="10"
