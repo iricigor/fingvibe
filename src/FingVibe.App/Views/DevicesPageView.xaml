@@ -10,11 +10,11 @@
         <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
                 <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="#16803D" />
-                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#C42B1C" />
+                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#475569" />
                 <!-- Amber marks Unknown as unresolved rather than a quiet, offline-like gray. -->
                 <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#B76E00" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#2563EB" />
-                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="#FCEDEB" />
+                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="#F3F4F6" />
                 <SolidColorBrush x:Key="FingOnlyRowBadgeBackgroundBrush" Color="#EDF3FF" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#20000000" />
@@ -25,10 +25,10 @@
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
                 <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="#4ADE80" />
-                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#FF8080" />
+                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#CBD5E1" />
                 <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#FBBF24" />
                 <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#70ADFF" />
-                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="#3A2828" />
+                <SolidColorBrush x:Key="OfflineRowBadgeBackgroundBrush" Color="#293241" />
                 <SolidColorBrush x:Key="FingOnlyRowBadgeBackgroundBrush" Color="#253147" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#24FFFFFF" />

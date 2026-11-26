@@ -67,6 +67,12 @@
                 Assert-Equal $brush.Color '{ThemeResource SystemColorWindowTextColor}' "High contrast status text uses system colors"
             }
         } else {
+            $offlineBrush = $dictionary.SelectSingleNode("*[local-name()='SolidColorBrush' and @*[local-name()='Key']='StatusChoiceOfflineBrush']")
+            $offlineChannels = @(1, 3, 5 | ForEach-Object { [Convert]::ToInt32($offlineBrush.Color.Substring($_, 2), 16) })
+            $range = $offlineChannels | Measure-Object -Minimum -Maximum
+            if ($range.Maximum - $range.Minimum -gt 35) {
+                throw "$theme Offline must use a neutral slate-gray, not a saturated error color."
+            }
             foreach ($case in @(
                 @('StatusChoiceOfflineBrush', 'OfflineRowBadgeBackgroundBrush'),
                 @('StatusChoiceFingOnlyBrush', 'FingOnlyRowBadgeBackgroundBrush')
