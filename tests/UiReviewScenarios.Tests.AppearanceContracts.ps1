@@ -33,20 +33,25 @@
         return 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2]
     }
     [xml] $devices = Get-Content (Join-Path $PSScriptRoot '..\src\FingVibe.App\Views\DevicesPageView.xaml') -Raw
-    $badges = @($devices.SelectNodes("//*[local-name()='Grid' and @*[local-name()='Name']='DeviceStatusCell']/*[local-name()='Border']"))
+    $statusCell = $devices.SelectSingleNode("//*[local-name()='Grid' and @*[local-name()='Name']='DeviceStatusCell']")
+    $badges = @($statusCell.SelectNodes("*[local-name()='Border']"))
+    Assert-Equal $statusCell.GetAttribute('ToolTipService.ToolTip') '{x:Bind StatusContext, Mode=OneWay}' "Status evidence help refreshes with reused scan rows"
     foreach ($case in @(
         @('IsOffline', 'StatusChoiceOfflineBrush', 'OfflineRowBadgeBackgroundBrush'),
         @('IsFingOnly', 'StatusChoiceFingOnlyBrush', 'FingOnlyRowBadgeBackgroundBrush'),
         @('IsHistorical', 'ScannerOfflineForegroundBrush', 'ScannerOfflineBackgroundBrush')
     )) {
-        $badge = @($badges | Where-Object Visibility -eq "{x:Bind $($case[0])}")
+        $badge = @($badges | Where-Object Visibility -eq "{x:Bind $($case[0]), Mode=OneWay}")
         Assert-Equal $badge.Count 1 "$($case[0]) has one badge"
         Assert-Equal $badge[0].Background "{ThemeResource $($case[2])}" "$($case[0]) badge background"
         Assert-Equal $badge[0].StackPanel.Ellipse.Fill "{ThemeResource $($case[1])}" "$($case[0]) badge dot"
         Assert-Equal $badge[0].StackPanel.TextBlock.Foreground "{ThemeResource $($case[1])}" "$($case[0]) badge text"
-        Assert-Equal $badge[0].StackPanel.TextBlock.Text '{x:Bind StatusLabel}' "Preserve status labels"
+        Assert-Equal $badge[0].StackPanel.TextBlock.Text '{x:Bind StatusLabel, Mode=OneWay}' "Refresh status labels with reused scan rows"
     }
-    Assert-Equal $badges[-1].Visibility '{x:Bind IsHistorical}' "Neutral historical badge covers saved status styling"
+    Assert-Equal $badges[-1].Visibility '{x:Bind IsHistorical, Mode=OneWay}' "Neutral historical badge refreshes when a scan confirms current evidence"
+    $onlineBadge = @($badges | Where-Object Visibility -eq '{x:Bind IsOnline, Mode=OneWay}')
+    Assert-Equal $onlineBadge.Count 1 "Online badge refreshes with reused scan rows"
+    Assert-Equal $onlineBadge[0].StackPanel.TextBlock.Text '{x:Bind StatusLabel, Mode=OneWay}' "Online label refreshes after status changes"
     foreach ($theme in @('Light', 'Dark', 'HighContrast')) {
         $dictionary = $devices.SelectSingleNode("//*[local-name()='ResourceDictionary' and @*[local-name()='Key']='$theme']")
         foreach ($key in @('OfflineRowBadgeBackgroundBrush', 'FingOnlyRowBadgeBackgroundBrush')) {

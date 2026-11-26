@@ -14,7 +14,8 @@
   "expectedAssertions": [
     "Offline and Fing Only row dots and text share the existing filter/count foreground resources.",
     "Light and dark badges have subtle matching backgrounds; high contrast uses system window and text colors.",
-    "Historical badges retain neutral styling above saved status badges.",
+    "Historical badges retain neutral styling above saved status badges and refresh away when reused scan rows receive current evidence.",
+    "All status badge visibility, labels and evidence help track property changes during scanning rather than retaining one-time binding values.",
     "Status labels, filter behavior, row layout and automation names remain unchanged."
   ]
 }
